@@ -12,7 +12,7 @@ from tvtk.api import tvtk
 import scipy.io as sio
 import os
 
-mlab.options.backend='envisage'
+#mlab.options.backend='envisage'
 fol = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/gift/'
 adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliT.mat'
 parc = 'sparc'
@@ -70,7 +70,7 @@ print 'Surface has '+str(len(vert))+' vertices'
 #expects matrix in .mat form, might be adapted to multiple possible filetypes
 #later
 
-labels = sio.loadmat('/autofs/cluster/neuromind/rlaplant/mayavi/sparc.mat')
+labels = sio.loadmat('/autofs/cluster/neuromind/rlaplant/mayavi/cvu/sparc.mat')
 
 nr_labels = len(labnam)
 nr_verts = len(labv)
