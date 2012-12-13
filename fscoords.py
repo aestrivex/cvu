@@ -11,12 +11,16 @@ from mayavi import mlab
 from tvtk.api import tvtk
 import scipy.io as sio
 import os
+from mne.surface import read_surface
+from traits.trait_types import ReadOnly
+from mayavi.core.scene import Scene
 
 #mlab.options.backend='envisage'
 fol = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/gift/'
 adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliT.mat'
 parc = 'sparc'
 parcfile='order_'+parc
+srf = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/surf/'
 
 #LOADING PARCELLATION ORDER + LABEL NAMES FROM TEXT FILE WHICH MUST BE SUPPLIED
 
@@ -35,6 +39,9 @@ surfs_rh = fol+'rh.pial.gii'
 annots_lh = fol+'lh.sparc.gii'
 annots_rh = fol+'rh.sparc.gii'
 
+plotsurfs_lh = srf+'lh.pial'
+plotsurfs_rh = srf+'rh.pial'
+
 adjmat_prop_thres = .1
 
 surf_lh = gi.read(surfs_lh)
@@ -43,6 +50,8 @@ annot_lh = gi.read(annots_lh)
 annot_rh = gi.read(annots_rh)
 vert_lh = surf_lh.darrays[0].data
 vert_rh = surf_rh.darrays[0].data
+surfpos_lh, surffaces_lh = read_surface(plotsurfs_lh)
+surfpos_rh, surffaces_rh = read_surface(plotsurfs_rh)
 
 ## LOADING PARCELLATION DATA FROM NIPY
 #currently this expects parcellation files to already be in gifti format,
@@ -187,10 +196,15 @@ print nr_edges
 
 fig = mlab.figure()
 
+syrf_lh = mlab.triangular_mesh(surfpos_lh[:,0],surfpos_lh[:,1],surfpos_lh[:,2],
+	surffaces_lh,opacity=.2,color=(.4,.75,.0))
+syrf_rh = mlab.triangular_mesh(surfpos_rh[:,0],surfpos_rh[:,1],surfpos_rh[:,2],
+	surffaces_rh,opacity=.2,color=(.4,.75,0))
+
 nodesource = mlab.pipeline.scalar_scatter(x,y,z,name='noddy')
-nodes = mlab.pipeline.glyph(nodesource,scale_mode='none',scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
-nodes.glyph.color_mode='color_by_scalar'
-nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,nr_labels)
+nodes = mlab.pipeline.glyph(nodesource,scale_mode='none',scale_factor=3.0,name='noddynod',mode='sphere',color=(0,.6,1))
+#nodes.glyph.color_mode='color_by_scalar'
+#nodes.mlab_source.dataset.point_data.scalars=np.tile(.1,nr_labels)
 
 vectorsrc = mlab.pipeline.vector_scatter(starts[:,0],starts[:,1],
 			starts[:,2],vecs[:,0],vecs[:,1],vecs[:,2],name='connsrc')
@@ -274,7 +288,5 @@ def rightpick_callback(picker):
 pck = fig.on_mouse_pick(leftpick_callback)
 pck.tolerance = 100
 fig.on_mouse_pick(rightpick_callback,button='Right')
-
-#print dir(nodes.glyph.glyph_source)
 
 mlab.show()
