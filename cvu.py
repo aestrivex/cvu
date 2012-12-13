@@ -15,10 +15,10 @@ import sys
 import getopt
 from enthought.traits.api import *
 from enthought.traits.ui.api import *
-
+from mne.surface import read_surface
 
 class Cvu(HasTraits):
-	def __init__(self,pos,adj,names):
+	def __init__(self,pos,adj,names,srfinfo):
 		super(Cvu,self).__init__()
 		self.lab_pos=pos
 		self.lab_pos_orig=pos
@@ -26,6 +26,7 @@ class Cvu(HasTraits):
 		self.labnam=names
 		self.nr_labels=len(self.lab_pos)
 		self.nr_verts=len(adj)
+		self.srf=srfinfo
 
 	#scene = Instance(MlabSceneModel, ())
 	#view = view(VSplit(Item(name='choppy',
@@ -59,7 +60,6 @@ class Cvu(HasTraits):
 			[int(round((1-self.adjmat_prop_thres)*self.nr_edges_old))]
 		print self.thresval
 
-		#print adjdat
 		zi = np.nonzero(self.adjdat>self.thresval)
 		self.adjdat=self.adjdat[zi[0]]
 		self.starts=self.starts[zi[0],:]
@@ -69,22 +69,18 @@ class Cvu(HasTraits):
 		self.nr_edges = len(self.edges)
 		print self.nr_edges
 
-		#print adjdat
-		#TODO  ensure the data points are correctly
+		self.fig = mlab.figure(bgcolor=(.36,.34,.30))
 
-		#print nr_edges
-		#print len(vecs)
-		#print len(starts)
-		#print len(adjdat)
-
-		self.fig = mlab.figure(bgcolor=(.26,.24,.20))
+		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
+			self.srf[0][:,2],self.srf[1],opacity=.2,color=(.4,.75,0),
+			name='syrfl')
+		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
+			self.srf[2][:,2],self.srf[3],opacity=.2,color=(.4,.75,0),
+			name='syrfr')
 
 		self.nodesource = mlab.pipeline.scalar_scatter(x,y,z,name='noddy')
 		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
-			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
-		self.nodes.glyph.color_mode='color_by_scalar'
-		self.nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,
-			self.nr_labels)
+			scale_factor=3.0,name='noddynod',mode='sphere',color=(0,.6,1))
 
 		self.vectorsrc = mlab.pipeline.vector_scatter(self.starts[:,0],
 			self.starts[:,1],self.starts[:,2],self.vecs[:,0],self.vecs[:,1],
@@ -104,11 +100,6 @@ class Cvu(HasTraits):
 
 		self.myvectors.actor.property.opacity=.3
 
-		#print dir(myvectors)
-
-		#print vectorsrc.outputs.name_items
-		#print vectorsrc.outputs[0]
-
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.98,.26,.60,))
 
 	def display_all(self):
@@ -118,7 +109,6 @@ class Cvu(HasTraits):
 		self.myvectors.actor.property.opacity=.3
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(text='')
-		#thres.mlab_source.update()
 
 	def display_node(self,n):
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)	
@@ -128,11 +118,7 @@ class Cvu(HasTraits):
 			else:
 				new_edges[e]=[0,0]
 
-		#print np.nonzero(new_edges[:,0]|new_edges[:,1])
 		print "expecting "+str(len(np.nonzero(new_edges[:,0]|new_edges[:,1])[0]))+" edges"
-		#print np.nonzero(new_edges)
-		#print new_edges[14,:]
-		#print edges[14,:]
 		new_starts=self.lab_pos[new_edges[:,0]]
 		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
 
@@ -144,15 +130,11 @@ class Cvu(HasTraits):
 		#			new_vecs=np.vstack((new_vecs,np.array((0,0,0))))
 		#		else:
 		#			new_vecs = np.vstack((new_vecs,lab_pos[r2]-lab_pos[n]))	
-		#print np.shape(new_starts)
 		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
 			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
-		#vectorsrc.mlab_source.update()
 		self.myvectors.actor.property.opacity=.75
 		self.vectorsrc.outputs[0].update()
-		#print thres.lower_threshold
 		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
-		#print dir(txt)
 		
 	def leftpick_callback(self,picker):
 		if picker.actor in self.nodes.actor.actors:
@@ -161,26 +143,22 @@ class Cvu(HasTraits):
 			if (ptid != -1):
 				print "node #%s: %s" % (str(ptid), self.labnam[ptid])
 				self.display_node(ptid)
-				#poppy()
 
 	def rightpick_callback(self,picker):
 		self.display_all()
-		#display_node(17)
 
 	def display(self):
 		pck = self.fig.on_mouse_pick(self.leftpick_callback)
 		pck.tolerance = 10000
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
 
-		#print dir(nodes.glyph.glyph_source)
-
 		mlab.show()
 
 def preproc():
 	#mlab.options.backend='envisage'
-	fol=None;adjmat=None;parc=None;parcfile=None;surftype=None
+	fol=None;adjmat=None;parc=None;parcfile=None;surftype=None;quiet=False
 	try:
-		opts,args=getopt.getopt(sys.argv[1:],'p:a:s:o:',["parc=","adjmat=","adj=",\
+		opts,args=getopt.getopt(sys.argv[1:],'p:a:s:o:q',["parc=","adjmat=","adj=",\
 			"surf=","order=","surf-type=","parcdir=","surfdir="])
 	except getopt.GetoptError:
 		raise Exception("You passed in the wrong arguments, you petulant fool!")
@@ -195,6 +173,8 @@ def preproc():
 			parcfile = arg
 		elif opt in ["--surf-type"]:
 			surftype = arg
+		elif opt in ["-q"]:
+			quiet=True
 	if not fol:
 		fol = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/gift/'
 	if not adjmat:
@@ -229,10 +209,10 @@ def preproc():
 	## LOADING SURFACES USING NIPY/NIBABEL
 	surfs_lh = fol+'lh.%s.gii' % surftype
 	surfs_rh = fol+'rh.%s.gii' % surftype
-
 	annots_lh = fol+'lh.%s.gii' % parc
 	annots_rh = fol+'rh.%s.gii' % parc
-
+	surfplots_lh = fol+'lh.%s' % surftype
+	surfplots_rh = fol+'rh.%s' % surftype
 
 	surf_lh = gi.read(surfs_lh)
 	surf_rh = gi.read(surfs_rh)
@@ -240,6 +220,9 @@ def preproc():
 	annot_rh = gi.read(annots_rh)
 	vert_lh = surf_lh.darrays[0].data
 	vert_rh = surf_rh.darrays[0].data
+	surfpos_lh,surffaces_lh = read_surface(surfplots_lh)
+	surfpos_rh,surffaces_rh = read_surface(surfplots_rh)
+	srfinfo=(surfpos_lh,surffaces_lh,surfpos_rh,surffaces_rh)
 
 	## LOADING PARCELLATION DATA FROM NIPY
 	#currently this expects parcellation files to already be in gifti format,
@@ -288,7 +271,8 @@ def preproc():
 				'channel will be deleted')
 			bad_labs.append(i)
 			continue
-		print "generating coordinates for "+labnam[i]
+		if not quiet:
+			print "generating coordinates for "+labnam[i]
 		lab_pos[i] = np.mean(vert[curlab],axis=0)
 
 	if (deleters>0):
@@ -312,7 +296,7 @@ def preproc():
 	adj = np.mean(adj['adj_matrices'],axis=2)
 	#adj = adj['corrected_imagcoh']
 
-	cvu = Cvu(lab_pos,adj,labnam)
+	cvu = Cvu(lab_pos,adj,labnam,srfinfo)
 	cvu.setup()
 	cvu.display()
 
