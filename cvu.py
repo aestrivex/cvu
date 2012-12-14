@@ -4,6 +4,9 @@ def eqfun(x):
 def appendhemis(olddict,hemi):
 	return dict(map(lambda (k,v): (k,hemi+str(v)), olddict.items()))
 
+if __name__=="__main__":
+	print "Importing modules"
+
 import nibabel.gifti as gi
 import numpy as np
 import networkx as nx
@@ -239,23 +242,22 @@ def preproc():
 
 	labv = labv_lh+labv_rh
 
-	#del labnam_lh;del labnam_rh;
 	del labv_lh;del labv_rh;
 
-	#ctr = np.vstack((vert_lh.mean(axis=0),vert_rh.mean(axis=0))).mean(axis=0)
+	vert = np.vstack((surfpos_lh,surfpos_rh))
 
-	vert = np.vstack((vert_lh,vert_rh))
-	print 'Surface has '+str(len(vert))+' vertices'
+	print dir(surf_lh)
 
 	nr_labels = len(labnam)
 	nr_verts = len(labv)
-
-	print "Parcellation has "+str(nr_labels)+" labels (before bad channel removal)"
 
 	if nr_verts != len(vert):
 		print nr_verts
 		print len(vert)
 		raise Exception('Parcellation has inconsistent number of vertices')
+
+	print 'Surface has '+str(nr_verts)+' vertices'
+	print "Parcellation has "+str(nr_labels)+" labels (before bad channel removal)"
 
 	lab_counts = np.zeros(nr_labels)
 	lab_pos = np.zeros((nr_labels,3))
