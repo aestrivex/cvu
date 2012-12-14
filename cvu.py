@@ -15,24 +15,33 @@ import sys
 import getopt
 from enthought.traits.api import *
 from enthought.traits.ui.api import *
+from mayavi.core.ui.api import *
 from mne.surface import read_surface
 
 class Cvu(HasTraits):
-	def __init__(self,pos,adj,names,srfinfo):
-		super(Cvu,self).__init__()
-		self.lab_pos=pos
-		self.lab_pos_orig=pos
-		self.adj=adj
-		self.labnam=names
-		self.nr_labels=len(self.lab_pos)
-		self.nr_verts=len(adj)
-		self.srf=srfinfo
+	scene = Instance(MlabSceneModel, ())
+	button = Button('clickme')
+	view = View(HSplit( Item(name='scene',
+							editor=SceneEditor(scene_class=MayaviScene),
+							height=500,width=500,show_label=False,
+							resizable=True),
+						Item(name='button',show_label=False)
+				),
+				resizable=True)
 
-	#scene = Instance(MlabSceneModel, ())
-	#view = view(VSplit(Item(name='choppy',
-	#						style='custom',
-	#						editor	
-	
+	# Intialize the Cvu Object
+	# args are in order pos,adj,names,srfinfo
+	def __init__(self,args):
+		super(Cvu,self).__init__()
+		self.lab_pos=args[0]
+		self.lab_pos_orig=self.lab_pos
+		self.adj=args[1]
+		self.labnam=args[2]
+		self.nr_labels=len(self.lab_pos)
+		self.nr_verts=len(self.adj)
+		self.srf=args[3]
+
+	@on_trait_change('scene.activated')	
 	def setup(self):
 		x,y,z = self.lab_pos[:,0],self.lab_pos[:,1],self.lab_pos[:,2]
 
@@ -47,8 +56,6 @@ class Cvu(HasTraits):
 			for r2 in xrange(0,self.nr_labels,1):
 				if (r1<=r2):
 					continue
-				#print r1
-				#print r2
 				self.starts = np.vstack((self.starts,self.lab_pos[r1]))
 				self.vecs = np.vstack((self.vecs,self.lab_pos[r2]-\
 					self.lab_pos[r1]))
@@ -69,13 +76,14 @@ class Cvu(HasTraits):
 		self.nr_edges = len(self.edges)
 		print self.nr_edges
 
-		self.fig = mlab.figure(bgcolor=(.36,.34,.30))
+		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
+			figure=self.scene.mayavi_scene)
 
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
-			self.srf[0][:,2],self.srf[1],opacity=.2,color=(.4,.75,0),
+			self.srf[0][:,2],self.srf[1],opacity=.15,color=(.4,.75,0),
 			name='syrfl')
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
-			self.srf[2][:,2],self.srf[3],opacity=.2,color=(.4,.75,0),
+			self.srf[2][:,2],self.srf[3],opacity=.15,color=(.4,.75,0),
 			name='syrfr')
 
 		self.nodesource = mlab.pipeline.scalar_scatter(x,y,z,name='noddy')
@@ -100,7 +108,14 @@ class Cvu(HasTraits):
 
 		self.myvectors.actor.property.opacity=.3
 
-		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.98,.26,.60,))
+		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
+
+		self.display()
+
+	def display(self):
+		pck = self.fig.on_mouse_pick(self.leftpick_callback)
+		pck.tolerance = 10000
+		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
 
 	def display_all(self):
 		self.vectorsrc.mlab_source.set(x=self.starts[:,0],y=self.starts[:,1],
@@ -122,14 +137,6 @@ class Cvu(HasTraits):
 		new_starts=self.lab_pos[new_edges[:,0]]
 		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
 
-		#for r1 in xrange(0,nr_labels,1):
-		#	for r2 in xrange(0,nr_labels,1):			
-		#		if n<=r2:
-		#			continue
-		#		elif r1!=n:
-		#			new_vecs=np.vstack((new_vecs,np.array((0,0,0))))
-		#		else:
-		#			new_vecs = np.vstack((new_vecs,lab_pos[r2]-lab_pos[n]))	
 		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
 			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 		self.myvectors.actor.property.opacity=.75
@@ -147,15 +154,11 @@ class Cvu(HasTraits):
 	def rightpick_callback(self,picker):
 		self.display_all()
 
-	def display(self):
-		pck = self.fig.on_mouse_pick(self.leftpick_callback)
-		pck.tolerance = 10000
-		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
-
-		mlab.show()
+	@on_trait_change('button')
+	def button_press(self):
+		print "THE BUTTON"
 
 def preproc():
-	#mlab.options.backend='envisage'
 	fol=None;adjmat=None;parc=None;parcfile=None;surftype=None;quiet=False
 	try:
 		opts,args=getopt.getopt(sys.argv[1:],'p:a:s:o:q',["parc=","adjmat=","adj=",\
@@ -296,9 +299,9 @@ def preproc():
 	adj = np.mean(adj['adj_matrices'],axis=2)
 	#adj = adj['corrected_imagcoh']
 
-	cvu = Cvu(lab_pos,adj,labnam,srfinfo)
-	cvu.setup()
-	cvu.display()
+	return (lab_pos,adj,labnam,srfinfo)
 
 if __name__ == "__main__":
-	preproc()
+	cvu_args = preproc()
+	cvu = Cvu(cvu_args)
+	cvu.configure_traits()
