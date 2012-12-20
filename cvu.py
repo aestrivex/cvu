@@ -1,26 +1,20 @@
-def eqfun(x):
-	return lambda y: y==x
-
-def appendhemis(olddict,hemi):
-	return dict(map(lambda (k,v): (k,hemi+str(v)), olddict.items()))
-
 if __name__=="__main__":
 	print "Importing modules"
 
 import nibabel.gifti as gi
 import numpy as np
-import networkx as nx
 from mayavi import mlab
 from tvtk.api import tvtk
-import scipy.io as sio
 import os
 import sys
 import getopt
 from enthought.traits.api import *
 from enthought.traits.ui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
-
 from mne.surface import read_surface
+from cvu_utils import *
+from chaco.api import *
+from enable.component_editor import ComponentEditor
 
 quiet=False
 if __name__=="__main__":
@@ -28,40 +22,47 @@ if __name__=="__main__":
 
 class Cvu(HasTraits):
 	scene = Instance(MlabSceneModel, ())
+	conn_mat = Instance(Plot)
 	group_by_strength = Enum('all','strong','medium','weak')
 	button = Button('This button does not yet do anything')
 	thresh = Range(0.0,1.0,.95)
-	view = View(VSplit( Item(name='scene',
+
+	## HAVE TRAITSUI ORGANIZE THE GUI ##
+	view = View(
+			HSplit(
+						Item(name='scene',
 							editor=SceneEditor(scene_class=MayaviScene),
 							height=500,width=500,show_label=False,
+							resizable=True),
+
+				VSplit( 
+						Item(name='conn_mat',editor=ComponentEditor(),
+							show_label=False,height=450,width=450,
 							resizable=True),
 					Group(
 						Item(name='button',show_label=False),
 						Item(name='group_by_strength',show_label=False),
 						Item(name='thresh')
-						),
-					#Group(
-					#)
+					),
 				),
-				resizable=True)
+			),
+			resizable=True)
 
-	# Intialize the Cvu Object
+	## INITIALIZE THE CVU OBJECT ##
 	# args are in order pos,adj,names,srfinfo,datainfo
 	def __init__(self,args):
 		super(Cvu,self).__init__()
+		## UNPACK THE ARG TUPLE
 		self.lab_pos=args[0]
-		self.lab_pos_orig=self.lab_pos
 		self.adj=args[1]
 		self.labnam=args[2]
-		self.nr_labels=len(self.lab_pos)
-		self.nr_verts=len(self.adj)
 		self.srf=args[3]
 		self.dataloc=args[4][0]
 		self.modality=args[4][1]
 
-	@on_trait_change('scene.activated')	
-	def setup(self):
-		x,y,z = self.lab_pos[:,0],self.lab_pos[:,1],self.lab_pos[:,2]
+		## SET UP ALL THE DATA TO FEED TO MLAB ##
+		self.nr_labels=len(self.lab_pos)
+		self.nr_verts=len(self.adj)
 
 		self.starts = np.zeros((0,3),dtype=float)
 		self.vecs = np.zeros((0,3),dtype=float)
@@ -94,7 +95,10 @@ class Cvu(HasTraits):
 		self.nr_edges = len(self.edges)
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
-
+	
+	@on_trait_change('scene.activated')	
+	def setup(self):
+		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
 			figure=self.scene.mayavi_scene)
 
@@ -105,7 +109,8 @@ class Cvu(HasTraits):
 			self.srf[2][:,2],self.srf[3],opacity=.15,color=(.4,.75,0),
 			name='syrfr')
 
-		self.nodesource = mlab.pipeline.scalar_scatter(x,y,z,name='noddy')
+		self.nodesource = mlab.pipeline.scalar_scatter(self.lab_pos[:,0],
+			self.lab_pos[:,1],self.lab_pos[:,2],name='noddy')
 		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
 			scale_factor=3.0,name='noddynod',mode='sphere',color=(0,.6,1))
 
@@ -130,6 +135,14 @@ class Cvu(HasTraits):
 
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
 
+		## SET UP CHACO VARIABLES ##
+		# set the diagonal of the adjmat to min(data) and not 0 so the
+		# plot's color scheme is not completely messed up
+		self.adj[np.nonzero(self.adj==0)]=np.min(self.adj[np.nonzero(self.adj)])
+		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj))
+		self.conn_mat.img_plot("imagedata",colormap=YlOrRd)
+
+		## DISPLAY THE GUI ##
 		self.display()
 
 	def display(self):
@@ -137,6 +150,7 @@ class Cvu(HasTraits):
 		pck.tolerance = 10000
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
 
+	## INTERACTIVE DATA CHANGES VIA MLAB MOUSE PICK ##
 	def display_all(self):
 		self.vectorsrc.mlab_source.set(x=self.starts[:,0],y=self.starts[:,1],
 			z=self.starts[:,2],u=self.vecs[:,0],v=self.vecs[:,1],
@@ -180,6 +194,7 @@ class Cvu(HasTraits):
 	def rightpick_callback(self,picker):
 		self.display_all()
 
+	## INTERACTIVE DATA CHANGES VIA TRAITSUI CHANGES ##
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
@@ -266,7 +281,7 @@ def preproc():
 	if not surftype:
 		surftype='pial'
 
-	#Loading parcellation order and label names
+	## LOAD PARCELLATION ORDER AND LABEL NAMES ##
 	labnam=[]
 	if not os.path.isfile(parcfile):
 		raise Exception('Channel names not found')
@@ -282,7 +297,7 @@ def preproc():
 	for line in fd:
 		labnam.append(line.strip())
 
-	## Loading surfaces using gibabel and MNE-python
+	## LOAD SURFACES USING GIBABEL AND MNE-PYTHON ##
 
 	#surfs_lh = fol+'lh.%s.gii' % surftype
 	#surfs_rh = fol+'rh.%s.gii' % surftype
@@ -301,7 +316,7 @@ def preproc():
 	surfpos_rh,surffaces_rh = read_surface(surfplots_rh)
 	srfinfo=(surfpos_lh,surffaces_lh,surfpos_rh,surffaces_rh)
 
-	## Unpacking annotation data
+	## UNPACKING ANNOTATION DATA ##
 	labdict_lh = appendhemis(annot_lh.labeltable.get_labels_as_dict(),"lh_")
 	labv_lh = map(labdict_lh.get,annot_lh.darrays[0].data)
 
@@ -311,7 +326,7 @@ def preproc():
 	labv = labv_lh+labv_rh
 	del labv_lh;del labv_rh;
 	
-	#Defining constants and reshaping surfaces
+	## DEFINE CONSTANTS AND RESHAPE SURFACES ##
 	vert = np.vstack((surfpos_lh,surfpos_rh))
 
 	nr_labels = len(labnam)
@@ -328,7 +343,7 @@ def preproc():
 	lab_counts = np.zeros(nr_labels)
 	lab_pos = np.zeros((nr_labels,3))
 
-	##Check for bad channels and extract label positions as average of vertices
+	## CHECK FOR BAD CHANNELS AND DEFINE LABEL LOCATIONS AS VERTEX AVERAGES ##
 	bad_labs=[]
 	deleters=[]
 
@@ -346,8 +361,8 @@ def preproc():
 			print "generating coordinates for "+labnam[i]
 		lab_pos[i] = np.mean(vert[curlab],axis=0)
 
-	## Delete the bad channels
-	if (deleters>0):
+		## DELETE THE BAD CHANNELS ##
+	if len(deleters)>0:
 		print "Removed "+str(len(deleters))+" bad channels"
 		lab_pos=np.delete(lab_pos,deleters,axis=0)
 		labnam=np.delete(labnam,deleters,axis=0)
@@ -362,27 +377,14 @@ def preproc():
 		nr_labels-=len(bad_labs)
 	del bad_labs
 
-	## Loading the adjacency matrix
+	## LOAD THE ADJACENCY MATRIX ##
+	adj = loadmat(adjmat,"adj_matrices") 
 
-	#Check for valid file types
-	if adjmat.endswith('.mat'):
-		adj = sio.loadmat(adjmat)
-		adj = np.mean(adj['adj_matrices'],axis=2)
-		#TODO some .mat files may have other field names e.g.	
-		#adj = adj['corrected_imagcoh']
-		#In general though it is the user's responsibility to provide a working
-		#adjmat of proper formatting, there's simply too much to check for
-	elif adjmat.endswith('.npy'):
-		adj = np.load(adjmat)
-	else:
-		raise Exception('Currently only formats supported for adjacency matrix'
-			'are .mat and .npy')
-		#TODO could raise this exception earlier to facilitate user debugging
-
+	## FINISH AND RETURN ##
 	# Package dataloc and modality into tuple for passing
 	datainfo =(dataloc,modality)
 
-	##Return tuple with summary required data
+	# Return tuple with summary required data
 	return (lab_pos,adj,labnam,srfinfo,datainfo)
 
 if __name__ == "__main__":
