@@ -18,23 +18,30 @@ import sys
 import getopt
 from enthought.traits.api import *
 from enthought.traits.ui.api import *
-from mayavi.core.ui.api import *
+from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
+
 from mne.surface import read_surface
 
 quiet=False
+if __name__=="__main__":
+	print "All modules loaded"
 
 class Cvu(HasTraits):
 	scene = Instance(MlabSceneModel, ())
+	group_by_strength = Enum('all','strong','medium','weak')
 	button = Button('This button does not yet do anything')
-	thresh = Range(0.0,1.0,.9)
+	thresh = Range(0.0,1.0,.95)
 	view = View(VSplit( Item(name='scene',
 							editor=SceneEditor(scene_class=MayaviScene),
 							height=500,width=500,show_label=False,
 							resizable=True),
 					Group(
 						Item(name='button',show_label=False),
+						Item(name='group_by_strength',show_label=False),
 						Item(name='thresh')
-					)
+						),
+					#Group(
+					#)
 				),
 				resizable=True)
 
@@ -86,7 +93,7 @@ class Cvu(HasTraits):
 
 		self.nr_edges = len(self.edges)
 		if not quiet:
-			print self.nr_edges
+			print str(self.nr_edges)+" total connections"
 
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
 			figure=self.scene.mayavi_scene)
@@ -111,6 +118,7 @@ class Cvu(HasTraits):
 		self.thres = mlab.pipeline.threshold(self.vectorsrc,name='thresh',
 			low=self.thresval)
 		self.thres.auto_reset_lower=False
+		self.thres.auto_reset_upper=False
 
 		self.myvectors = mlab.pipeline.vectors(self.thres,colormap='YlOrRd',
 			name='cons',scale_mode='vector',transparent=False)
@@ -136,14 +144,17 @@ class Cvu(HasTraits):
 		self.myvectors.actor.property.opacity=.3
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(text='')
+		self.reset_thresh()
 
 	def display_node(self,n):
+		#self.reset_thresh()
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		count_edges = 0
 		for e in xrange(0,self.nr_edges,1):
 			if n in self.edges[e]:
 				new_edges[e]=self.edges[e]
-				if self.adjdat[e] > self.thresval:
+				if self.adjdat[e] > self.thres.lower_threshold and \
+						self.adjdat[e] < self.thres.upper_threshold:
 					count_edges+=1
 			else:
 				new_edges[e]=[0,0]
@@ -170,11 +181,10 @@ class Cvu(HasTraits):
 		self.display_all()
 
 	@on_trait_change('thresh')
-	def change_thresh(self):	
+	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
-			[int(round(self.thresh*self.nr_edges_old))-1])
-		self.thres.set(lower_threshold=self.thresval)
-		self.vectorsrc.outputs[0].update()
+			[int(round(self.thresh*self.nr_edges))-1])
+		self.group_by_strength='all'
 
 	@on_trait_change('button')
 	def button_press(self):
@@ -184,6 +194,29 @@ class Cvu(HasTraits):
 			raise Exception('Which modality is this data?  Specify with'
 				' --modality')
 		raise Exception("I like exceptions")
+	
+	@on_trait_change('group_by_strength')
+	def display_grouping(self):
+		weakmid_cut=float(sorted(self.adjdat)\
+			[int(round(self.nr_edges*(2.0*self.thresh/3+1.0/3)))-1])
+		midstrong_cut=float(sorted(self.adjdat)\
+			[int(round(self.nr_edges*(1.0*self.thresh/3+2.0/3)))-1])
+		max=float(sorted(self.adjdat)[self.nr_edges-1])
+
+		if (self.group_by_strength=="strong"):
+			self.thres.set(upper_threshold=max,lower_threshold=midstrong_cut)
+		elif (self.group_by_strength=="medium"):
+			self.thres.set(lower_threshold=weakmid_cut,\
+				upper_threshold=midstrong_cut)
+		elif (self.group_by_strength=="weak"):
+			self.thres.set(upper_threshold=weakmid_cut,\
+				lower_threshold=self.thresval)
+		elif (self.group_by_strength=="all"):
+			self.thres.set(upper_threshold=max,lower_threshold=self.thresval)
+		self.vectorsrc.outputs[0].update()	
+		if not quiet:
+			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
+			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
 
 def preproc():
 	global quiet
@@ -193,8 +226,10 @@ def preproc():
 		opts,args=getopt.getopt(sys.argv[1:],'p:a:s:o:qd:',
 			["parc=","adjmat=","adj=","modality=","data=","datadir="\
 			"surf=","order=","surf-type=","parcdir=","surfdir="])
-	except getopt.GetoptError:
-		raise Exception("You passed in the wrong arguments, you petulant fool!")
+	except HasTraits:
+		pass
+	#except getopt.GetoptError:
+	#	raise Exception("You passed in the wrong arguments, you petulant fool!")
 	for opt,arg in opts:
 		if opt in ["-p","--parc"]:
 			parc = arg
