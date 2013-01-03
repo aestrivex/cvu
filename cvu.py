@@ -1,5 +1,5 @@
 if __name__=="__main__":
-	print "Importing modules"
+	print "Importing libraries"
 
 import nibabel.gifti as gi
 import numpy as np
@@ -15,17 +15,41 @@ from mne.surface import read_surface
 from cvu_utils import *
 from chaco.api import *
 from enable.component_editor import ComponentEditor
+from chaco.tools.api import *
 
 quiet=False
 if __name__=="__main__":
-	print "All modules loaded"
+	print "All libraries loaded"
 
-class Cvu(HasTraits):
-	scene = Instance(MlabSceneModel, ())
+class CvuPlaceholder(HasTraits):
 	conn_mat = Instance(Plot)
+
+class ConnmatPointSelector(SelectTool):
+	cvu=Instance(CvuPlaceholder)
+
+	def __init__(self,holder,*args,**kwargs):
+		super(SelectTool,self).__init__(*args,**kwargs)
+		self.selection_mode='single'
+		self.cvu=holder
+
+	def _get_selection_state(self,event):
+		return (False,True)
+
+	def _select(self,token,append):
+		x,y=self.cvu.conn_mat.map_data((token.x,token.y))
+		cvu.display_node(int(np.floor(y)))
+
+class Cvu(CvuPlaceholder):
+	scene = Instance(MlabSceneModel, ())
 	group_by_strength = Enum('all','strong','medium','weak')
-	button = Button('This button does not yet do anything')
+	up_node_button = Button('^')
+	down_node_button = Button('v')
+	all_node_button = Button('all')
+	calc_mod_button = Button('Calculate modules')
+	cycle_mod_button = Button('cycle\nmodule')
 	thresh = Range(0.0,1.0,.95)
+	curr_node = Trait(None,None,Int)
+	#inherits connmat from placeholder
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
 	view = View(
@@ -35,12 +59,19 @@ class Cvu(HasTraits):
 							height=500,width=500,show_label=False,
 							resizable=True),
 
-				VSplit( 
+				VSplit(
+					HSplit( 
 						Item(name='conn_mat',editor=ComponentEditor(),
 							show_label=False,height=450,width=450,
 							resizable=True),
+						Group(	Item(name='up_node_button',show_label=False),
+								Item(name='down_node_button',show_label=False),
+								Item(name='all_node_button',show_label=False),
+								Item(name='cycle_mod_button',show_label=False),
+						)
+					),
 					Group(
-						Item(name='button',show_label=False),
+						Item(name='calc_mod_button',show_label=False),
 						Item(name='group_by_strength',show_label=False),
 						Item(name='thresh')
 					),
@@ -54,7 +85,8 @@ class Cvu(HasTraits):
 		super(Cvu,self).__init__()
 		## UNPACK THE ARG TUPLE
 		self.lab_pos=args[0]
-		self.adj=args[1]
+		self.adj_nulldiag=args[1]
+		self.adj_thresdiag=self.adj_nulldiag.copy()
 		self.labnam=args[2]
 		self.srf=args[3]
 		self.dataloc=args[4][0]
@@ -62,7 +94,6 @@ class Cvu(HasTraits):
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
-		self.nr_verts=len(self.adj)
 
 		self.starts = np.zeros((0,3),dtype=float)
 		self.vecs = np.zeros((0,3),dtype=float)
@@ -77,7 +108,7 @@ class Cvu(HasTraits):
 				self.starts = np.vstack((self.starts,self.lab_pos[r1]))
 				self.vecs = np.vstack((self.vecs,self.lab_pos[r2]-\
 					self.lab_pos[r1]))
-				self.adjdat = np.vstack((self.adjdat,self.adj[r1][r2]))
+				self.adjdat = np.vstack((self.adjdat,self.adj_nulldiag[r1][r2]))
 				self.edges = np.vstack((self.edges,np.array((r1,r2))))
 
 		self.nr_edges_old = len(self.edges)
@@ -112,7 +143,10 @@ class Cvu(HasTraits):
 		self.nodesource = mlab.pipeline.scalar_scatter(self.lab_pos[:,0],
 			self.lab_pos[:,1],self.lab_pos[:,2],name='noddy')
 		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
-			scale_factor=3.0,name='noddynod',mode='sphere',color=(0,.6,1))
+			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
+		#desired color (0,.6,1)
+		self.nodes.glyph.color_mode='color_by_scalar'
+		self.reset_node_color()
 
 		self.vectorsrc = mlab.pipeline.vector_scatter(self.starts[:,0],
 			self.starts[:,1],self.starts[:,2],self.vecs[:,0],self.vecs[:,1],
@@ -128,8 +162,8 @@ class Cvu(HasTraits):
 		self.myvectors = mlab.pipeline.vectors(self.thres,colormap='YlOrRd',
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
-		self.myvectors.glyph.color_mode='color_by_scalar'
 		self.myvectors.glyph.glyph.clamping=False
+		self.myvectors.glyph.color_mode='color_by_scalar'
 
 		self.myvectors.actor.property.opacity=.3
 
@@ -138,9 +172,14 @@ class Cvu(HasTraits):
 		## SET UP CHACO VARIABLES ##
 		# set the diagonal of the adjmat to min(data) and not 0 so the
 		# plot's color scheme is not completely messed up
-		self.adj[np.nonzero(self.adj==0)]=np.min(self.adj[np.nonzero(self.adj)])
-		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj))
-		self.conn_mat.img_plot("imagedata",colormap=YlOrRd)
+		self.adj_thresdiag[np.nonzero(self.adj_thresdiag==0)]=\
+			np.min(self.adj_thresdiag[np.nonzero(self.adj_thresdiag)])
+		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
+		self.conn_mat.img_plot("imagedata",name='conmatplot',colormap=YlOrRd)
+
+		self.conn_mat.tools.append(PanTool(self.conn_mat,drag_button="right"))
+		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
+		self.conn_mat.tools.append(ConnmatPointSelector(self,self.conn_mat))
 
 		## DISPLAY THE GUI ##
 		self.display()
@@ -151,17 +190,27 @@ class Cvu(HasTraits):
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
 
 	## INTERACTIVE DATA CHANGES VIA MLAB MOUSE PICK ##
+	@on_trait_change('all_node_button')
 	def display_all(self):
+		self.curr_node=None
+		#change mlab source data in main scene
 		self.vectorsrc.mlab_source.set(x=self.starts[:,0],y=self.starts[:,1],
 			z=self.starts[:,2],u=self.vecs[:,0],v=self.vecs[:,1],
 			w=self.vecs[:,2])
 		self.myvectors.actor.property.opacity=.3
+		self.reset_node_color()
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(text='')
 		self.reset_thresh()
+		
+		#change data in chaco plot
+		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
 
 	def display_node(self,n):
-		#self.reset_thresh()
+		if n<0 or n>=self.nr_labels:
+			raise Exception("Internal error: node index not recognized")
+		self.curr_node=n
+		#change mlab source data in main scene
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		count_edges = 0
 		for e in xrange(0,self.nr_edges,1):
@@ -172,44 +221,102 @@ class Cvu(HasTraits):
 					count_edges+=1
 			else:
 				new_edges[e]=[0,0]
-
-		print "expecting "+str(int(count_edges))+" edges"
+		if not quiet:
+			print "node #%s: %s" % (str(n), self.labnam[n])
+			print "expecting "+str(int(count_edges))+" edges"
 		new_starts=self.lab_pos[new_edges[:,0]]
 		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
-
 		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
 			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 		self.myvectors.actor.property.opacity=.75
+		self.reset_node_color()		
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
-		
+
+		#change data in chaco plot
+		dat=np.tile(np.min(self.adj_thresdiag),(self.nr_labels,self.nr_labels))
+		dat[n,:]=self.adj_thresdiag[n,:]
+		self.conn_mat.data.set_data("imagedata",dat)
+		#is resetting threshold desirable behavior?  probably not
+
 	def leftpick_callback(self,picker):
 		if picker.actor in self.nodes.actor.actors:
 			ptid = picker.point_id/self.nodes.glyph.glyph_source.glyph_source.\
 				output.points.to_array().shape[0]
 			if (ptid != -1):
-				print "node #%s: %s" % (str(ptid), self.labnam[ptid])
-				self.display_node(ptid)
+				self.display_node(int(ptid))
 
 	def rightpick_callback(self,picker):
 		self.display_all()
 
 	## INTERACTIVE DATA CHANGES VIA TRAITSUI CHANGES ##
+	def edge_color_on(self):
+		self.myvectors.actor.mapper.scalar_visibility=True
+
+	def edge_color_off(self):
+		self.myvectors.actor.mapper.scalar_visibility=False
+
+	def reset_node_color(self):
+		self.nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,
+			self.nr_labels)
+		mlab.draw()
+		#self.nodes.outputs[0].update()
+
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
 			[int(round(self.thresh*self.nr_edges))-1])
-		self.group_by_strength='all'
+		self.display_grouping()
 
-	@on_trait_change('button')
-	def button_press(self):
-		if self.dataloc==None:
-			raise Exception('No raw data was specified')
-		elif self.modality==None:
-			raise Exception('Which modality is this data?  Specify with'
-				' --modality')
-		raise Exception("I like exceptions")
+	@on_trait_change('calc_mod_button')
+	def calc_modules(self):
+		import modularity
+		g = modularity.Partitioner(self.adj_nulldiag)
+		self.modules=g.partition()	
+		self.cur_module=0
+		self.nr_modules=len(self.modules)
+		self.display_module(self.modules[0])
+
+	#def load_timecourse_data():
+		#if self.dataloc==None:
+		#	raise Exception('No raw data was specified')
+		#elif self.modality==None:
+		#	raise Exception('Which modality is this data?  Specify with'
+		#		' --modality')
+		#raise Exception("I like exceptions")
+
+	@on_trait_change('cycle_mod_button')
+	def cycle_module(self):
+		if self.cur_module==None:
+			return
+		elif self.cur_module==self.nr_modules-1:
+			self.cur_module=0
+		else:
+			self.cur_module+=1
+		self.display_module(self.modules[self.cur_module])
 	
+	#must pass np array of desired node indices
+	def display_module(self,module):
+		if not quiet:
+			print str(int(np.squeeze(module)))+" nodes in module"
+		new_edges = np.zeros([self.nr_edges,2],dtype=int)
+		for e in xrange(0,self.nr_edges,1):
+			if (self.edges[e,0] in module) and (self.edges[e,1] in module):
+				new_edges[e]=self.edges[e]
+			else:
+				new_edges[e]=[0,0]
+		new_starts=self.lab_pos[new_edges[:,0]]
+		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
+		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
+			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
+		self.myvectors.actor.property.opacity=.75
+		self.vectorsrc.outputs[0].update()
+		
+		new_colors = np.tile(.3,self.nr_labels)
+		new_colors[module]=.8
+		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
+		mlab.draw()
+
 	@on_trait_change('group_by_strength')
 	def display_grouping(self):
 		weakmid_cut=float(sorted(self.adjdat)\
@@ -218,20 +325,42 @@ class Cvu(HasTraits):
 			[int(round(self.nr_edges*(1.0*self.thresh/3+2.0/3)))-1])
 		max=float(sorted(self.adjdat)[self.nr_edges-1])
 
-		if (self.group_by_strength=="strong"):
-			self.thres.set(upper_threshold=max,lower_threshold=midstrong_cut)
-		elif (self.group_by_strength=="medium"):
-			self.thres.set(lower_threshold=weakmid_cut,\
-				upper_threshold=midstrong_cut)
-		elif (self.group_by_strength=="weak"):
-			self.thres.set(upper_threshold=weakmid_cut,\
-				lower_threshold=self.thresval)
-		elif (self.group_by_strength=="all"):
+		if (self.group_by_strength=="all"):
 			self.thres.set(upper_threshold=max,lower_threshold=self.thresval)
+			self.edge_color_on()
+		else:
+			self.edge_color_off()
+			if (self.group_by_strength=="strong"):
+				self.thres.set(upper_threshold=max,\
+					lower_threshold=midstrong_cut)
+			elif (self.group_by_strength=="medium"):
+				self.thres.set(lower_threshold=weakmid_cut,\
+					upper_threshold=midstrong_cut)
+			elif (self.group_by_strength=="weak"):
+				self.thres.set(upper_threshold=weakmid_cut,\
+				lower_threshold=self.thresval)
 		self.vectorsrc.outputs[0].update()	
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
+
+	@on_trait_change('up_node_button')
+	def up_button(self):
+		if self.curr_node==None:
+			return
+		elif self.curr_node==self.nr_labels-1:	
+			self.display_node(0)
+		else:
+			self.display_node(self.curr_node+1)
+
+	@on_trait_change('down_node_button')
+	def down_button(self):
+		if self.curr_node==None:
+			return
+		elif self.curr_node==0:
+			self.display_node(self.nr_labels-1)
+		else:
+			self.display_node(self.curr_node-1)
 
 def preproc():
 	global quiet
@@ -265,7 +394,7 @@ def preproc():
 	if not fol:
 		fol = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/gift/'
 	if not adjmat:
-		adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliT.mat'
+		adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliA1.mat'
 	if not parc:
 		parc = 'sparc'
 	if not parcfile:
