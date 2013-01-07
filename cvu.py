@@ -16,6 +16,7 @@ from cvu_utils import *
 from chaco.api import *
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import *
+from mne.viz import plot_connectivity_circle
 
 quiet=False
 if __name__=="__main__":
@@ -47,19 +48,20 @@ class Cvu(CvuPlaceholder):
 	all_node_button = Button('all')
 	calc_mod_button = Button('Calculate modules')
 	cycle_mod_button = Button('cycle\nmodule')
+	conn_circ_button = Button('circle')
 	thresh = Range(0.0,1.0,.95)
 	curr_node = Trait(None,None,Int)
 	#inherits connmat from placeholder
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
 	view = View(
-			HSplit(
+			VSplit(
+				HSplit(
 						Item(name='scene',
 							editor=SceneEditor(scene_class=MayaviScene),
 							height=500,width=500,show_label=False,
 							resizable=True),
 
-				VSplit(
 					HSplit( 
 						Item(name='conn_mat',editor=ComponentEditor(),
 							show_label=False,height=450,width=450,
@@ -70,11 +72,12 @@ class Cvu(CvuPlaceholder):
 								Item(name='cycle_mod_button',show_label=False),
 						)
 					),
-					Group(
-						Item(name='calc_mod_button',show_label=False),
-						Item(name='group_by_strength',show_label=False),
-						Item(name='thresh')
-					),
+				),
+				Group(
+					Item(name='calc_mod_button',show_label=False),
+					Item(name='conn_circ_button',show_label=False),
+					Item(name='group_by_strength',show_label=False),
+					Item(name='thresh'),
 				),
 			),
 			resizable=True)
@@ -91,6 +94,7 @@ class Cvu(CvuPlaceholder):
 		self.srf=args[3]
 		self.dataloc=args[4][0]
 		self.modality=args[4][1]
+		self.partitiontype=args[4][2]
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
@@ -208,7 +212,10 @@ class Cvu(CvuPlaceholder):
 
 	def display_node(self,n):
 		if n<0 or n>=self.nr_labels:
-			raise Exception("Internal error: node index not recognized")
+			#raise Exception("Internal error: node index not recognized")
+			#throwing an exception here causes chacoplot misclicks to throw 
+			#odd-looking errors, best to just return quietly and do nothing
+			return
 		self.curr_node=n
 		#change mlab source data in main scene
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
@@ -271,8 +278,13 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('calc_mod_button')
 	def calc_modules(self):
 		import modularity
-		g = modularity.Partitioner(self.adj_nulldiag)
-		self.modules=g.partition()	
+		if self.partitiontype=="metis":
+			self.modules=modularity.use_metis(self.adj_nulldiag)
+		elif self.partitiontype=="spectral":
+			g = modularity.SpectralPartitioner(self.adj_nulldiag)
+			self.modules=g.partition()
+		else:
+			raise Exception("Partition type %s not found" % self.partitiontype)
 		self.cur_module=0
 		self.nr_modules=len(self.modules)
 		self.display_module(self.modules[0])
@@ -298,7 +310,7 @@ class Cvu(CvuPlaceholder):
 	#must pass np array of desired node indices
 	def display_module(self,module):
 		if not quiet:
-			print str(int(np.squeeze(module)))+" nodes in module"
+			print str(int(len(np.squeeze(module))))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		for e in xrange(0,self.nr_edges,1):
 			if (self.edges[e,0] in module) and (self.edges[e,1] in module):
@@ -344,6 +356,12 @@ class Cvu(CvuPlaceholder):
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
 
+	@on_trait_change('conn_circ_button')
+	def circ_button(self):
+		import pylab
+		plot_connectivity_circle(self.adj_nulldiag,self.labnam)
+		pylab.show()
+
 	@on_trait_change('up_node_button')
 	def up_button(self):
 		if self.curr_node==None:
@@ -365,11 +383,12 @@ class Cvu(CvuPlaceholder):
 def preproc():
 	global quiet
 	fol=None;adjmat=None;parc=None;parcfile=None;surftype=None;
-	dataloc=None;modality=None
+	dataloc=None;modality=None;partitiontype=None
 	try:
 		opts,args=getopt.getopt(sys.argv[1:],'p:a:s:o:qd:',
 			["parc=","adjmat=","adj=","modality=","data=","datadir="\
-			"surf=","order=","surf-type=","parcdir=","surfdir="])
+			"surf=","order=","surf-type=","parcdir=","surfdir=","use-metis",
+			"use-spectral"])
 	except HasTraits:
 		pass
 	#except getopt.GetoptError:
@@ -391,6 +410,10 @@ def preproc():
 			modality=arg.lower()
 		elif opt in ["-d","--data","--datadir"]:
 			dataloc=arg
+		elif opt in ["--use-metis"]:
+			partitiontype="metis"
+		elif opt in ["--use-spectral"]:
+			partitiontype="spectral"
 	if not fol:
 		fol = '/autofs/cluster/neuromind/rlaplant/mridat/fsaverage5c/gift/'
 	if not adjmat:
@@ -402,13 +425,15 @@ def preproc():
 			raise Exception('A text file containing channel names must be'
 				' supplied with your parcellation')
 		else:
-			parcfile = '/autofs/cluster/neuromind/rlaplant/mayavi/cvu/order_sparc'
+			parcfile='/autofs/cluster/neuromind/rlaplant/mayavi/cvu/order_sparc'
 	if modality not in ["meg","fmri","dti",None]:
 		raise Exception('Modality %s is not supported' % modality)
 	if modality in ["fmri","dti"]:
 		raise Exception('Modality %s is not yet supported' % modality)
 	if not surftype:
 		surftype='pial'
+	if not partitiontype:
+		partitiontype="metis"
 
 	## LOAD PARCELLATION ORDER AND LABEL NAMES ##
 	labnam=[]
@@ -511,7 +536,7 @@ def preproc():
 
 	## FINISH AND RETURN ##
 	# Package dataloc and modality into tuple for passing
-	datainfo =(dataloc,modality)
+	datainfo =(dataloc,modality,partitiontype)
 
 	# Return tuple with summary required data
 	return (lab_pos,adj,labnam,srfinfo,datainfo)
