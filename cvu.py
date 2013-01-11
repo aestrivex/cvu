@@ -1,26 +1,37 @@
 if __name__=="__main__":
 	print "Importing libraries"
-
 import nibabel.gifti as gi
 import numpy as np
-from mayavi import mlab
-from tvtk.api import tvtk
-import os
-import sys
-import getopt
-from enthought.traits.api import *
-from enthought.traits.ui.api import *
+from mayavi import mlab; from tvtk.api import tvtk
+import os; import sys; import getopt
+from enthought.traits.api import *; from enthought.traits.ui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
 from mne.surface import read_surface
 from cvu_utils import *
-from chaco.api import *
-from enable.component_editor import ComponentEditor
+from chaco.api import *; from enable.component_editor import ComponentEditor
 from chaco.tools.api import *
 from mne.viz import plot_connectivity_circle
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_wxagg import *
+from matplotlib.backends.backend_wx import *
+import wx
+import clickable_circle_plot as circ
 
 quiet=False
 if __name__=="__main__":
 	print "All libraries loaded"
+
+g_canvas=None
+def make_matplotlib_plot(parent,editor):
+	fig=editor.object.circle_fig
+	panel=wx.Panel(parent,-1)
+	canvas=FigureCanvasWxAgg(panel,-1,fig)
+	sizer=wx.BoxSizer(wx.VERTICAL)
+	sizer.Add(canvas,1,wx.EXPAND|wx.ALL,1)
+	panel.SetSizer(sizer)
+	global g_canvas
+	g_canvas=canvas
+	return panel
 
 class CvuPlaceholder(HasTraits):
 	conn_mat = Instance(Plot)
@@ -42,42 +53,47 @@ class ConnmatPointSelector(SelectTool):
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
+	circle_fig = Instance(Figure,())
 	group_by_strength = Enum('all','strong','medium','weak')
 	up_node_button = Button('^')
 	down_node_button = Button('v')
 	all_node_button = Button('all')
 	calc_mod_button = Button('Calculate modules')
 	cycle_mod_button = Button('cycle\nmodule')
-	conn_circ_button = Button('circle')
+	conn_circ_button = Button('Click here to activate circle plot\n'\
+		'(slow on old machines)')
 	thresh = Range(0.0,1.0,.95)
 	curr_node = Trait(None,None,Int)
 	#inherits connmat from placeholder
+	python_shell = PythonValue
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
-	view = View(
+	traits_view = View(
 			VSplit(
 				HSplit(
-						Item(name='scene',
-							editor=SceneEditor(scene_class=MayaviScene),
-							height=500,width=500,show_label=False,
-							resizable=True),
-
-					HSplit( 
-						Item(name='conn_mat',editor=ComponentEditor(),
-							show_label=False,height=450,width=450,
-							resizable=True),
-						Group(	Item(name='up_node_button',show_label=False),
-								Item(name='down_node_button',show_label=False),
-								Item(name='all_node_button',show_label=False),
-								Item(name='cycle_mod_button',show_label=False),
-						)
-					),
+					Item(name='scene',
+						editor=SceneEditor(scene_class=MayaviScene),
+						height=500,width=500,show_label=False,resizable=True),
+					Item(name='conn_mat',
+						editor=ComponentEditor(),
+						show_label=False,height=450,width=450,resizable=True),
+					Group(	Item(name='up_node_button',show_label=False),
+							Item(name='down_node_button',show_label=False),
+							Item(name='all_node_button',show_label=False),
+							Item(name='cycle_mod_button',show_label=False),
+					)
 				),
-				Group(
-					Item(name='calc_mod_button',show_label=False),
-					Item(name='conn_circ_button',show_label=False),
-					Item(name='group_by_strength',show_label=False),
-					Item(name='thresh'),
+				HSplit(
+					Item(name='circle_fig',
+						editor=CustomEditor(make_matplotlib_plot),
+						height=500,width=500,show_label=False,resizable=True),
+					Group(
+						Item(name='calc_mod_button',show_label=False),
+						Item(name='conn_circ_button',show_label=False),
+						Item(name='group_by_strength',show_label=False),
+						Item(name='thresh'),
+						#Item(name='python_shell'),
+					)
 				),
 			),
 			resizable=True)
@@ -102,7 +118,6 @@ class Cvu(CvuPlaceholder):
 		self.starts = np.zeros((0,3),dtype=float)
 		self.vecs = np.zeros((0,3),dtype=float)
 		self.edges = np.zeros((0,2),dtype=int)
-		self.edgevals = np.zeros((0,2),dtype=float)
 		self.adjdat = np.zeros((0,1),dtype=float)
 
 		for r1 in xrange(0,self.nr_labels,1):
@@ -185,13 +200,19 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPointSelector(self,self.conn_mat))
 
-		## DISPLAY THE GUI ##
-		self.display()
-
-	def display(self):
+		## SET UP THE CIRCLE PLOT ##
+		self.circle_fig,self.sorted_edges,self.sorted_adjdat,self.colormap=\
+			circ.plot_connectivity_circle2(
+			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
+			indices=self.edges.T,colormap="YlOrRd")
+		self.circ_data = self.circle_fig.get_axes()[0].patches
+		self.circ_exists_yet=False
+	
+		## SET UP THE CALLBACKS (for mayavi and matplotlib) ##
 		pck = self.fig.on_mouse_pick(self.leftpick_callback)
 		pck.tolerance = 10000
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
+		self.circ_button()
 
 	## INTERACTIVE DATA CHANGES VIA MLAB MOUSE PICK ##
 	@on_trait_change('all_node_button')
@@ -204,11 +225,18 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.property.opacity=.3
 		self.reset_node_color()
 		self.vectorsrc.outputs[0].update()
+		
 		self.txt.set(text='')
 		self.reset_thresh()
 		
 		#change data in chaco plot
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
+
+		#change data in circle plot
+		if self.circ_exists_yet:
+			#for e in xrange(0,self.nr_edges,1):
+			#	self.circ_data[e].set_visible(True)
+			self.redraw_circ()
 
 	def display_node(self,n):
 		if n<0 or n>=self.nr_labels:
@@ -218,11 +246,14 @@ class Cvu(CvuPlaceholder):
 			return
 		self.curr_node=n
 		#change mlab source data in main scene
+		#and change circle plot edges while at it
+		#having sorted edges makes convenient circle plotting, mayavi dont care
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		count_edges = 0
-		for e in xrange(0,self.nr_edges,1):
-			if n in self.edges[e]:
-				new_edges[e]=self.edges[e]
+		for e,(a,b) in enumerate(zip(self.edges[:,0],
+				self.edges[:,1])):
+			if n in [a,b]:
+				new_edges[e]=np.array(self.edges)[e]
 				if self.adjdat[e] > self.thres.lower_threshold and \
 						self.adjdat[e] < self.thres.upper_threshold:
 					count_edges+=1
@@ -238,6 +269,8 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.property.opacity=.75
 		self.reset_node_color()		
 		self.vectorsrc.outputs[0].update()
+		if self.circ_exists_yet:
+			self.redraw_circ()		
 		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
 
 		#change data in chaco plot
@@ -255,6 +288,18 @@ class Cvu(CvuPlaceholder):
 
 	def rightpick_callback(self,picker):
 		self.display_all()
+
+	def circ_click(self,event):
+		#this event has xdata and ydata in reverse polar coordinates (theta,r)
+		#do some algebra to figure out which ROI based on the angle
+		if not quiet:
+			print 'button=%d,x=%d,y=%d,xdata=%s,ydata=%s'%(event.button,event.x,
+				event.y,str(event.xdata),str(event.ydata))
+		if event.button==3:
+			self.display_all()
+		elif event.button==1 and event.ydata>=7 and event.ydata<=8:
+			self.display_node(int(np.floor(self.nr_labels*event.xdata/\
+				(np.pi*2))))
 
 	## INTERACTIVE DATA CHANGES VIA TRAITSUI CHANGES ##
 	def edge_color_on(self):
@@ -274,6 +319,7 @@ class Cvu(CvuPlaceholder):
 		self.thresval = float(sorted(self.adjdat)\
 			[int(round(self.thresh*self.nr_edges))-1])
 		self.display_grouping()
+		self.redraw_circ()
 
 	@on_trait_change('calc_mod_button')
 	def calc_modules(self):
@@ -356,11 +402,31 @@ class Cvu(CvuPlaceholder):
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
 
-	@on_trait_change('conn_circ_button')
+	#precondition: circ_exists = true
+	def redraw_circ(self):
+		vrange=self.thres.upper_threshold-self.thres.lower_threshold
+		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
+				self.sorted_edges[1])):
+			if self.sorted_adjdat[e] < self.thres.upper_threshold and \
+					self.sorted_adjdat[e] > self.thres.lower_threshold and \
+					(self.curr_node==None or self.curr_node in [a,b]):
+				self.circ_data[e].set_visible(True)
+				self.circ_data[e].set_ec(self.colormap((self.sorted_adjdat[e]-\
+					self.thres.lower_threshold)/vrange))
+			else:
+				self.circ_data[e].set_visible(False)
+		self.circ_canvas.draw()
+
+	#@on_trait_change('circle_fig.activated')
 	def circ_button(self):
-		import pylab
-		plot_connectivity_circle(self.adj_nulldiag,self.labnam)
-		pylab.show()
+		if not self.circ_exists_yet:
+			global g_canvas
+			self.circ_canvas=self.circle_fig.canvas
+			del g_canvas
+			self.circle_fig.canvas.mpl_connect('button_press_event',self.circ_click)
+			#self.circ_canvas.mpl_connect('button_press_event',self.circ_click)
+			self.display_all()
+			self.circ_exists_yet=True
 
 	@on_trait_change('up_node_button')
 	def up_button(self):
