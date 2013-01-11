@@ -1,9 +1,22 @@
 cvu
-===
 
 ==COPYRIGHT INFORMATION==
-
 This program strictly observes the tenets of fundamentalist Theravada Mahasi 
 style Buddhism.  Any use of this program in violation of these aforementioned 
 tenets or in violation of the principles described in the Visuddhimagga Sutta is
 strictly prohibited and punishable by extensive Mahayana style practice.
+
+==PACKAGES INCLUDED==
+METIS -- graph partitioning library
+METIS (python) -- a python library wrapping METIS
+MNE Python -- used for extracting and displaying surfaces from freesurfer
+	annotations, and for circle-plot visualizations
+
+==PACKAGES USED==
+chaco -- traited plotting module
+getopt -- module to process command line arguments
+matplotlib -- plotting library
+mayavi/mlab/tvtk -- fantastic traited 3D visualization program which made my
+	life much easier in the long run
+nibabel -- neuroimaging library for python, used for extracting freesurfer stuff
+numpy/scipy -- math library for python

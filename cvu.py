@@ -16,22 +16,11 @@ from matplotlib.backends.backend_wxagg import *
 from matplotlib.backends.backend_wx import *
 import wx
 import clickable_circle_plot as circ
+import mpleditor
 
 quiet=False
 if __name__=="__main__":
 	print "All libraries loaded"
-
-g_canvas=None
-def make_matplotlib_plot(parent,editor):
-	fig=editor.object.circle_fig
-	panel=wx.Panel(parent,-1)
-	canvas=FigureCanvasWxAgg(panel,-1,fig)
-	sizer=wx.BoxSizer(wx.VERTICAL)
-	sizer.Add(canvas,1,wx.EXPAND|wx.ALL,1)
-	panel.SetSizer(sizer)
-	global g_canvas
-	g_canvas=canvas
-	return panel
 
 class CvuPlaceholder(HasTraits):
 	conn_mat = Instance(Plot)
@@ -60,8 +49,7 @@ class Cvu(CvuPlaceholder):
 	all_node_button = Button('all')
 	calc_mod_button = Button('Calculate modules')
 	cycle_mod_button = Button('cycle\nmodule')
-	conn_circ_button = Button('Click here to activate circle plot\n'\
-		'(slow on old machines)')
+	conn_circ_button = Button('This button is currently unused')
 	thresh = Range(0.0,1.0,.95)
 	curr_node = Trait(None,None,Int)
 	#inherits connmat from placeholder
@@ -85,14 +73,15 @@ class Cvu(CvuPlaceholder):
 				),
 				HSplit(
 					Item(name='circle_fig',
-						editor=CustomEditor(make_matplotlib_plot),
+						#editor=CustomEditor(make_matplotlib_plot),
+						editor=mpleditor.MPLFigureEditor(),
 						height=500,width=500,show_label=False,resizable=True),
 					Group(
 						Item(name='calc_mod_button',show_label=False),
 						Item(name='conn_circ_button',show_label=False),
 						Item(name='group_by_strength',show_label=False),
 						Item(name='thresh'),
-						#Item(name='python_shell'),
+						Item(name='python_shell',show_label=False),
 					)
 				),
 			),
@@ -163,7 +152,6 @@ class Cvu(CvuPlaceholder):
 			self.lab_pos[:,1],self.lab_pos[:,2],name='noddy')
 		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
 			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
-		#desired color (0,.6,1)
 		self.nodes.glyph.color_mode='color_by_scalar'
 		self.reset_node_color()
 
@@ -206,13 +194,13 @@ class Cvu(CvuPlaceholder):
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
 			indices=self.edges.T,colormap="YlOrRd")
 		self.circ_data = self.circle_fig.get_axes()[0].patches
-		self.circ_exists_yet=False
-	
+
 		## SET UP THE CALLBACKS (for mayavi and matplotlib) ##
 		pck = self.fig.on_mouse_pick(self.leftpick_callback)
 		pck.tolerance = 10000
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
-		self.circ_button()
+
+		self.display_all()
 
 	## INTERACTIVE DATA CHANGES VIA MLAB MOUSE PICK ##
 	@on_trait_change('all_node_button')
@@ -233,10 +221,7 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
 
 		#change data in circle plot
-		if self.circ_exists_yet:
-			#for e in xrange(0,self.nr_edges,1):
-			#	self.circ_data[e].set_visible(True)
-			self.redraw_circ()
+		self.redraw_circ()
 
 	def display_node(self,n):
 		if n<0 or n>=self.nr_labels:
@@ -269,8 +254,7 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.property.opacity=.75
 		self.reset_node_color()		
 		self.vectorsrc.outputs[0].update()
-		if self.circ_exists_yet:
-			self.redraw_circ()		
+		self.redraw_circ()		
 		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
 
 		#change data in chaco plot
@@ -298,8 +282,11 @@ class Cvu(CvuPlaceholder):
 		if event.button==3:
 			self.display_all()
 		elif event.button==1 and event.ydata>=7 and event.ydata<=8:
-			self.display_node(int(np.floor(self.nr_labels*event.xdata/\
-				(np.pi*2))))
+			nod=self.nr_labels*event.xdata/(np.pi*2)+.np.pi/self.nr_labels
+			#the formula for the correct node, assuming perfect clicking,
+			#is floor(n*theta/2pi).  however, matplotlib seems to not do great
+			#with this, the clicking is often too high, so i add this correction
+			self.display_node(int(np.floor(nod)))
 
 	## INTERACTIVE DATA CHANGES VIA TRAITSUI CHANGES ##
 	def edge_color_on(self):
@@ -374,6 +361,7 @@ class Cvu(CvuPlaceholder):
 		new_colors[module]=.8
 		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
 		mlab.draw()
+		#TODO display on circle plot
 
 	@on_trait_change('group_by_strength')
 	def display_grouping(self):
@@ -401,8 +389,8 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
+		#TODO display on circle plot
 
-	#precondition: circ_exists = true
 	def redraw_circ(self):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold
 		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
@@ -415,18 +403,7 @@ class Cvu(CvuPlaceholder):
 					self.thres.lower_threshold)/vrange))
 			else:
 				self.circ_data[e].set_visible(False)
-		self.circ_canvas.draw()
-
-	#@on_trait_change('circle_fig.activated')
-	def circ_button(self):
-		if not self.circ_exists_yet:
-			global g_canvas
-			self.circ_canvas=self.circle_fig.canvas
-			del g_canvas
-			self.circle_fig.canvas.mpl_connect('button_press_event',self.circ_click)
-			#self.circ_canvas.mpl_connect('button_press_event',self.circ_click)
-			self.display_all()
-			self.circ_exists_yet=True
+		self.circle_fig.canvas.draw()
 
 	@on_trait_change('up_node_button')
 	def up_button(self):
