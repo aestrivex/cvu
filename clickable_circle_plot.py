@@ -1,53 +1,22 @@
 import numpy as np
-import pylab as pl
-import matplotlib.path as m_path
-import matplotlib.patches as m_patches
-from mne.fixes import tril_indices
 from matplotlib.backends.backend_wxagg import *
 from matplotlib.backends.backend_wx import *
 from matplotlib.backends.backend_agg import *
 from matplotlib import *
-from matplotlib.axes import Axes
 import wx
+from mne.viz import plot_connectivity_circle
+from mne.fixes import tril_indices
+import pylab as pl
+import matplotlib.path as m_path
+import matplotlib.patches as m_patches
 
-def callbacque(event):
-	print 'button=%d,x=%d,y=%d,xdata=%f,ydata=%f'%(event.button,event.x,event.y,
-		event.xdata,event.ydata)
-	#print type(event.inaxes)
-	#print dir(event.inaxes.patches[217].get_path())
-	#print type(event.inaxes.patches[217]) == matplotlib.patches.PathPatch
-	#print type(event.canvas.figure.axes)
-	ls=[]
-	i=-1
-	for patch in event.inaxes.patches:
-		i+=1
-		if type(patch) != matplotlib.patches.PathPatch:
-			continue
-		#print patch.get_ec()
-		ls.append(i)
-		#patch.set_ec((0,0,0,0))
-	#event.inaxes.patches[9332].set_ec((.2,.9,.9,1.))
-	#event.inaxes.patches[9452].set_ec((.2,.9,.9,1.))
-	event.inaxes.patches[217].set_ec((.53,.84,.9,1.))
-	event.inaxes.patches[217].set_zorder(4)
-	event.canvas.draw()
-	print len(ls)
+#there are some minor changes in this function from the mne version
+#namely the return arguments and the figure size which were hard coded in the
+#mne function so i copied them
 
-def make_plot(parent,editor):
-	global canvas
-	fig=editor.object.figure
-	panel=wx.Panel(parent,-1)
-	canvas=FigureCanvasWxAgg(panel,-1,fig)
-	toolbar=NavigationToolbar2Wx(canvas)
-	toolbar.Realize()
-	sizer=wx.BoxSizer(wx.VERTICAL)
-	sizer.Add(canvas,1,wx.EXPAND|wx.ALL,1)
-	sizer.Add(toolbar,0,wx.EXPAND|wx.ALL,1)
-	panel.SetSizer(sizer)
-	cid=canvas.mpl_connect('button_press_event',callbacque)
-	return panel
-
-def plot_connectivity_circle(con, node_names, indices=None, n_lines=None,
+#credit largely goes to martin luessi who adapted this function to mne from
+#whoever wrote it originally which is listed in the docstring
+def plot_connectivity_circle2(con, node_names, indices=None, n_lines=None,
 	node_angles=None, node_width=None,node_colors=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
 	vmin=None,vmax=None, colorbar=True, title=None):
@@ -56,7 +25,8 @@ def plot_connectivity_circle(con, node_names, indices=None, n_lines=None,
 Note: This code is based on the circle graph example by Nicolas P. Rougier
 http://www.loria.fr/~rougier/coding/recipes.html
 
-The code was adapted from MNE python
+The code was adapted from MNE python, credit to Martin Luessi for writing it in
+MNE python and all the other MNE python devs
 
 Parameters
 ----------
@@ -154,7 +124,7 @@ The figure handle.
         colormap = pl.get_cmap(colormap)
 
     # Make figure background the same colors as axes
-    fig = pl.figure(figsize=(8, 8), facecolor=facecolor)
+    fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
 
     # Use a polar axes
     axes = pl.subplot(111, polar=True, axisbg=facecolor)
@@ -164,7 +134,7 @@ The figure handle.
     pl.yticks([])
 
     # Set y axes limit
-    pl.ylim(0, 10)
+    pl.ylim(0, 8)
 
     # Draw lines between connected nodes, only draw the strongest connections
     if n_lines is not None and len(con) > n_lines:
@@ -227,10 +197,10 @@ The figure handle.
     # Finally, we draw the connections
     for pos, (i, j) in enumerate(zip(indices[0], indices[1])):
         # Start point
-        t0, r0 = node_angles[i], 10
+        t0, r0 = node_angles[i], 7.5
 
         # End point
-        t1, r1 = node_angles[j], 10
+        t1, r1 = node_angles[j], 7.5
 
         # Some noise in start and end point
         t0 += start_noise[pos]
@@ -249,8 +219,8 @@ The figure handle.
         axes.add_patch(patch)
 
     # Draw ring with colored nodes
-    radii = np.ones(n_nodes) * 10
-    bars = axes.bar(node_angles, radii, width=node_width, bottom=9,
+    radii = np.ones(n_nodes) * 8
+    bars = axes.bar(node_angles, radii, width=node_width, bottom=7,
                     edgecolor=node_edgecolor, lw=2, facecolor='.9',
                     align='center',zorder=10)
 
@@ -267,7 +237,7 @@ The figure handle.
             angle_deg += 180
             ha = 'right'
 
-        pl.text(angle_rad, 10.4, name, size=10, rotation=angle_deg,
+        pl.text(angle_rad, 8.4, name, size=10, rotation=angle_deg,
                 rotation_mode='anchor', horizontalalignment=ha,
                 verticalalignment='center', color=textcolor)
 
@@ -285,5 +255,5 @@ The figure handle.
         cb = fig.colorbar(sm, cax=ax)
         cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
         pl.setp(cb_yticks, color=textcolor)
-
-    return fig,indices
+	
+    return fig,indices,con,node_colors

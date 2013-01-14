@@ -10,13 +10,8 @@ from mne.surface import read_surface
 from cvu_utils import *
 from chaco.api import *; from enable.component_editor import ComponentEditor
 from chaco.tools.api import *
-from mne.viz import plot_connectivity_circle
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_wxagg import *
-from matplotlib.backends.backend_wx import *
-import wx
-import clickable_circle_plot as circ
-import mpleditor
+from matplotlib.figure import Figure; from pylab import get_cmap
+import clickable_circle_plot as circ; import mpleditor
 
 quiet=False
 if __name__=="__main__":
@@ -52,6 +47,7 @@ class Cvu(CvuPlaceholder):
 	conn_circ_button = Button('This button is currently unused')
 	thresh = Range(0.0,1.0,.95)
 	curr_node = Trait(None,None,Int)
+	cur_module = Trait(None,None,Int)
 	#inherits connmat from placeholder
 	python_shell = PythonValue
 
@@ -153,7 +149,6 @@ class Cvu(CvuPlaceholder):
 		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
 			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
 		self.nodes.glyph.color_mode='color_by_scalar'
-		self.reset_node_color()
 
 		self.vectorsrc = mlab.pipeline.vector_scatter(self.starts[:,0],
 			self.starts[:,1],self.starts[:,2],self.vecs[:,0],self.vecs[:,1],
@@ -189,11 +184,20 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.tools.append(ConnmatPointSelector(self,self.conn_mat))
 
 		## SET UP THE CIRCLE PLOT ##
-		self.circle_fig,self.sorted_edges,self.sorted_adjdat,self.colormap=\
+		self.circle_fig,self.sorted_edges,self.sorted_adjdat,\
+			self.circ_node_colors=\
 			circ.plot_connectivity_circle2(
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
 			indices=self.edges.T,colormap="YlOrRd")
 		self.circ_data = self.circle_fig.get_axes()[0].patches
+
+		## SET UP COLORS AND COLORMAPS ##
+		self.yellow_map=get_cmap('YlOrRd')
+		self.cool_map=get_cmap('cool')
+
+		# reset_node_color() depends on the circle plot, but its purpose here
+		# is setting node color for the mayavi plot
+		self.reset_node_color()
 
 		## SET UP THE CALLBACKS (for mayavi and matplotlib) ##
 		pck = self.fig.on_mouse_pick(self.leftpick_callback)
@@ -211,7 +215,6 @@ class Cvu(CvuPlaceholder):
 			z=self.starts[:,2],u=self.vecs[:,0],v=self.vecs[:,1],
 			w=self.vecs[:,2])
 		self.myvectors.actor.property.opacity=.3
-		self.reset_node_color()
 		self.vectorsrc.outputs[0].update()
 		
 		self.txt.set(text='')
@@ -221,7 +224,7 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
 
 		#change data in circle plot
-		self.redraw_circ()
+		self.reset_node_color()
 
 	def display_node(self,n):
 		if n<0 or n>=self.nr_labels:
@@ -239,8 +242,8 @@ class Cvu(CvuPlaceholder):
 				self.edges[:,1])):
 			if n in [a,b]:
 				new_edges[e]=np.array(self.edges)[e]
-				if self.adjdat[e] > self.thres.lower_threshold and \
-						self.adjdat[e] < self.thres.upper_threshold:
+				if self.adjdat[e] >= self.thres.lower_threshold and \
+						self.adjdat[e] <= self.thres.upper_threshold:
 					count_edges+=1
 			else:
 				new_edges[e]=[0,0]
@@ -252,9 +255,7 @@ class Cvu(CvuPlaceholder):
 		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
 			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 		self.myvectors.actor.property.opacity=.75
-		self.reset_node_color()		
 		self.vectorsrc.outputs[0].update()
-		self.redraw_circ()		
 		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
 
 		#change data in chaco plot
@@ -262,6 +263,9 @@ class Cvu(CvuPlaceholder):
 		dat[n,:]=self.adj_thresdiag[n,:]
 		self.conn_mat.data.set_data("imagedata",dat)
 		#is resetting threshold desirable behavior?  probably not
+
+		#change data in circle plot
+		self.redraw_circ()
 
 	def leftpick_callback(self,picker):
 		if picker.actor in self.nodes.actor.actors:
@@ -282,7 +286,7 @@ class Cvu(CvuPlaceholder):
 		if event.button==3:
 			self.display_all()
 		elif event.button==1 and event.ydata>=7 and event.ydata<=8:
-			nod=self.nr_labels*event.xdata/(np.pi*2)+.np.pi/self.nr_labels
+			nod=self.nr_labels*event.xdata/(np.pi*2)+np.pi/self.nr_labels
 			#the formula for the correct node, assuming perfect clicking,
 			#is floor(n*theta/2pi).  however, matplotlib seems to not do great
 			#with this, the clicking is often too high, so i add this correction
@@ -299,14 +303,16 @@ class Cvu(CvuPlaceholder):
 		self.nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,
 			self.nr_labels)
 		mlab.draw()
-		#self.nodes.outputs[0].update()
+		for n in xrange(0,self.nr_labels,1):
+			self.circ_data[self.nr_edges+n].set_fc(self.circ_node_colors[n])
+		self.redraw_circ()	
 
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
 			[int(round(self.thresh*self.nr_edges))-1])
 		self.display_grouping()
-		self.redraw_circ()
+		#display grouping takes care of circle plot 
 
 	@on_trait_change('calc_mod_button')
 	def calc_modules(self):
@@ -361,7 +367,12 @@ class Cvu(CvuPlaceholder):
 		new_colors[module]=.8
 		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
 		mlab.draw()
-		#TODO display on circle plot
+		
+		#display on circle plot
+		for n in xrange(0,self.nr_labels,1):
+			self.circ_data[self.nr_edges+n].\
+				set_fc(self.cool_map(new_colors[n]))
+		self.redraw_circ()
 
 	@on_trait_change('group_by_strength')
 	def display_grouping(self):
@@ -389,18 +400,23 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
-		#TODO display on circle plot
+		self.redraw_circ()
 
 	def redraw_circ(self):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold
 		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
 				self.sorted_edges[1])):
-			if self.sorted_adjdat[e] < self.thres.upper_threshold and \
-					self.sorted_adjdat[e] > self.thres.lower_threshold and \
-					(self.curr_node==None or self.curr_node in [a,b]):
+			if self.sorted_adjdat[e] <= self.thres.upper_threshold and \
+					self.sorted_adjdat[e] >= self.thres.lower_threshold and \
+					(self.curr_node==None or self.curr_node in [a,b]) and \
+					(self.cur_module==None or (a in self.modules[self.\
+					cur_module] and b in self.modules[self.cur_module])):
 				self.circ_data[e].set_visible(True)
-				self.circ_data[e].set_ec(self.colormap((self.sorted_adjdat[e]-\
-					self.thres.lower_threshold)/vrange))
+				if self.myvectors.actor.mapper.scalar_visibility:
+					self.circ_data[e].set_ec(self.yellow_map((self.\
+						sorted_adjdat[e]-self.thres.lower_threshold)/vrange))
+				else:
+					self.circ_data[e].set_ec((1,1,1))
 			else:
 				self.circ_data[e].set_visible(False)
 		self.circle_fig.canvas.draw()
