@@ -14,19 +14,24 @@ from enthought.traits.ui.basic_editor_factory import BasicEditorFactory
 class _MPLFigureEditor(Editor):
 
 	scrollable = True
+	parent = Any
 	#canvas = Instance(FigureCanvasWxAgg)
 
 	def init(self,parent):
+		self.parent=parent
 		self.control=self._create_canvas(parent)
 		#self.set_tooltip()
 
 	def update_editor(self):
 		pass
+		#print 'morvunskar'
+		#self.reset_editor()
+		#self.control=self._create_canvas(self.parent)
 
 	def _create_canvas(self,parent):
 		#unsure if there is a way to avoid hard coding these function names
 		#obviously this is hacky and undesirable
-		fig=self.object.circle_fig
+		fig=self.object.circ_fig
 		panel=wx.Panel(parent,-1)
 		canvas=FigureCanvasWxAgg(panel,-1,fig)
 		sizer=wx.BoxSizer(wx.VERTICAL)

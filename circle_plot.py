@@ -19,7 +19,7 @@ import matplotlib.patches as m_patches
 def plot_connectivity_circle2(con, node_names, indices=None, n_lines=None,
 	node_angles=None, node_width=None,node_colors=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
-	vmin=None,vmax=None, colorbar=True, title=None):
+	vmin=None,vmax=None, colorbar=False, title=None,fig=None):
     """Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
@@ -124,10 +124,14 @@ The figure handle.
         colormap = pl.get_cmap(colormap)
 
     # Make figure background the same colors as axes
-    fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
-
-    # Use a polar axes
+    if fig==None:
+        fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
+        
+	# Use a polar axes
     axes = pl.subplot(111, polar=True, axisbg=facecolor)
+    #else:
+        # Use the first axis already in the figure
+        #axes = fig.get_axes()[0]
 
     # No ticks, we'll put our own
     pl.xticks([])
@@ -230,7 +234,7 @@ The figure handle.
     # Draw node labels
     angles_deg = 180 * node_angles / np.pi
     for name, angle_rad, angle_deg in zip(node_names, node_angles, angles_deg):
-        if angle_deg >= 270:
+        if angle_deg >= 270 or angle_deg < 90:
             ha = 'left'
         else:
             # Flip the label, so text is always upright
