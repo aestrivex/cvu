@@ -16,7 +16,7 @@ import matplotlib.patches as m_patches
 
 #credit largely goes to martin luessi who adapted this function to mne from
 #whoever wrote it originally which is listed in the docstring
-def plot_connectivity_circle2(con, node_names, indices=None, n_lines=None,
+def plot_connectivity_circle2(con, node_names, indices=None, n_lines=10000,
 	node_angles=None, node_width=None,node_colors=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
 	vmin=None,vmax=None, colorbar=False, title=None,fig=None):

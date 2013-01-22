@@ -4,9 +4,9 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_wxagg import *
 from matplotlib.backends.backend_wx import *
 
-from enthought.traits.api import *
-from enthought.traits.ui.wx.editor import Editor
-from enthought.traits.ui.basic_editor_factory import BasicEditorFactory
+from traits.api import *
+from traitsui.wx.editor import Editor
+from traitsui.basic_editor_factory import BasicEditorFactory
 
 #This code is extensively adapted from Gael Varoquax's example code for
 #hacking a traited matplotlib editor
