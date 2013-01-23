@@ -20,7 +20,7 @@ def plot_connectivity_circle2(con, node_names, indices=None, n_lines=10000,
 	node_angles=None, node_width=None,node_colors=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
 	vmin=None,vmax=None, colorbar=False, title=None,fig=None):
-    """Visualize connectivity as a circular graph.
+	"""Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
 http://www.loria.fr/~rougier/coding/recipes.html
@@ -81,183 +81,184 @@ fig : instance of pyplot.Figure
 The figure handle.
 """
 
-    n_nodes = len(node_names)
+	n_nodes = len(node_names)
 
-    if node_angles is not None:
-        if len(node_angles) != n_nodes:
-            raise ValueError('node_angles has to be the same length '
-                             'as node_names')
-        # convert it to radians
-        node_angles = node_angles * np.pi / 180
-    else:
-        # uniform layout on unit circle
-        node_angles = np.linspace(0, 2 * np.pi, n_nodes, endpoint=False)
+	if node_angles is not None:
+		if len(node_angles) != n_nodes:
+			raise ValueError('node_angles has to be the same length '
+							 'as node_names')
+		# convert it to radians
+		node_angles = node_angles * np.pi / 180
+	else:
+		# uniform layout on unit circle
+		node_angles = np.linspace(0, 2 * np.pi, n_nodes, endpoint=False)
 
-    if node_width is None:
-        node_width = 2 * np.pi / n_nodes
-    else:
-        node_width = node_width * np.pi / 180
+	if node_width is None:
+		node_width = 2 * np.pi / n_nodes
+	else:
+		node_width = node_width * np.pi / 180
 
-    if node_colors is not None:
-        if len(node_colors) < n_nodes:
-            node_colors = cycle(node_colors)
-    else:
-        # assign colors using colormap
-        node_colors = [pl.cm.spectral(i / float(n_nodes))
-                       for i in range(n_nodes)]
+	if node_colors is not None:
+		if len(node_colors) < n_nodes:
+			node_colors = cycle(node_colors)
+	else:
+		# assign colors using colormap
+		node_colors = [pl.cm.spectral(i / float(n_nodes))
+					   for i in range(n_nodes)]
 
-    # handle 1D and 2D connectivity information
-    if con.ndim == 1:
-        if indices is None:
-            raise ValueError('indices has to be provided if con.ndim == 1')
-    elif con.ndim == 2:
-        if con.shape[0] != n_nodes or con.shape[1] != n_nodes:
-            raise ValueError('con has to be 1D or a square matrix')
-        # we use the lower-triangular part
-        indices = tril_indices(n_nodes, -1)
-        con = con[indices]
-    else:
-        raise ValueError('con has to be 1D or a square matrix')
+	# handle 1D and 2D connectivity information
+	if con.ndim == 1:
+		if indices is None:
+			raise ValueError('indices has to be provided if con.ndim == 1')
+	elif con.ndim == 2:
+		if con.shape[0] != n_nodes or con.shape[1] != n_nodes:
+			raise ValueError('con has to be 1D or a square matrix')
+		# we use the lower-triangular part
+		indices = tril_indices(n_nodes, -1)
+		con = con[indices]
+	else:
+		raise ValueError('con has to be 1D or a square matrix')
 
-    # get the colormap
-    if isinstance(colormap, basestring):
-        colormap = pl.get_cmap(colormap)
+	# get the colormap
+	if isinstance(colormap, basestring):
+		colormap = pl.get_cmap(colormap)
 
-    # Make figure background the same colors as axes
-    if fig==None:
-        fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
-        
+	# Make figure background the same colors as axes
+	if fig==None:
+		fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
+		
 	# Use a polar axes
-    axes = pl.subplot(111, polar=True, axisbg=facecolor)
-    #else:
-        # Use the first axis already in the figure
-        #axes = fig.get_axes()[0]
+	axes = pl.subplot(111, polar=True, axisbg=facecolor)
+	#else:
+		# Use the first axis already in the figure
+		#axes = fig.get_axes()[0]
 
-    # No ticks, we'll put our own
-    pl.xticks([])
-    pl.yticks([])
+	# No ticks, we'll put our own
+	pl.xticks([])
+	pl.yticks([])
 
-    # Set y axes limit
-    pl.ylim(0, 8)
+	# Set y axes limit
+	pl.ylim(0, 8)
 
-    # Draw lines between connected nodes, only draw the strongest connections
-    if n_lines is not None and len(con) > n_lines:
-        con_thresh = np.sort(np.abs(con).ravel())[-n_lines]
-    else:
-        con_thresh = 0.
+	# Draw lines between connected nodes, only draw the strongest connections
+	if n_lines is not None and len(con) > n_lines:
+		con_thresh = np.sort(np.abs(con).ravel())[-n_lines]
+	else:
+		con_thresh = 0.
 
-    # get the connections which we are drawing and sort by connection strength
-    # this will allow us to draw the strongest connections first
-    con_abs = np.abs(con)
-    con_draw_idx = np.where(con_abs >= con_thresh)[0]
+	# get the connections which we are drawing and sort by connection strength
+	# this will allow us to draw the strongest connections first
+	con_abs = np.abs(con)
+	con_draw_idx = np.where(con_abs >= con_thresh)[0]
 
-    con = con[con_draw_idx]
-    con_abs = con_abs[con_draw_idx]
-    indices = [ind[con_draw_idx] for ind in indices]
+	con = con[con_draw_idx]
+	con_abs = con_abs[con_draw_idx]
+	indices = [ind[con_draw_idx] for ind in indices]
 
-    # now sort them
-    sort_idx = np.argsort(con_abs)
-    con_abs = con_abs[sort_idx]
-    con = con[sort_idx]
-    indices = [ind[sort_idx] for ind in indices]
+	# now sort them
+	sort_idx = np.argsort(con_abs)
+	con_abs = con_abs[sort_idx]
+	con = con[sort_idx]
+	indices = [ind[sort_idx] for ind in indices]
 
-    # Get vmin vmax for color scaling
-    if vmin is None:
-        vmin = np.min(con[np.abs(con) >= con_thresh])
-    if vmax is None:
-        vmax = np.max(con)
-    vrange = vmax - vmin
+	# Get vmin vmax for color scaling
+	if vmin is None:
+		vmin = np.min(con[np.abs(con) >= con_thresh])
+	if vmax is None:
+		vmax = np.max(con)
+	vrange = vmax - vmin
 
-    # We want o add some "noise" to the start and end position of the
-    # edges: We modulate the noise with the number of connections of the
-    # node and the connection strength, such that the strongest connections
-    # are closer to the node center
-    nodes_n_con = np.zeros((n_nodes), dtype=np.int)
-    for i, j in zip(indices[0], indices[1]):
-        nodes_n_con[i] += 1
-        nodes_n_con[j] += 1
+	# We want o add some "noise" to the start and end position of the
+	# edges: We modulate the noise with the number of connections of the
+	# node and the connection strength, such that the strongest connections
+	# are closer to the node center
+	nodes_n_con = np.zeros((n_nodes), dtype=np.int)
+	for i, j in zip(indices[0], indices[1]):
+		nodes_n_con[i] += 1
+		nodes_n_con[j] += 1
 
-    # initalize random number generator so plot is reproducible
-    rng = np.random.mtrand.RandomState(seed=0)
+	# initalize random number generator so plot is reproducible
+	rng = np.random.mtrand.RandomState(seed=0)
 
-    n_con = len(indices[0])
-    noise_max = 0.25 * node_width
-    start_noise = rng.uniform(-noise_max, noise_max, n_con)
-    end_noise = rng.uniform(-noise_max, noise_max, n_con)
+	n_con = len(indices[0])
+	noise_max = 0.25 * node_width
+	start_noise = rng.uniform(-noise_max, noise_max, n_con)
+	end_noise = rng.uniform(-noise_max, noise_max, n_con)
 
-    nodes_n_con_seen = np.zeros_like(nodes_n_con)
-    for i, (start, end) in enumerate(zip(indices[0], indices[1])):
-        nodes_n_con_seen[start] += 1
-        nodes_n_con_seen[end] += 1
+	nodes_n_con_seen = np.zeros_like(nodes_n_con)
+	for i, (start, end) in enumerate(zip(indices[0], indices[1])):
+		nodes_n_con_seen[start] += 1
+		nodes_n_con_seen[end] += 1
 
-        start_noise[i] *= ((nodes_n_con[start] - nodes_n_con_seen[start])
-                           / float(nodes_n_con[start]))
-        end_noise[i] *= ((nodes_n_con[end] - nodes_n_con_seen[end])
-                         / float(nodes_n_con[end]))
+		start_noise[i] *= ((nodes_n_con[start] - nodes_n_con_seen[start])
+						   / float(nodes_n_con[start]))
+		end_noise[i] *= ((nodes_n_con[end] - nodes_n_con_seen[end])
+						 / float(nodes_n_con[end]))
 
-    # scale connectivity for colormap (vmin<=>0, vmax<=>1)
-    con_val_scaled = (con - vmin) / vrange
+	# scale connectivity for colormap (vmin<=>0, vmax<=>1)
+	con_val_scaled = (con - vmin) / vrange
 
-    # Finally, we draw the connections
-    for pos, (i, j) in enumerate(zip(indices[0], indices[1])):
-        # Start point
-        t0, r0 = node_angles[i], 7.5
+	# Finally, we draw the connections
+	for pos, (i, j) in enumerate(zip(indices[0], indices[1])):
+		# Start point
+		t0, r0 = node_angles[i], 7.5
 
-        # End point
-        t1, r1 = node_angles[j], 7.5
+		# End point
+		t1, r1 = node_angles[j], 7.5
 
-        # Some noise in start and end point
-        t0 += start_noise[pos]
-        t1 += end_noise[pos]
+		# Some noise in start and end point
+		t0 += start_noise[pos]
+		t1 += end_noise[pos]
 
-        verts = [(t0, r0), (t0, 5), (t1, 5), (t1, r1)]
-        codes = [m_path.Path.MOVETO, m_path.Path.CURVE4, m_path.Path.CURVE4,
-                 m_path.Path.LINETO]
-        path = m_path.Path(verts, codes)
+		verts = [(t0, r0), (t0, 5), (t1, 5), (t1, r1)]
+		codes = [m_path.Path.MOVETO, m_path.Path.CURVE4, m_path.Path.CURVE4,
+				 m_path.Path.LINETO]
+		path = m_path.Path(verts, codes)
 
-        color = colormap(con_val_scaled[pos])
+		color = colormap(con_val_scaled[pos])
 
-        # Actual line
-        patch = m_patches.PathPatch(path, fill=False, edgecolor=color,
-                                    linewidth=linewidth, alpha=1.)
-        axes.add_patch(patch)
+		# Actual line
+		patch = m_patches.PathPatch(path, fill=False, edgecolor=color,
+									linewidth=linewidth, alpha=1.)
+		axes.add_patch(patch)
 
-    # Draw ring with colored nodes
-    radii = np.ones(n_nodes) * 8
-    bars = axes.bar(node_angles, radii, width=node_width, bottom=7,
-                    edgecolor=node_edgecolor, lw=2, facecolor='.9',
-                    align='center',zorder=10)
+	# Draw ring with colored nodes
+	radii = np.ones(n_nodes) * 8
+	bars = axes.bar(node_angles, radii, width=node_width, bottom=7,
+					edgecolor=node_edgecolor, linewidth=0, facecolor='.9',
+					align='center',zorder=10)
 
-    for bar, color in zip(bars, node_colors):
-        bar.set_facecolor(color)
+	for bar, color in zip(bars, node_colors):
+		bar.set_facecolor(color)
 
-    # Draw node labels
-    angles_deg = 180 * node_angles / np.pi
-    for name, angle_rad, angle_deg in zip(node_names, node_angles, angles_deg):
-        if angle_deg >= 270 or angle_deg < 90:
-            ha = 'left'
-        else:
-            # Flip the label, so text is always upright
-            angle_deg += 180
-            ha = 'right'
+	# Draw node labels
+	angles_deg = 180 * node_angles / np.pi
+	for name, angle_rad, angle_deg in zip(node_names, node_angles, angles_deg):
+		if angle_deg >= 270 or angle_deg < 90:
+			ha = 'left'
+		else:
+			# Flip the label, so text is always upright
+			angle_deg += 180
+			ha = 'right'
 
-        pl.text(angle_rad, 8.4, name, size=10, rotation=angle_deg,
-                rotation_mode='anchor', horizontalalignment=ha,
-                verticalalignment='center', color=textcolor)
+		if not name[-1].isdigit() or (name[-1]=='1' and not name[-2].isdigit()):
+			pl.text(angle_rad, 8.4, name, size=10, rotation=angle_deg,
+					rotation_mode='anchor', horizontalalignment=ha,
+					verticalalignment='center', color=textcolor)
 
-    if title is not None:
-        pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.75)
-        pl.figtext(0.03, 0.95, title, color=textcolor, fontsize=14)
-    else:
-        pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.8)
+	if title is not None:
+		pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.75)
+		pl.figtext(0.03, 0.95, title, color=textcolor, fontsize=14)
+	else:
+		pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.8)
 
-    if colorbar:
-        sm = pl.cm.ScalarMappable(cmap=colormap,
-                                  norm=pl.normalize(vmin=vmin, vmax=vmax))
-        sm.set_array(np.linspace(vmin, vmax))
-        ax = fig.add_axes([.92, 0.03, .015, .25])
-        cb = fig.colorbar(sm, cax=ax)
-        cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
-        pl.setp(cb_yticks, color=textcolor)
+	if colorbar:
+		sm = pl.cm.ScalarMappable(cmap=colormap,
+								  norm=pl.normalize(vmin=vmin, vmax=vmax))
+		sm.set_array(np.linspace(vmin, vmax))
+		ax = fig.add_axes([.92, 0.03, .015, .25])
+		cb = fig.colorbar(sm, cax=ax)
+		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
+		pl.setp(cb_yticks, color=textcolor)
 	
-    return fig,indices,con,node_colors
+	return fig,indices,con,node_colors

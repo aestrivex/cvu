@@ -2,7 +2,7 @@ quiet=True
 import cvu_utils as util
 if __name__=="__main__":
 	import sys
-	args=util.cli_args(sys.argv[:1])
+	args=util.cli_args(sys.argv[1:])
 	quiet=args['quiet']
 if not quiet:
 	print "Importing libraries"
@@ -11,8 +11,11 @@ from mayavi import mlab;
 import os; 
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
-from chaco.api import *; from enable.component_editor import ComponentEditor
-from chaco.tools.api import *
+from chaco.api import Plot,ArrayPlotData,YlOrRd; 
+from enable.component_editor import ComponentEditor
+from chaco.tools.api import ZoomTool,PanTool
+#from chaco.tools.pan_tool2 import PanTool
+from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
 import circle_plot as circ; import mpleditor
 if __name__=="__main__":
@@ -21,20 +24,39 @@ if __name__=="__main__":
 class CvuPlaceholder(HasTraits):
 	conn_mat = Instance(Plot)
 
-class ConnmatPointSelector(SelectTool):
+class ConnmatPanClickTool(PanTool):
 	cvu=Instance(CvuPlaceholder)
 
+	event_state=Enum("normal","deciding","panning")
+	drag_pointer=Pointer("arrow")
+
 	def __init__(self,holder,*args,**kwargs):
-		super(SelectTool,self).__init__(*args,**kwargs)
-		self.selection_mode='single'
-		self.cvu=holder
+		super(PanTool,self).__init__(**kwargs)
+		self.cvu=holder	
+		#there is some weird problem with component not being set in super().super()
+		self.component=self.cvu.conn_mat
+		
+	def normal_left_down(self,event):
+		self.event_state='deciding'
+		self._original_xy=(event.x,event.y)
+		return
 
-	def _get_selection_state(self,event):
-		return (False,True)
+	def normal_right_down(self,event):
+		self.cvu.display_all()
 
-	def _select(self,token,append):
-		x,y=self.cvu.conn_mat.map_data((token.x,token.y))
-		cvu.display_node(int(np.floor(y)))
+	# the click is a node selection
+	def deciding_left_up(self,event):
+		self.event_state='normal'
+		x,y=self.cvu.conn_mat.map_data((event.x,event.y))
+		self.cvu.display_node(int(np.floor(y)))
+		return
+
+	# the click is a pan
+	# the only thing of real interest in _start_pan() is change to the panning state
+	def deciding_mouse_move(self,event):
+		self.event_state='panning'
+		return self.panning_mouse_move(event)
+		
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
@@ -106,7 +128,7 @@ class Cvu(CvuPlaceholder):
 					),
 				),
 			),
-			resizable=True)
+			resizable=True,title="Connectome Visualization Utility")
 
 	## INITIALIZE THE CVU OBJECT ##
 	# args are in order pos,adj,names,srfinfo,datainfo
@@ -149,9 +171,8 @@ class Cvu(CvuPlaceholder):
 		# plot's color scheme is not completely messed up
 		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
 		self.conn_mat.img_plot("imagedata",name='conmatplot',colormap=YlOrRd)
-		self.conn_mat.tools.append(PanTool(self.conn_mat,drag_button="right"))
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
-		self.conn_mat.tools.append(ConnmatPointSelector(self,self.conn_mat))
+		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.conn_mat.x_axis.set(visible=False)
 		self.conn_mat.x_grid.set(visible=False)
 		self.conn_mat.y_axis.set(visible=False)
@@ -325,7 +346,7 @@ class Cvu(CvuPlaceholder):
 			return
 		if len(adj) != self.nr_labels:
 			util.error_dialog('The adjacency matrix you added corresponds to a '
-				' different parcellation.  Update the parcellation first.\n\n'
+				' different parcellation.  Update the parcellation first.\n'
 				'Note this check only examines matrix size, you are responsible'
 				' for correctly aligning the matrix with its labels')
 			return
@@ -433,8 +454,8 @@ class Cvu(CvuPlaceholder):
 		new_color_arr=self.cool_map(new_colors)
 		circ_path_offset=len(self.sorted_adjdat)
 		for n in xrange(0,self.nr_labels,1):
-			#self.circ_data[circ_path_offset+n].set_fc(new_color_arr[n,:])
-			self.circ_data[circ_path_offset+n].set_ec(new_color_arr[n,:])
+			self.circ_data[circ_path_offset+n].set_fc(new_color_arr[n,:])
+			#self.circ_data[circ_path_offset+n].set_ec(new_color_arr[n,:])
 		self.redraw_circ()
 
 	def display_grouping(self):
@@ -620,8 +641,9 @@ class Cvu(CvuPlaceholder):
 		#is variable dependent on the data, but we can inspect a variable to find it
 		circ_path_offset=len(self.sorted_adjdat)
 		for n in xrange(0,self.nr_labels,1):
-			#self.circ_data[circ_path_offset+n].set_fc(self.circ_node_colors[n])
-			self.circ_data[circ_path_offset+n].set_ec(self.circ_node_colors[n])
+			self.circ_data[circ_path_offset+n].set_fc(self.circ_node_colors[n])
+			#self.circ_data[circ_path_offset+n].set_fc((0,0,0))
+			#self.circ_data[circ_path_offset+n].set_ec(self.circ_node_colors[n])
 	
 	def redraw_circ(self):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold

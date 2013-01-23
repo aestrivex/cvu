@@ -39,7 +39,7 @@ def loadmat(fname,field=None):
 		mat = np.load(fname)
 	else:
 		raise IOError('File type not understood.  Only supported matrix'
-			'formats are matlab and numpy.  File extensions not optional.')
+			' formats are matlab and numpy.  File extensions not optional.')
 	return mat
 
 def read_parcellation_textfile(fname):
@@ -54,7 +54,7 @@ def read_parcellation_textfile(fname):
 
 def loadannot(p,subj,subjdir):
 	import mne
-	annot=mne.labels_from_parc(parc=p,subject=subj,
+	annot=mne.labels_from_parc(parc=p,subject=subj,#surf_name='pial'
 		subjects_dir=subjdir,verbose=False)
 	return annot
 
@@ -218,18 +218,19 @@ def error_dialog(message="Error!"):
 	ErrorDialogWindow().edit_traits()
 
 def usage():
-	print 'Command line arguments are as follows:\n'
-	'\t -p greg.gii --parc=greg: loads the annotations *h.greg.annot\n'
-	'\t -a greg.mat --adjmat=greg.mat: loads an adjacency matrix\n'
-	'\t -d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'
-	'\t -s greg --surf=greg: loads the surface *h.greg\n'
-	'\t -o greg.txt --order=greg.txt: loads text file with label order\n'
-	'\t --surf-type=pial: specifies type of surface\n'
-	'\t -q: specifies quiet flag\n'
-	'\t -v: specifies verbose flag (currently does nothing)\n'
-	'\t --use-greg: uses the "greg" method for graph partitioning.  valid '
-	'choices are: --use-spectral, --use-metis\n'
-	'\t -h --help: display this help'
+	print 'Command line arguments are as follows:\n'+\
+		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'+\
+		'-a greg.mat --adjmat=greg.mat: location of adjacency matrix\n'+\
+		'-d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'+\
+		'-s greg --surf=greg: loads the surface *h.greg\n'+\
+		'-o greg.txt --order=greg.txt: loads text file with label order\n'+\
+		'--surf-type=pial: specifies type of surface.  pial is used by '+\
+		'default\n'+\
+		'-q: specifies quiet flag\n'+\
+		'-v: specifies verbose flag (currently does nothing)\n'+\
+		'--use-greg: uses the "greg" method for graph partitioning.  valid '+\
+		'choices are: --use-spectral, --use-metis\n'+\
+		'-h --help: display this help'
 	exit(78)
 
 def cli_args(argv,):
@@ -243,7 +244,7 @@ def cli_args(argv,):
 			"surf=","order=","surf-type=","parcdir=","use-metis",
 			"use-spectral","help","field=","subjects-dir=","subject="])
 	except getopt.GetoptError as e:
-		print "Argument %s not found" % str(e)
+		print "Argument %s" % str(e)
 		usage()
 	for opt,arg in opts:
 		if opt in ["-p","--parc"]:
@@ -289,7 +290,7 @@ def cli_args(argv,):
 	if modality in ["fmri","dti"]:
 		raise Exception('Modality %s is not yet supported' % modality)
 	if not surftype:
-		surftype='white'
+		surftype='pial'
 	if not subject:
 		subject='fsavg5'
 	if not partitiontype:
