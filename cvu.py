@@ -498,20 +498,13 @@ class Cvu(CvuPlaceholder):
 	def rightpick_callback(self,picker):
 		self.display_all()
 
-	def circ_click(self,event):
-		#this event has xdata and ydata in reverse polar coordinates (theta,r)
-		#do some algebra to figure out which ROI based on the angle
+	def circ_click(self,event,mpledit):
 		if not quiet:
 			print 'button=%d,x=%d,y=%d,xdata=%s,ydata=%s'%(event.button,event.x,
 				event.y,str(event.xdata),str(event.ydata))
-		if event.button==3:
-			self.display_all()
-		elif event.button==1 and event.ydata>=7 and event.ydata<=8:
-			nod=self.nr_labels*event.xdata/(np.pi*2)+np.pi/self.nr_labels
-			#the formula for the correct node, assuming perfect clicking,
-			#is floor(n*theta/2pi).  however, matplotlib seems to not do great
-			#with this, the clicking is often too high, so i add this correction
-			self.display_node(int(np.floor(nod)))
+		# in principle all the clicking logic would be done here, but i felt
+		# this file was cluttered enough
+		mpledit._process_circ_click(event,self)
 
 	## TRAITS-DRIVEN INTERACTIONS ##
 	@on_trait_change('thresh')
