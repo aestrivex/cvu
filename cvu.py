@@ -142,6 +142,7 @@ class Cvu(CvuPlaceholder):
 		self.dataloc=args[4][0]
 		self.modality=args[4][1]
 		self.partitiontype=args[4][2]
+		self.soft_max_edges=args[4][3]
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
@@ -210,7 +211,7 @@ class Cvu(CvuPlaceholder):
 				i+=1
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
-
+	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
 		self.adjdat = np.zeros((self.nr_edges,1),dtype=float)
@@ -222,6 +223,18 @@ class Cvu(CvuPlaceholder):
 		self.adj_thresdiag=self.adj_nulldiag.copy()
 		self.adj_thresdiag[np.nonzero(self.adj_thresdiag==0)]=\
 			np.min(self.adj_thresdiag[np.nonzero(self.adj_thresdiag)])
+
+		#remove all but the soft_max_edges largest connections
+		if self.nr_edges > self.soft_max_edges:
+			cutoff = sorted(self.adjdat)[self.nr_edges-self.soft_max_edges-1]
+			zi = np.nonzero(self.adjdat>=cutoff)
+
+			self.starts=self.starts[zi[0],:]
+			self.vecs=self.vecs[zi[0],:]
+			self.edges=self.edges[zi[0],:]
+			self.adjdat=self.adjdat[zi[0]]
+			
+			self.nr_edges=len(self.adjdat)
 
 	# this one is intended only for displaying individuals other than fsaverage
 	# not necessary for now
@@ -298,7 +311,8 @@ class Cvu(CvuPlaceholder):
 			self.circ_node_colors=\
 			circ.plot_connectivity_circle2(
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
-			indices=self.edges.T,colormap="YlOrRd",fig=figure)
+			indices=self.edges.T,colormap="YlOrRd",fig=figure,
+			n_lines=self.soft_max_edges)
 		if figure==None or True:
 			self.circ_fig=fig_holdr
 		self.circ_data = self.circ_fig.get_axes()[0].patches
@@ -678,7 +692,8 @@ def preproc():
 	lab_pos=util.calcparc(labv,labnam,quiet)
 
 	# Package dataloc and modality into tuple for passing
-	datainfo =(args['dataloc'],args['modality'],args['partitiontype'])
+	datainfo =(args['dataloc'],args['modality'],args['partitiontype'],
+		args['maxedges'])
 
 	# Return tuple with summary required data
 	return lab_pos,adj,labnam,surf_struct,datainfo

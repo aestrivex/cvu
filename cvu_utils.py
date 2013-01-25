@@ -40,6 +40,7 @@ def loadmat(fname,field=None):
 	else:
 		raise IOError('File type not understood.  Only supported matrix'
 			' formats are matlab and numpy.  File extensions not optional.')
+		return
 	return mat
 
 def read_parcellation_textfile(fname):
@@ -164,7 +165,8 @@ def fancy_file_chooser(main_window):
 			Item(name='_fn',show_label=False),
 			Item(name='f',editor=FileEditor(),style='custom',
 				height=500,width=500,show_label=False),
-			buttons=OKCancelButtons,kind='nonmodal')
+			buttons=OKCancelButtons,kind='nonmodal',
+			title="This should be extremely inconvenient")
 
 		@on_trait_change('_fn')
 		def f_chg(self):
@@ -187,6 +189,9 @@ def parcellation_chooser(main_window):
 			main_window.parc_chooser_window_finished=is_ok
 
 	class ParcellationChooserWindow(HasTraits):
+		Please_note=Str('Unless you are specifically interested in the'
+			' morphology of an individual subject, it is recommended to use'
+			' fsaverage5 and leave the first two fields alone.')
 		SUBJECTS_DIR=Directory('./')
 		SUBJECT=Str('fsavg5')
 		#label_ord=File('order_sparc')
@@ -195,12 +200,14 @@ def parcellation_chooser(main_window):
 
 		traits_view=View(
 			Group(
+				Item(name='Please_note',style='readonly',height=85,width=250),
 				Item(name='SUBJECT'),
+				Item(name='SUBJECTS_DIR'),
 				Item(name='parcellation',label='Parcellation'),
 				Item(name='label_ord',label='Label Order'),
-				Item(name='SUBJECTS_DIR')
 			), kind='nonmodal',buttons=OKCancelButtons,
-				handler=ParcellationChooserWindowHandler())
+				handler=ParcellationChooserWindowHandler(),
+				title="This should not be particularly convenient",)
 		
 	ParcellationChooserWindow().edit_traits()
 
@@ -210,8 +217,10 @@ def error_dialog(message="Error!"):
 
 	class ErrorDialogWindow(HasTraits):
 		error=Str
-		traits_view=View(Item(name='error',editor=TextEditor(),style='readonly'),
-			buttons=[OKButton],kind='nonmodal')
+		traits_view=View(Item(name='error',editor=TextEditor(),
+			style='readonly'),
+			buttons=[OKButton],kind='nonmodal',
+			title='This should be convenient, but only slightly',)
 		def _error_default(self):
 			return message
 
@@ -236,13 +245,14 @@ def usage():
 def cli_args(argv,):
 	import getopt; import os
 	subjdir=None;adjmat=None;parc=None;parcfile=None;surftype=None;
-	field=None;
-	dataloc=None;modality=None;partitiontype=None;subject=None;quiet=False
+	field=None;dataloc=None;modality=None;partitiontype=None;
+	subject=None;maxedges=None;quiet=False
 	try:
 		opts,args=getopt.getopt(argv,'p:a:s:o:qd:hvf:',
 			["parc=","adjmat=","adj=","modality=","data=","datadir="\
 			"surf=","order=","surf-type=","parcdir=","use-metis",
-			"use-spectral","help","field=","subjects-dir=","subject="])
+			"use-spectral","help","field=","subjects-dir=","subject=",
+			"max-edges="])
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
@@ -273,6 +283,8 @@ def cli_args(argv,):
 			usage()
 		elif opt in ["-f","--field"]:
 			field=arg
+		elif opt in ["--max-edges"]:
+			maxedges=arg
 	if not subjdir:
 		subjdir = './'
 	if not adjmat:
@@ -297,6 +309,8 @@ def cli_args(argv,):
 		partitiontype="metis"
 	if not field:
 		field="adj_matrices"
+	if not maxedges:
+		maxedges=20000
 	if not os.path.isfile(parcfile):
 		raise Exception('Channel names not found')
 	if not os.path.isfile(adjmat):
@@ -306,4 +320,4 @@ def cli_args(argv,):
 	return {'parc':parc,'adjmat':adjmat,'parcfile':parcfile,'modality':modality\
 		,'surftype':surftype,'partitiontype':partitiontype,'quiet':quiet,\
 		'dataloc':dataloc,'field':field,'subjdir':subjdir,\
-		'subject':subject}
+		'subject':subject,'maxedges':maxedges}

@@ -45,8 +45,8 @@ class _MPLFigureEditor(Editor):
 		#toolbar.Realize()
 		#sizer.Add(toolbar,0,wx.EXPAND|wx.ALL,1)
 		panel.SetSizer(sizer)
-		#self.canvas.mpl_connect('button_press_event',
-		#	lambda ev:self.object.circ_click(ev,self))
+		self.canvas.mpl_connect('button_press_event',
+			lambda ev:self.object.circ_click(ev,self))
 		return panel
 
 	def _process_circ_click(self,event,cvu):
