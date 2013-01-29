@@ -63,6 +63,7 @@ class Cvu(CvuPlaceholder):
 	circ_fig = Instance(Figure,())
 	group_by_strength = Enum('all','strong','medium','weak')
 	thresh = Range(0.0,1.0,.95)
+	surface_visibility = Range(0.0,1.0,.15)
 	up_node_button = Button('^')
 	down_node_button = Button('v')
 	all_node_button = Button('all')
@@ -121,6 +122,7 @@ class Cvu(CvuPlaceholder):
 							Item(name='group_by_strength',show_label=False),
 						),
 						Item(name='thresh'),
+						Item(name='surface_visibility'),
 						HSplit(
 							Item(name='python_shell',editor=ShellEditor(),
 							show_label=False),
@@ -247,11 +249,11 @@ class Cvu(CvuPlaceholder):
 
 	def surfs_gen(self):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
-			self.srf[0][:,2],self.srf[1],opacity=.15,color=(.4,.75,0),
-			name='syrfl')
+			self.srf[0][:,2],self.srf[1],opacity=self.surface_visibility,
+			color=(.4,.75,0),name='syrfl')
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
-			self.srf[2][:,2],self.srf[3],opacity=.15,color=(.4,.75,0),
-			name='syrfr')
+			self.srf[2][:,2],self.srf[3],opacity=self.surface_visibility,
+			color=(.4,.75,0),name='syrfr')
 
 	def nodes_clear(self):
 		try:
@@ -527,6 +529,11 @@ class Cvu(CvuPlaceholder):
 			[int(round(self.thresh*self.nr_edges))-1])
 		self.display_grouping()
 		#display grouping takes care of circle plot 
+
+	@on_trait_change('surface_visibility')
+	def chg_syrf_vis(self):
+		self.syrf_lh.actor.property.set(opacity=self.surface_visibility)
+		self.syrf_rh.actor.property.set(opacity=self.surface_visibility)
 
 	@on_trait_change('calc_mod_button')
 	def calc_modules(self):
