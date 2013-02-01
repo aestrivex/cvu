@@ -76,6 +76,7 @@ class Cvu(CvuPlaceholder):
 	load_what = Enum(None,'adjmat','labelnames','surface')
 	curr_node = Trait(None,None,Int)
 	cur_module = Trait(None,None,Int)
+	prune_modules = Bool
 	extra_button = Button('clickme')
 	file_chooser_window = Instance(HasTraits)
 	parc_chooser_window_finished = Bool
@@ -111,7 +112,6 @@ class Cvu(CvuPlaceholder):
 							Item(name='load_parc_button',show_label=False),
 							Item(name='load_adjmat_button',show_label=False),
 							Item(name='load_surface_button',show_label=False),
-							
 						),
 						HSplit(
 							Item(name='calc_mod_button',show_label=False),
@@ -120,6 +120,7 @@ class Cvu(CvuPlaceholder):
 						),
 						HSplit(
 							Item(name='group_by_strength',show_label=False),
+							Item(name='prune_modules'),
 						),
 						Item(name='thresh'),
 						Item(name='surface_visibility'),
@@ -396,6 +397,7 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
 
 		#change data in circle plot
+		self.reset_node_color_mayavi()
 		self.reset_node_color_circ()
 		self.redraw_circ()
 
@@ -541,8 +543,8 @@ class Cvu(CvuPlaceholder):
 		if self.partitiontype=="metis":
 			self.modules=modularity.use_metis(self.adj_nulldiag)
 		elif self.partitiontype=="spectral":
-			g = modularity.SpectralPartitioner(self.adj_nulldiag)
-			self.modules=g.partition()
+			self.modules=modularity.spectral_partition(self.adj_nulldiag,
+				delete_extras=self.prune_modules)
 		else:
 			raise Exception("Partition type %s not found" % self.partitiontype)
 		self.display_all()

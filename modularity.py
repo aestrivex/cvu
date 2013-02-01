@@ -1,22 +1,31 @@
 import numpy as np
 import scipy.linalg as lin
 
-threshold_p=.1
-nr_modules=8
-
-def threshold_prop(adjmat):
+def threshold_prop(adjmat,threshold_p,delete_extras=False):
 	adjmat=np.triu(adjmat)
 	asort = np.sort(adjmat.ravel())
 	cutoff = asort[int((1-threshold_p/2)*len(asort))]
 	adjmat[adjmat<cutoff]=0
 	adjmat=adjmat+adjmat.transpose()
-	return adjmat
 
-def use_metis(adjmat):
+	#delete any rows for which all the data has been removed
+	if delete_extras:
+		deleters=np.nonzero(np.sum(adjmat,axis=1)==0)[0]
+		adjmat=np.delete(adjmat,deleters,axis=0)
+		adjmat=np.delete(adjmat,deleters,axis=1)
+		print len(deleters)
+		print "%i nodes were deleted from the graph due to null connections" % \
+			len(deleters)
+	else:
+		deleters=np.array(())
+
+	return adjmat,deleters
+
+def use_metis(adjmat,threshold_p=.3,nr_modules=8):
 	#just make a call to metis asking to partition this graph
 	import networkx as nx
 	import metis
-	adjmat=threshold_prop(adjmat)
+	adjmat=threshold_prop(adjmat,threshold_p)
 	g=nx.Graph(adjmat)
 	objval,parts=metis.part_graph(g,nr_modules)
 	ret=[]
@@ -24,8 +33,94 @@ def use_metis(adjmat):
 		ret.append(np.array(np.nonzero(np.array(parts)==i)))
 	return ret
 
-class SpectralPartitioner():
+def spectral_partition(adjmat,threshold_p=.3,delete_extras=False):
+	#pythonization of brain connectivity toolkit
+	print delete_extras
+	adjmat,deleters=threshold_prop(adjmat,threshold_p,
+		delete_extras=delete_extras)
+	nr_nodes=len(adjmat)
+	permutation=np.array(range(0,nr_nodes,1))
+	#permutation=np.random.permutation(nr_nodes)
+	#adjmat=adjmat[permutation][:,permutation]
 
+	k=np.sum(adjmat,axis=0)
+	nr_edges=np.sum(k)
+	init_modmat=adjmat-np.outer(k,k)/(1.0*nr_edges)
+
+	modules = []
+
+	def recur(module):
+		modmat=init_modmat[module][:,module]
+		n=len(modmat)	
+
+		d,v=lin.eig(modmat)
+		i=np.nonzero(d==np.max(d))[0]
+		print i
+		max_eigvec=v[i]
+
+		mod_asgn=(max_eigvec>0)*2-1
+		mod_asgn=mod_asgn.T		#make equations prettier by aligning s
+		q=np.dot(mod_asgn.T,np.dot(modmat,mod_asgn))[0][0]
+		print q
+		if q>0:		# change in modularity was positive
+			qmax=q
+			modmat=modmat-np.diag(np.diag(modmat))
+			it=np.ones((n,1))
+			mod_asgn_iter=mod_asgn.copy()
+			while np.any(it): # make some iterative fine tuning
+				q_iter=qmax-4*mod_asgn_iter*(np.dot(modmat,mod_asgn_iter))
+				qmax=max(q_iter*it)
+				imax=np.nonzero(q_iter==qmax)
+				mod_asgn_iter[imax]=-mod_asgn_iter[imax]
+				it[imax]=0
+
+				if qmax>q:
+					q=qmax
+					mod_asgn=mod_asgn_iter
+
+			if np.abs(np.sum(mod_asgn))==n: # iteration yielded null module
+				modules.append(np.array(module).tolist())
+				return
+			else:
+				recur(module[np.nonzero(mod_asgn==1)[0]])
+				recur(module[np.nonzero(mod_asgn==-1)[0]])
+				return
+		else:		# change in modularity was negative
+			modules.append(np.array(module).tolist())
+			return
+
+	def unpermute(mods,perm,forward=False):
+		mapper={}
+		for i in xrange(0,len(perm),1):
+			if forward:
+				mapper.update({i:perm[i]})
+			else:
+				mapper.update({perm[i]:i})
+		new_mods=[]
+		for mod in mods:
+			new_mods.append(map(mapper.get,mod))
+		return new_mods
+
+	recur(permutation)
+	#unpermute everything
+	#modules=unpermute(modules,permutation)
+	
+	#reinsert the deleted elements so that CVU knows module indices
+	#using unpermute()
+	if len(deleters)==0: #skip this check if nothing was deleted
+		return modules
+	reinsert_olds_perm=range(0,nr_nodes,1)
+	c=0
+	for i in xrange(0,nr_nodes+len(deleters),1):
+		if i in deleters:
+			c+=1
+		else:
+			reinsert_olds_perm[i-c]+=c
+	modules=unpermute(modules,reinsert_olds_perm,forward=True)
+	return modules
+
+class NaiveSpectralPartitioner():
+	#old attempts at writing a Newman 2006
 	def __init__(self,adjmat,nr_edges=0):
 		self.adjmat=adjmat
 		self.nr_nodes=len(self.adjmat)

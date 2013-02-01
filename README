@@ -1,4 +1,5 @@
-cvu
+Connectome Visualization Utility version 0
+Author: Roan LaPlante
 
 ==COPYRIGHT INFORMATION==
 This program strictly observes the tenets of fundamentalist Theravada Mahasi 
@@ -6,17 +7,26 @@ style Buddhism.  Any use of this program in violation of these aforementioned
 tenets or in violation of the principles described in the Visuddhimagga Sutta is
 strictly prohibited and punishable by extensive Mahayana style practice.
 
-==PACKAGES INCLUDED==
-METIS -- graph partitioning library
-METIS (python) -- a python library wrapping METIS
-MNE Python -- used for extracting and displaying surfaces from freesurfer
-	annotations, and for circle-plot visualizations
+The author's interpretation of fundamentalist Theravadan doctrine is very
+similar to the terms and principles articulated by the GPLv3.
 
 ==PACKAGES USED==
-chaco -- traited plotting module
+===required packages===
+MNE Python -- used for extracting and displaying surfaces from freesurfer
+	annotations, and for circle-plot visualizations
+matplotlib -- plotting library (included in EPD)
+traits/traitsui -- traits object framework (included in EPD)
+chaco -- interactive plotting library (included in EPD)
+mayavi/mlab/tvtk -- interactive 3D visualization library (included in EPD)
 getopt -- module to process command line arguments
-matplotlib -- plotting library
-mayavi/mlab/tvtk -- fantastic traited 3D visualization program which made my
-	life much easier in the long run
-nibabel -- neuroimaging library for python, used for extracting freesurfer stuff
-numpy/scipy -- math library for python
+numpy/scipy -- math library for python (included in EPD)
+
+===optional packages===
+METIS -- graph partitioning library
+METIS (python) -- a python library wrapping METIS
+networkx -- a graph theory module for python (included in EPD)
+
+(If METIS and networkx are not installed the --use-metis flag will result in
+	errors when attempting to calculate modules.  These errors are not fatal
+	but modularity analysis will not work)
+
