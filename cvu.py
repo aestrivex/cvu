@@ -70,7 +70,7 @@ class Cvu(CvuPlaceholder):
 	calc_mod_button = Button('Calculate modules')
 	cycle_mod_button = Button('cycle\nmodule')
 	load_adjmat_button = Button('Load an adjacency matrix')
-	draw_stuff_button = Button('Perform outstanding rendering (slow)')
+	draw_stuff_button = Button('Perform outstanding rendering')
 	load_parc_button=Button('Load a parcellation')
 	load_surface_button=Button('Load surface files')
 	load_what = Enum(None,'adjmat','labelnames','surface')
@@ -377,6 +377,8 @@ class Cvu(CvuPlaceholder):
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
 		self.redraw_circ()
+		self.reset_node_color_mayavi()
+		self.reset_node_color_circ()
 
 	## USER-DRIVEN INTERACTIONS ##
 	@on_trait_change('all_node_button')
@@ -449,7 +451,7 @@ class Cvu(CvuPlaceholder):
 		if module==None:
 			module=self.modules[self.cur_module-1]
 		if not quiet:
-			print str(int(len(np.squeeze(module))))+" nodes in module"
+			print str(np.size(module))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		for e in xrange(0,self.nr_edges,1):
 			if (self.edges[e,0] in module) and (self.edges[e,1] in module):

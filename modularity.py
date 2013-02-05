@@ -21,11 +21,35 @@ def threshold_prop(adjmat,threshold_p,delete_extras=False):
 
 	return adjmat,deleters
 
+def unpermute(mods,perm,forward=False):
+	mapper={}
+	for i in xrange(0,len(perm),1):
+		if forward:
+			mapper.update({i:perm[i]})
+		else:
+			mapper.update({perm[i]:i})
+	new_mods=[]
+	for mod in mods:
+		new_mods.append(map(mapper.get,mod))
+	if forward:
+		new_mods.remove
+	return new_mods
+
+def reacquire_olds(deleters,nr_nodes):
+	olds=range(0,nr_nodes,1)
+	c=0
+	for i in xrange(0,nr_nodes+len(deleters),1):
+		if i in deleters:
+			c+=1
+		else:
+			olds[i-c]+=c
+	return olds
+
 def use_metis(adjmat,threshold_p=.3,nr_modules=8):
 	#just make a call to metis asking to partition this graph
 	import networkx as nx
 	import metis
-	adjmat=threshold_prop(adjmat,threshold_p)
+	adjmat,deleters=threshold_prop(adjmat,threshold_p)
 	g=nx.Graph(adjmat)
 	objval,parts=metis.part_graph(g,nr_modules)
 	ret=[]
@@ -33,75 +57,89 @@ def use_metis(adjmat,threshold_p=.3,nr_modules=8):
 		ret.append(np.array(np.nonzero(np.array(parts)==i)))
 	return ret
 
-def spectral_partition(adjmat,threshold_p=.3,delete_extras=False):
+	if len(deleters)==0: #skip this check if nothing was deleted
+		return ret
+	else:
+		reinsert_olds_perm = reacquire_olds(deleters,len(adjmat))
+		modules=unpermute(ret,reinsert_olds_perm,forward=True)
+		return modules
+
+
+def spectral_partition(adjmat,delete_extras=False,threshold_p=.3):
 	#pythonization of brain connectivity toolkit
-	print delete_extras
 	adjmat,deleters=threshold_prop(adjmat,threshold_p,
 		delete_extras=delete_extras)
+
+	#import cvu_utils as ut
+	#adjmat=ut.loadmat('/autofs/cluster/neuromind/rlaplant/pdata/adjmats/stretchy.mat',field='dat',avg=False)
+	#deleters=[]
+
 	nr_nodes=len(adjmat)
+	print np.shape(np.nonzero(adjmat))
 	permutation=np.array(range(0,nr_nodes,1))
 	#permutation=np.random.permutation(nr_nodes)
 	#adjmat=adjmat[permutation][:,permutation]
 
 	k=np.sum(adjmat,axis=0)
-	nr_edges=np.sum(k)
-	init_modmat=adjmat-np.outer(k,k)/(1.0*nr_edges)
+	m=np.sum(k)
+	init_modmat=adjmat-np.outer(k,k)/(1.0*m)
 
 	modules = []
 
-	def recur(module):
-		modmat=init_modmat[module][:,module]
-		n=len(modmat)	
+	def recur(module,modmat):
+		n=len(modmat)
 
-		d,v=lin.eig(modmat)
+		d,v=lin.eigh(modmat)
 		i=np.nonzero(d==np.max(d))[0]
-		print i
-		max_eigvec=v[i]
+		#print d
+		#print np.max(d)
+		#print i
+		#print np.nonzero(d==np.max(d))
+		max_eigvec=v[:,i]
+		#print max_eigvec.T
 
-		mod_asgn=(max_eigvec>0)*2-1
-		mod_asgn=mod_asgn.T		#make equations prettier by aligning s
+		mod_asgn=(max_eigvec>=0)*2-1
+		print mod_asgn.T
+		#mod_asgn=mod_asgn.T		#make equations prettier by aligning s
 		q=np.dot(mod_asgn.T,np.dot(modmat,mod_asgn))[0][0]
 		print q
 		if q>0:		# change in modularity was positive
 			qmax=q
 			modmat=modmat-np.diag(np.diag(modmat))
-			it=np.ones((n,1))
+			it=np.ma.masked_array(np.ones((n,1)),False)
 			mod_asgn_iter=mod_asgn.copy()
+			itr_num=0
 			while np.any(it): # make some iterative fine tuning
 				q_iter=qmax-4*mod_asgn_iter*(np.dot(modmat,mod_asgn_iter))
-				qmax=max(q_iter*it)
+				qmax=np.max(q_iter*it)
 				imax=np.nonzero(q_iter==qmax)
-				mod_asgn_iter[imax]=-mod_asgn_iter[imax]
-				it[imax]=0
-
+				mod_asgn_iter[imax]*=-1
+				it[imax]=np.ma.masked 
 				if qmax>q:
 					q=qmax
 					mod_asgn=mod_asgn_iter
-
+				itr_num+=1
+				if itr_num>2*n:
+					raise Exception("DIEDIEDIE")
+			print q
 			if np.abs(np.sum(mod_asgn))==n: # iteration yielded null module
 				modules.append(np.array(module).tolist())
 				return
 			else:
-				recur(module[np.nonzero(mod_asgn==1)[0]])
-				recur(module[np.nonzero(mod_asgn==-1)[0]])
+				mod1=module[np.nonzero(mod_asgn==1)[0]]
+				mod2=module[np.nonzero(mod_asgn==-1)[0]]
+				modmat1=init_modmat[mod1][:,mod1]
+				modmat1-=np.diag(np.sum(modmat1,axis=0))
+				modmat2=init_modmat[mod2][:,mod2]
+				modmat2-=np.diag(np.sum(modmat2,axis=0))
+				recur(mod1,modmat1)
+				recur(mod2,modmat2)
 				return
 		else:		# change in modularity was negative
 			modules.append(np.array(module).tolist())
 			return
 
-	def unpermute(mods,perm,forward=False):
-		mapper={}
-		for i in xrange(0,len(perm),1):
-			if forward:
-				mapper.update({i:perm[i]})
-			else:
-				mapper.update({perm[i]:i})
-		new_mods=[]
-		for mod in mods:
-			new_mods.append(map(mapper.get,mod))
-		return new_mods
-
-	recur(permutation)
+	recur(permutation,init_modmat.copy())
 	#unpermute everything
 	#modules=unpermute(modules,permutation)
 	
@@ -109,15 +147,10 @@ def spectral_partition(adjmat,threshold_p=.3,delete_extras=False):
 	#using unpermute()
 	if len(deleters)==0: #skip this check if nothing was deleted
 		return modules
-	reinsert_olds_perm=range(0,nr_nodes,1)
-	c=0
-	for i in xrange(0,nr_nodes+len(deleters),1):
-		if i in deleters:
-			c+=1
-		else:
-			reinsert_olds_perm[i-c]+=c
-	modules=unpermute(modules,reinsert_olds_perm,forward=True)
-	return modules
+	else:
+		reinsert_olds_perm = reacquire_olds(deleters,nr_nodes)
+		modules=unpermute(modules,reinsert_olds_perm,forward=True)
+		return modules
 
 class NaiveSpectralPartitioner():
 	#old attempts at writing a Newman 2006

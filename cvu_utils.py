@@ -21,7 +21,7 @@ def hemineutral(s):
 	else:
 		return s
 
-def loadmat(fname,field=None):
+def loadmat(fname,field=None,avg=True):
 	import numpy as np
 	# matlab
 	if fname.endswith('.mat'):
@@ -32,7 +32,7 @@ def loadmat(fname,field=None):
 		
 		# TODO ask the developer/user to provide the right matrix rather than
 		# assuming it needs to be averaged over
-		if True:
+		if avg:
 			mat = np.mean(mat,axis=2)
 	# numpy
 	elif fname.endswith('.npy'):
@@ -306,7 +306,7 @@ def cli_args(argv,):
 	if not subject:
 		subject='fsavg5'
 	if not partitiontype:
-		partitiontype="metis"
+		partitiontype="spectral"
 	if not field:
 		field="adj_matrices"
 	if not maxedges:
