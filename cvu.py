@@ -57,13 +57,72 @@ class ConnmatPanClickTool(PanTool):
 		self.event_state='panning'
 		return self.panning_mouse_move(event)
 		
+class ChooserWindowHandler(Handler):
+	def closed(self,info,is_ok):
+		info.object.finished=is_ok
+		info.object.notify=True
+	
+class AdjmatChooserWindow(HasTraits):
+	Please_note=Str("All but first field are optional.  Specify adjmat order "
+		"if the desired display order differs from the existing matrix order."
+		"  Specify unwanted channels as 'delete' in the label order.")
+	adjmat=File
+	#adjmat_order=Trait(None,None,File)
+	adjmat_order=File
+	max_edges=Int
+	bad_channels=Str
+	finished=Bool(False)
+	notify=Event
+	traits_view=View(
+		Item(name='Please_note',style='readonly',height=100,width=250),
+		Item(name='adjmat'),
+		Item(name='adjmat_order',label='Label Order'),
+		Item(name='max_edges',label='Max Edges'),
+		#Item(name='bad_channels',label='Bad Channels',style='simple'),
+		kind='live',buttons=OKCancelButtons,handler=ChooserWindowHandler(),
+		title='This should be -46 convenient on a scale of -41 to -38',
+		resizable=True)
+
+class ParcellationChooserWindow(HasTraits):
+	Please_note=Str('Unless you are specifically interested in the'
+		' morphology of an individual subject, it is recommended to use'
+		' fsaverage5 and leave the first two fields alone.')
+	SUBJECTS_DIR=Directory('./')
+	SUBJECT=Str('fsavg5')
+	labelnames_f=File
+	parcellation_name=Str
+	finished=Bool(False)
+	notify=Event
+	traits_view=View(
+		Group(
+			Item(name='Please_note',style='readonly',height=85,width=250),
+			Item(name='SUBJECT'),
+			Item(name='SUBJECTS_DIR'),
+			Item(name='parcellation_name',label='Parcellation'),
+			Item(name='labelnames_f',label='Label Display Order'),
+		), kind='live',buttons=OKCancelButtons,handler=ChooserWindowHandler(),
+			title="This should not be particularly convenient",)
+
+class ErrorDialogWindow(HasTraits):
+	message=Str
+	traits_view=View(Item(name='error',editor=TextEditor(),
+		style='readonly'),
+		buttons=[OKButton],kind='nonmodal',
+		title='This should be convenient, but only slightly',)
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
 	circ_fig = Instance(Figure,())
+	
+	#stateful traits
 	group_by_strength = Enum('all','strong','medium','weak')
 	thresh = Range(0.0,1.0,.95)
 	surface_visibility = Range(0.0,1.0,.15)
+	curr_node = Trait(None,None,Int)
+	cur_module = Trait(None,None,Int)
+	prune_modules = Bool
+
+	#buttons
 	up_node_button = Button('^')
 	down_node_button = Button('v')
 	all_node_button = Button('all')
@@ -73,18 +132,17 @@ class Cvu(CvuPlaceholder):
 	draw_stuff_button = Button('Perform outstanding rendering')
 	load_parc_button=Button('Load a parcellation')
 	load_surface_button=Button('Load surface files')
-	load_what = Enum(None,'adjmat','labelnames','surface')
-	curr_node = Trait(None,None,Int)
-	cur_module = Trait(None,None,Int)
-	prune_modules = Bool
 	extra_button = Button('clickme')
+
+	#parcellation chooser window
+	parc_chooser_window = Instance(HasTraits)
+
+	#adjmat chooser window
+	adjmat_chooser_window = Instance(HasTraits)
+
+	error_dialog_window = Instance(HasTraits)
+
 	file_chooser_window = Instance(HasTraits)
-	parc_chooser_window_finished = Bool
-	labelnames_f = File
-	parcname = Str
-	subject = Str
-	subjects_dir = Directory
-	#inherits connmat from placeholder
 	python_shell = Dict
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
@@ -141,22 +199,27 @@ class Cvu(CvuPlaceholder):
 		self.lab_pos=args[0]
 		self.adj_nulldiag=args[1]
 		self.labnam=args[2]
-		self.srf=args[3]
-		self.dataloc=args[4][0]
-		self.modality=args[4][1]
-		self.partitiontype=args[4][2]
-		self.soft_max_edges=args[4][3]
+		self.adjlabfile=args[3]
+		self.srf=args[4]
+		self.dataloc=args[5][0]
+		self.modality=args[5][1]
+		self.partitiontype=args[5][2]
+		self.soft_max_edges=args[5][3]
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
 	
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
+		self.adjmat_chooser_window=AdjmatChooserWindow()
+		self.parc_chooser_window=ParcellationChooserWindow()
+		self.error_dialog_window=ErrorDialogWindow()
 	
 	@on_trait_change('scene.activated')	
 	def setup(self):
 		## SET UP DATA ##
 		self.pos_helper_gen()
+		self.adj_nulldiag=self.flip_adj_ord(self.adj_nulldiag)
 		self.adj_helper_gen()
 
 		## SET UP COLORS AND COLORMAPS ##
@@ -220,6 +283,7 @@ class Cvu(CvuPlaceholder):
 		self.adjdat = np.zeros((self.nr_edges,1),dtype=float)
 		i=0
 		for r2 in xrange(0,self.nr_labels,1):
+			self.adj_nulldiag[r2][r2]=0
 			for r1 in xrange(0,r2,1):
 				self.adjdat[i] = self.adj_nulldiag[r1][r2]
 				i+=1
@@ -231,6 +295,10 @@ class Cvu(CvuPlaceholder):
 		if self.nr_edges > self.soft_max_edges:
 			cutoff = sorted(self.adjdat)[self.nr_edges-self.soft_max_edges-1]
 			zi = np.nonzero(self.adjdat>=cutoff)
+			# if way way too many edges remain, make it a hard max
+			# this happens in DTI data which is very sparse, the cutoff is 0
+			if len(zi[0])>2*self.soft_max_edges:
+				zi=np.nonzero(self.adjdat>cutoff)
 
 			self.starts=self.starts[zi[0],:]
 			self.vecs=self.vecs[zi[0],:]
@@ -238,6 +306,19 @@ class Cvu(CvuPlaceholder):
 			self.adjdat=self.adjdat[zi[0]]
 			
 			self.nr_edges=len(self.adjdat)
+
+	# acts on intermediate computation adjacency matrix, NOT instance variable
+	def flip_adj_ord(self,adj):
+		if self.adjlabfile == None or self.adjlabfile == '':
+			return adj
+		des_ord,bads=util.read_parcellation_textfile(self.adjlabfile)
+		#delete the extras
+		adj=np.delete(adj,bads,axis=0)
+		adj=np.delete(adj,bads,axis=1)
+		adj_ord=util.adj_sort(des_ord,self.labnam)
+		#swap the new order
+		adj=adj[adj_ord][:,adj_ord]
+		return adj
 
 	# this one is intended only for displaying individuals other than fsaverage
 	# not necessary for now
@@ -322,28 +403,21 @@ class Cvu(CvuPlaceholder):
 		self.reset_node_color_circ()
 
 	## FUNCTIONS FOR LOADING NEW DATA ##
-	def load_new_label_names(self,fname):
-		try:
-			self.labnam=util.read_parcellation_textfile(fname)
-		except IOError as e:
-			util.error_dialog(str(e))
-		self.nr_labels=len(self.labnam)
-		self.vectors_clear()
-		self.chaco_clear()
-		self.circ_clear()
-		
 	def load_new_parcellation(self):
 		try:
-			labnam = util.read_parcellation_textfile(self.labelnames_f)
-			labv = util.loadannot(self.parcname,self.subject,self.subjects_dir)
-			self.lab_pos = util.calcparc(labv,labnam,quiet)
+			pcw=self.parc_chooser_window
+			labnam,ign = util.read_parcellation_textfile(pcw.labelnames_f)
+			labv = util.loadannot(pcw.parcellation_name,pcw.SUBJECT,
+				pcw.SUBJECTS_DIR)
+			self.lab_pos = util.calcparc(labv,labnam,quiet=quiet,
+				parcname=pcw.parcellation_name)
 		except IOError as e:
-			util.error_dialog(str(e))
+			self.error_dialog(str(e))
 			return
 		self.labnam=labnam
 		self.nr_labels=len(self.labnam)
 		self.pos_helper_gen()
-		print "Parcellation %s loaded successfully" % self.parcname
+		print "Parcellation %s loaded successfully" % pcw.parcellation_name
 		self.surfs_clear()
 		self.nodes_clear()
 		self.vectors_clear()
@@ -355,21 +429,29 @@ class Cvu(CvuPlaceholder):
 	def load_new_surfaces(self):
 		pass
 
-	def load_new_adjmat(self,fname):
+	def load_new_adjmat(self):
+		acw=self.adjmat_chooser_window
 		try:
-			adj = util.loadmat(fname,"adj_matrices")
-		except IOError as e:
-			util.error_dialog(str(e))
+			adj=util.loadmat(acw.adjmat,"adj_matrices")
+			if acw.adjmat_order:
+				self.adjlabfile=acw.adjmat_order
+				adj=self.flip_adj_ord(adj)
+			if acw.max_edges>0:
+				self.soft_max_edges=acw.max_edges
+		except (util.CVUError,IOError) as e:
+			self.error_dialog(str(e))
+			return
+		except ValueError as e:
+			self.error_dialog("Bad specification of bad channels: %s" % str(e))
 			return
 		if len(adj) != self.nr_labels:
-			util.error_dialog('The adjacency matrix you added corresponds to a '
-				' different parcellation.  Update the parcellation first.\n'
-				'Note this check only examines matrix size, you are responsible'
-				' for correctly aligning the matrix with its labels')
+			self.error_dialog('The adjacency matrix you specified is not '
+				'correctly aligned with the parcellation.  The adjmat size was '
+				'%i and the parcellation ROIs was %i' %(len(adj),self.nr_labels))
 			return
 		self.adj_nulldiag = adj
 		self.adj_helper_gen()
-		print "Adjacency matrix %s loaded successful" % fname
+		print "Adjacency matrix %s loaded successfully" % acw.adjmat
 
 		self.vectors_clear()
 		self.vectors_gen()
@@ -381,6 +463,10 @@ class Cvu(CvuPlaceholder):
 		self.reset_node_color_circ()
 
 	## USER-DRIVEN INTERACTIONS ##
+	def error_dialog(self,message):
+		self.error_dialog_window.error=message
+		self.error_dialog_window.edit_traits()
+
 	@on_trait_change('all_node_button')
 	def display_all(self):
 		self.curr_node=None
@@ -563,47 +649,40 @@ class Cvu(CvuPlaceholder):
 		#raise Exception("I like exceptions")
 
 	def _load_adjmat_button_fired(self):
-		self.load_what='adjmat'
-		util.fancy_file_chooser(self)
-
+		self.adjmat_chooser_window.finished=False
+		self.adjmat_chooser_window.edit_traits()
 
 	def _load_parc_button_fired(self):
-		self.parc_chooser_window_finished=False
-		util.parcellation_chooser(self)
+		self.parc_chooser_window.finished=False
+		self.parc_chooser_window.edit_traits()
 
 	def _load_surface_button_fired(self):
-		util.error_dialog('not supported yet')
+		self.error_dialog('not supported yet')
 		#self.load_what='surface'
 		#util.fancy_file_chooser(self)
 	
-	@on_trait_change('file_chooser_window.f')
-	def load_thing(self):
-		if self.file_chooser_window==None or self.load_what==None or\
-				 self.file_chooser_window.f=='':
-			pass
-		elif self.load_what=='adjmat':
-			self.load_new_adjmat(self.file_chooser_window.f)
-		elif self.load_what=='labelnames':
-			self.load_new_label_names(self.file_chooser_window.f)
-		elif self.load_what=='surface':
-			pass
-			#self.surf_f=self.file_chooser_window.f
-			#self.load_parc_check()
-		else:
-			pass
-		self.file_chooser_window.f=''
-		self.load_what==None
-	
-	@on_trait_change('parc_chooser_window_finished')
+	@on_trait_change('parc_chooser_window:notify')
 	def load_parc_check(self):
-		if not self.parc_chooser_window_finished:
+		pcw=self.parc_chooser_window
+		if not pcw.finished:
 			pass
-		elif self.subjects_dir and self.subject and self.parcname and\
-				self.labelnames_f:
+		elif pcw.SUBJECTS_DIR and pcw.SUBJECT and pcw.parcellation_name and\
+				pcw.labelnames_f:
 			self.load_new_parcellation()
 		else:
-			util.error_dialog('You must specify all of SUBJECT, SUBJECTS_DIR, '
-				'and the parcellation name (e.g. aparc.2009)')
+			self.error_dialog('You must specify all of SUBJECT, SUBJECTS_DIR, '
+				'the desired label ordering, and the parcellation name '
+				'(e.g. aparc.2009)')
+
+	@on_trait_change('adjmat_chooser_window:notify')
+	def load_adjmat_check(self):
+		acw=self.adjmat_chooser_window
+		if not acw.finished:
+			pass
+		elif acw.adjmat:
+			self.load_new_adjmat()
+		else:
+			self.error_dialog('You must specify the adjacency matrix')
 
 	@on_trait_change('cycle_mod_button')
 	def cycle_module(self):
@@ -620,7 +699,7 @@ class Cvu(CvuPlaceholder):
 	#TODO MAJOR REWORK AND MODULARIZATION (no pun intended) OF ALL DISPLAY LOGIC
 
 	def _draw_stuff_button_fired(self):
-		#util.error_dialog('This button is not currently used')	
+		#self.error_dialog('This button is not currently used')	
 		self.redraw_circ()
 
 	def _up_node_button_fired(self):
@@ -640,7 +719,7 @@ class Cvu(CvuPlaceholder):
 			self.display_node(self.curr_node-1)
 	
 	def _extra_button_fired(self):
-		util.error_dialog('This button is not currently used')
+		self.error_dialog('This button is not currently used')
 
 	## DRAWING FUNCTIONS ##
 	def edge_color_on(self):
@@ -687,7 +766,8 @@ class Cvu(CvuPlaceholder):
 
 def preproc():
 	#load label names from specified text file for ordering
-	labnam=util.read_parcellation_textfile(args['parcfile'])
+	labnam,ign=util.read_parcellation_textfile(args['parcorder'])
+	adjlabs=args['adjorder']
 	
 	#load adjacency matrix.  entries in order of labnam
 	adj = util.loadmat(args['adjmat'],args['field']) 
@@ -700,14 +780,14 @@ def preproc():
 	labv=util.loadannot(args['parc'],args['subject'],args['subjdir'])
 
 	#calculate label positions from vertex positions
-	lab_pos=util.calcparc(labv,labnam,quiet)
+	lab_pos=util.calcparc(labv,labnam,quiet=quiet,parcname=args['parc'])
 
 	# Package dataloc and modality into tuple for passing
 	datainfo =(args['dataloc'],args['modality'],args['partitiontype'],
 		args['maxedges'])
 
 	# Return tuple with summary required data
-	return lab_pos,adj,labnam,surf_struct,datainfo
+	return lab_pos,adj,labnam,adjlabs,surf_struct,datainfo
 
 if __name__ == "__main__":
 	#gc.set_debug(gc.DEBUG_LEAK)

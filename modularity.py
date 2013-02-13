@@ -13,7 +13,6 @@ def threshold_prop(adjmat,threshold_p,delete_extras=False):
 		deleters=np.nonzero(np.sum(adjmat,axis=1)==0)[0]
 		adjmat=np.delete(adjmat,deleters,axis=0)
 		adjmat=np.delete(adjmat,deleters,axis=1)
-		print len(deleters)
 		print "%i nodes were deleted from the graph due to null connections" % \
 			len(deleters)
 	else:
@@ -75,7 +74,7 @@ def spectral_partition(adjmat,delete_extras=False,threshold_p=.3):
 	#deleters=[]
 
 	nr_nodes=len(adjmat)
-	print np.shape(np.nonzero(adjmat))
+	#print np.shape(np.nonzero(adjmat))
 	permutation=np.array(range(0,nr_nodes,1))
 	#permutation=np.random.permutation(nr_nodes)
 	#adjmat=adjmat[permutation][:,permutation]
@@ -99,10 +98,9 @@ def spectral_partition(adjmat,delete_extras=False,threshold_p=.3):
 		#print max_eigvec.T
 
 		mod_asgn=(max_eigvec>=0)*2-1
-		print mod_asgn.T
 		#mod_asgn=mod_asgn.T		#make equations prettier by aligning s
 		q=np.dot(mod_asgn.T,np.dot(modmat,mod_asgn))[0][0]
-		print q
+		#print q
 		if q>0:		# change in modularity was positive
 			qmax=q
 			modmat=modmat-np.diag(np.diag(modmat))
@@ -121,7 +119,6 @@ def spectral_partition(adjmat,delete_extras=False,threshold_p=.3):
 				itr_num+=1
 				if itr_num>2*n:
 					raise Exception("DIEDIEDIE")
-			print q
 			if np.abs(np.sum(mod_asgn))==n: # iteration yielded null module
 				modules.append(np.array(module).tolist())
 				return

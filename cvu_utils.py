@@ -21,6 +21,10 @@ def hemineutral(s):
 	else:
 		return s
 
+def str2intlist(s):
+	import re
+	return re.split(',| |;',s.strip('[]'))
+
 def loadmat(fname,field=None,avg=True):
 	import numpy as np
 	# matlab
@@ -32,7 +36,7 @@ def loadmat(fname,field=None,avg=True):
 		
 		# TODO ask the developer/user to provide the right matrix rather than
 		# assuming it needs to be averaged over
-		if avg:
+		if avg and hasattr(mat,'ndim') and mat.ndim==3:
 			mat = np.mean(mat,axis=2)
 	# numpy
 	elif fname.endswith('.npy'):
@@ -45,13 +49,17 @@ def loadmat(fname,field=None,avg=True):
 
 def read_parcellation_textfile(fname):
 	labnam=[]
+	deleters=[]
 	fd = open(fname,'r')
+	i=0
 	for line in fd:
 		l=line.strip()
 		if l=='delete':
-			continue
-		labnam.append(l)
-	return labnam
+			deleters.append(i)
+		else:
+			labnam.append(l)
+		i+=1
+	return labnam,deleters
 
 def loadannot(p,subj,subjdir):
 	import mne
@@ -65,7 +73,7 @@ def loadsurf(fname):
 	surf_rh,sfaces_rh=mne.surface.read_surface(hemineutral(fname)%'rh')
 	return (surf_lh,sfaces_lh,surf_rh,sfaces_rh)
 
-def calcparc(labv,labnam,quiet=False):
+def calcparc(labv,labnam,quiet=False,parcname=' '):
 	import numpy as np
 	lab_pos=np.zeros((len(labnam),3))
 	#an nlogn sorting algorithm is theoretically possible here but rather hard
@@ -73,12 +81,28 @@ def calcparc(labv,labnam,quiet=False):
 		try:
 			i=labnam.index(mangle_hemi(lab.name))
 		except ValueError:
+			if not quiet:
+				print "Warning: Label %s not found in parcellation %s" % \
+					(lab.name,parcname)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
 	lab_pos*=1000
 	#the data seems to be incorrectly scaled by a factor of 1000
 	return lab_pos
 
+class CVUError(Exception):
+	pass
+
+def adj_sort(adj_ord,desired_ord):
+	if len(adj_ord) != len(desired_ord):
+		raise CVUError('Parcellation and adjmat label orderings do not match.  '
+			'Parc lab_ord has %i non-delete entries, adj lab_ord %i non-delete '			'entries' % (len(adj_ord),len(desired_ord)))
+	keys={}
+	for i in xrange(0,len(desired_ord)):
+		keys.update({desired_ord[i]:i})
+	#return sorted(adj_ord,key=keys.get)
+	return map(keys.get,adj_ord)
+		
 #functions operating on GIFTI annotations are deprecated
 def loadannot_gifti(fname):
 	import nibabel.gifti
@@ -175,84 +199,34 @@ def fancy_file_chooser(main_window):
 	main_window.file_chooser_window=FileChooserWindow()
 	main_window.file_chooser_window.edit_traits()
 
-def parcellation_chooser(main_window):
-	from traits.api import HasTraits,Directory,Str,File,on_trait_change
-	from traitsui.api import View,Item,DirectoryEditor,OKCancelButtons,Group,\
-		Handler
-
-	class ParcellationChooserWindowHandler(Handler):
-		def closed(self,info,is_ok):
-			main_window.labelnames_f=info.object.label_ord
-			main_window.parcname=info.object.parcellation
-			main_window.subject=info.object.SUBJECT
-			main_window.subjects_dir=info.object.SUBJECTS_DIR
-			main_window.parc_chooser_window_finished=is_ok
-
-	class ParcellationChooserWindow(HasTraits):
-		Please_note=Str('Unless you are specifically interested in the'
-			' morphology of an individual subject, it is recommended to use'
-			' fsaverage5 and leave the first two fields alone.')
-		SUBJECTS_DIR=Directory('./')
-		SUBJECT=Str('fsavg5')
-		#label_ord=File('order_sparc')
-		label_ord=File
-		parcellation=Str
-
-		traits_view=View(
-			Group(
-				Item(name='Please_note',style='readonly',height=85,width=250),
-				Item(name='SUBJECT'),
-				Item(name='SUBJECTS_DIR'),
-				Item(name='parcellation',label='Parcellation'),
-				Item(name='label_ord',label='Label Order'),
-			), kind='nonmodal',buttons=OKCancelButtons,
-				handler=ParcellationChooserWindowHandler(),
-				title="This should not be particularly convenient",)
-		
-	ParcellationChooserWindow().edit_traits()
-
-def error_dialog(message="Error!"):
-	from traits.api import HasTraits,Str
-	from traitsui.api import View,Item,TextEditor,OKButton
-
-	class ErrorDialogWindow(HasTraits):
-		error=Str
-		traits_view=View(Item(name='error',editor=TextEditor(),
-			style='readonly'),
-			buttons=[OKButton],kind='nonmodal',
-			title='This should be convenient, but only slightly',)
-		def _error_default(self):
-			return message
-
-	ErrorDialogWindow().edit_traits()
-
 def usage():
 	print 'Command line arguments are as follows:\n'+\
 		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'+\
 		'-a greg.mat --adjmat=greg.mat: location of adjacency matrix\n'+\
 		'-d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'+\
 		'-s greg --surf=greg: loads the surface *h.greg\n'+\
-		'-o greg.txt --order=greg.txt: loads text file with label order\n'+\
+		'-o greg.txt --order=greg.txt: location of text file with label order\n'+\
 		'--surf-type=pial: specifies type of surface.  pial is used by '+\
 		'default\n'+\
 		'-q: specifies quiet flag\n'+\
 		'-v: specifies verbose flag (currently does nothing)\n'+\
 		'--use-greg: uses the "greg" method for graph partitioning.  valid '+\
 		'choices are: --use-spectral, --use-metis\n'+\
+		'--max-edges 46000: discards all but the strongest ~46000 connections\n'+\
 		'-h --help: display this help'
 	exit(78)
 
 def cli_args(argv,):
 	import getopt; import os
-	subjdir=None;adjmat=None;parc=None;parcfile=None;surftype=None;
+	subjdir=None;adjmat=None;parc=None;parcorder=None;surftype=None;
 	field=None;dataloc=None;modality=None;partitiontype=None;
-	subject=None;maxedges=None;quiet=False
+	subject=None;maxedges=None;adjorder=None;quiet=False
 	try:
 		opts,args=getopt.getopt(argv,'p:a:s:o:qd:hvf:',
 			["parc=","adjmat=","adj=","modality=","data=","datadir="\
 			"surf=","order=","surf-type=","parcdir=","use-metis",
 			"use-spectral","help","field=","subjects-dir=","subject=",
-			"max-edges="])
+			"max-edges=","adj-order="])
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
@@ -264,7 +238,9 @@ def cli_args(argv,):
 		elif opt in ["-d","--data","--datadir","--subjects-dir","--parcdir"]:
 			subjdir = arg
 		elif opt in ["-o","--order"]:
-			parcfile = arg
+			parcorder = arg
+		elif opt in ["--adj-order"]:
+			adjorder = arg
 		elif opt in ["-s","--surf","--surf-type"]:
 			surftype = arg
 		elif opt in ["--subject"]:
@@ -291,12 +267,12 @@ def cli_args(argv,):
 		adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliA1.mat'
 	if not parc:
 		parc = 'sparc'
-	if not parcfile:
+	if not parcorder:
 		if parc != 'sparc':
 			raise Exception('A text file containing channel names must be'
 				' supplied with your parcellation')
 		else:
-			parcfile='order_sparc'
+			parcorder='orders/sparc.txt'
 	if modality not in ["meg","fmri","dti",None]:
 		raise Exception('Modality %s is not supported' % modality)
 	if modality in ["fmri","dti"]:
@@ -311,13 +287,15 @@ def cli_args(argv,):
 		field="adj_matrices"
 	if not maxedges:
 		maxedges=20000
-	if not os.path.isfile(parcfile):
-		raise Exception('Channel names not found')
+	if not os.path.isfile(parcorder):
+		raise Exception('Channel names %s file not found' % parcorder)
 	if not os.path.isfile(adjmat):
-		raise Exception('Adjacency matrix not found')
+		raise Exception('Adjacency matrix %s file not found' % adjmat)
 	if not os.path.isdir(subjdir):
-		raise Exception('SUBJECTS_DIR not found')
-	return {'parc':parc,'adjmat':adjmat,'parcfile':parcfile,'modality':modality\
+		raise Exception('SUBJECTS_DIR %s file not found' % subjdir)
+	if adjorder and os.path.isfile(adjorder):
+		raise Exception('Adjancency matrix order %s file not found' % adjorder)
+	return {'parc':parc,'adjmat':adjmat,'parcorder':parcorder,'modality':modality\
 		,'surftype':surftype,'partitiontype':partitiontype,'quiet':quiet,\
 		'dataloc':dataloc,'field':field,'subjdir':subjdir,\
-		'subject':subject,'maxedges':maxedges}
+		'subject':subject,'maxedges':maxedges,'adjorder':adjorder}
