@@ -65,22 +65,23 @@ class ChooserWindowHandler(Handler):
 class AdjmatChooserWindow(HasTraits):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
-		"  Specify unwanted channels as 'delete' in the label order.")
+		"  Specify unwanted channels as 'delete' in the label order.  Data "
+		"field name applies to the data field for .mat matrices only.")
 	adjmat=File
 	#adjmat_order=Trait(None,None,File)
 	adjmat_order=File
 	max_edges=Int
-	bad_channels=Str
+	field_name=Str('adj_matrices')
 	finished=Bool(False)
 	notify=Event
 	traits_view=View(
-		Item(name='Please_note',style='readonly',height=100,width=250),
+		Item(name='Please_note',style='readonly',height=145,width=250),
 		Item(name='adjmat'),
 		Item(name='adjmat_order',label='Label Order'),
 		Item(name='max_edges',label='Max Edges'),
-		#Item(name='bad_channels',label='Bad Channels',style='simple'),
+		Item(name='field_name',label='Data Field Name'),
 		kind='live',buttons=OKCancelButtons,handler=ChooserWindowHandler(),
-		title='This should be -46 convenient on a scale of -41 to -38',
+		title='This should be -46 convenient',
 		resizable=True)
 
 class ParcellationChooserWindow(HasTraits):
@@ -108,7 +109,7 @@ class ErrorDialogWindow(HasTraits):
 	traits_view=View(Item(name='error',editor=TextEditor(),
 		style='readonly'),
 		buttons=[OKButton],kind='nonmodal',
-		title='This should be convenient, but only slightly',)
+		title='This should be only slightly convenient',)
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
@@ -432,7 +433,7 @@ class Cvu(CvuPlaceholder):
 	def load_new_adjmat(self):
 		acw=self.adjmat_chooser_window
 		try:
-			adj=util.loadmat(acw.adjmat,"adj_matrices")
+			adj=util.loadmat(acw.adjmat,field=acw.field_name)
 			if acw.adjmat_order:
 				self.adjlabfile=acw.adjmat_order
 				adj=self.flip_adj_ord(adj)
@@ -773,7 +774,9 @@ def preproc():
 	adj = util.loadmat(args['adjmat'],args['field']) 
 
 	#load surface for visual display
-	surf_fname=(args['subjdir']+args['subject']+'/surf/lh.%s')%args['surftype']
+	import os.path as op
+	surf_fname=op.join(args['subjdir'],args['subject'],'surf',
+		'lh.%s'%args['surftype'])
 	surf_struct=util.loadsurf(surf_fname)
 
 	#load parcellation and vertex positions

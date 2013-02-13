@@ -77,17 +77,25 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 	import numpy as np
 	lab_pos=np.zeros((len(labnam),3))
 	#an nlogn sorting algorithm is theoretically possible here but rather hard
+	labs_used=[]
 	for lab in labv[0]:
 		try:
 			i=labnam.index(mangle_hemi(lab.name))
+			labs_used.append(mangle_hemi(lab.name))
 		except ValueError:
-			if not quiet:
-				print "Warning: Label %s not found in parcellation %s" % \
-					(lab.name,parcname)
+			#if not quiet:
+			#	print "Warning: Label %s not found in parcellation %s" % \
+			#		(lab.name,parcname)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
-	lab_pos*=1000
 	#the data seems to be incorrectly scaled by a factor of 1000
+	lab_pos*=1000
+	#let the user know if parc order file has some unrecongized entries
+	if not quiet:
+		for lab in labnam:
+			if lab not in labs_used:
+				print "Warning: Label %s not found in parcellation %s" % \
+					(lab,parcname)
 	return lab_pos
 
 class CVUError(Exception):
@@ -217,7 +225,7 @@ def usage():
 	exit(78)
 
 def cli_args(argv,):
-	import getopt; import os
+	import getopt; import os.path as op
 	subjdir=None;adjmat=None;parc=None;parcorder=None;surftype=None;
 	field=None;dataloc=None;modality=None;partitiontype=None;
 	subject=None;maxedges=None;adjorder=None;quiet=False
@@ -262,7 +270,7 @@ def cli_args(argv,):
 		elif opt in ["--max-edges"]:
 			maxedges=arg
 	if not subjdir:
-		subjdir = './'
+		subjdir = op.dirname(__file__)
 	if not adjmat:
 		adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliA1.mat'
 	if not parc:
@@ -272,7 +280,8 @@ def cli_args(argv,):
 			raise Exception('A text file containing channel names must be'
 				' supplied with your parcellation')
 		else:
-			parcorder='orders/sparc.txt'
+			#TODO export this design pattern for relative paths where necessary
+			parcorder=op.join(op.dirname(__file__),'orders/sparc.txt')
 	if modality not in ["meg","fmri","dti",None]:
 		raise Exception('Modality %s is not supported' % modality)
 	if modality in ["fmri","dti"]:
@@ -287,15 +296,16 @@ def cli_args(argv,):
 		field="adj_matrices"
 	if not maxedges:
 		maxedges=20000
-	if not os.path.isfile(parcorder):
+	if not op.isfile(parcorder):
 		raise Exception('Channel names %s file not found' % parcorder)
-	if not os.path.isfile(adjmat):
+	if not op.isfile(adjmat):
 		raise Exception('Adjacency matrix %s file not found' % adjmat)
-	if not os.path.isdir(subjdir):
+	if not op.isdir(subjdir):
 		raise Exception('SUBJECTS_DIR %s file not found' % subjdir)
-	if adjorder and os.path.isfile(adjorder):
+	if adjorder and op.isfile(adjorder):
 		raise Exception('Adjancency matrix order %s file not found' % adjorder)
-	return {'parc':parc,'adjmat':adjmat,'parcorder':parcorder,'modality':modality\
-		,'surftype':surftype,'partitiontype':partitiontype,'quiet':quiet,\
+	return {'parc':parc,'adjmat':adjmat,'parcorder':parcorder,
+		'modality':modality,\
+		'surftype':surftype,'partitiontype':partitiontype,'quiet':quiet,\
 		'dataloc':dataloc,'field':field,'subjdir':subjdir,\
 		'subject':subject,'maxedges':maxedges,'adjorder':adjorder}
