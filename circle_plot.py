@@ -201,10 +201,10 @@ The figure handle.
 	# Finally, we draw the connections
 	for pos, (i, j) in enumerate(zip(indices[0], indices[1])):
 		# Start point
-		t0, r0 = node_angles[i], 7.5
+		t0, r0 = node_angles[i], 7
 
 		# End point
-		t1, r1 = node_angles[j], 7.5
+		t1, r1 = node_angles[j], 7
 
 		# Some noise in start and end point
 		t0 += start_noise[pos]

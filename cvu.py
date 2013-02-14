@@ -11,10 +11,10 @@ from mayavi import mlab;
 import os; 
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
-from chaco.api import Plot,ArrayPlotData,YlOrRd; 
+from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu; 
+from chaco.api import reverse as cmap_reverse;
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
-#from chaco.tools.pan_tool2 import PanTool
 from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
 import circle_plot as circ; import mpleditor
@@ -227,6 +227,9 @@ class Cvu(CvuPlaceholder):
 		self.yellow_map=get_cmap('YlOrRd')
 		self.cool_map=get_cmap('cool')
 
+		#blrd=RdYlBu(None)
+		#blrd.reverse_colormap()
+
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
 			figure=self.scene.mayavi_scene)
@@ -238,7 +241,8 @@ class Cvu(CvuPlaceholder):
 		# set the diagonal of the adjmat to min(data) and not 0 so the
 		# plot's color scheme is not completely messed up
 		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
-		self.conn_mat.img_plot("imagedata",name='conmatplot',colormap=YlOrRd)
+		self.conn_mat.img_plot("imagedata",name='conmatplot',
+			colormap=cmap_reverse(RdYlBu))
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.conn_mat.x_axis.set(visible=False)
@@ -333,10 +337,14 @@ class Cvu(CvuPlaceholder):
 	def surfs_gen(self):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.surface_visibility,
-			color=(.4,.75,0),name='syrfl')
+			color=(.82,.82,.82),name='syrfl')
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.surface_visibility,
-			color=(.4,.75,0),name='syrfr')
+			color=(.82,.82,.82),name='syrfr')
+		#some colors
+		#(.4,.75,0) #DARKISH GREEN
+		#(.82,1,.82) #LIGHTER GREEN
+		#(.82,.82,.82) #GRAY
 
 	def nodes_clear(self):
 		try:
