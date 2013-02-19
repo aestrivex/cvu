@@ -138,7 +138,8 @@ The figure handle.
 	pl.yticks([])
 
 	# Set y axes limit
-	pl.ylim(0, 8)
+	pl.ylim(0, 10)
+	#pl.ylim(ymin=0)
 
 	# Draw lines between connected nodes, only draw the strongest connections
 	if n_lines is not None and len(con) > n_lines:
@@ -223,7 +224,8 @@ The figure handle.
 		axes.add_patch(patch)
 
 	# Draw ring with colored nodes
-	radii = np.ones(n_nodes) * 8
+	#radii = np.ones(n_nodes) * 8
+	radii=np.ones(n_nodes)
 	bars = axes.bar(node_angles, radii, width=node_width, bottom=7,
 					edgecolor=node_edgecolor, linewidth=0, facecolor='.9',
 					align='center',zorder=10)
@@ -242,7 +244,7 @@ The figure handle.
 			ha = 'right'
 
 		if not name[-1].isdigit() or (name[-1]=='1' and not name[-2].isdigit()):
-			pl.text(angle_rad, 8.4, name, size=10, rotation=angle_deg,
+			axes.text(angle_rad, 8.2, name, size=8, rotation=angle_deg,
 					rotation_mode='anchor', horizontalalignment=ha,
 					verticalalignment='center', color=textcolor)
 
@@ -260,5 +262,11 @@ The figure handle.
 		cb = fig.colorbar(sm, cax=ax)
 		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
 		pl.setp(cb_yticks, color=textcolor)
+
+	#f='/autofs/homes/005/rlaplant/testzebra.png'
+	#pl.savefig(f,facecolor='black')
+	#import os.path as op
+	#print op.exists(f)
+		
 	
 	return fig,indices,con,node_colors

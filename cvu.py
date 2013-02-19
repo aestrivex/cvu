@@ -11,7 +11,7 @@ from mayavi import mlab;
 import os; 
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
-from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu; 
+from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
 from chaco.api import reverse as cmap_reverse;
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
@@ -33,7 +33,7 @@ class ConnmatPanClickTool(PanTool):
 	def __init__(self,holder,*args,**kwargs):
 		super(PanTool,self).__init__(**kwargs)
 		self.cvu=holder	
-		#there is some weird problem with component not being set in super().super()
+		#there is some weird problem with component not being set in super()
 		self.component=self.cvu.conn_mat
 		
 	def normal_left_down(self,event):
@@ -57,12 +57,16 @@ class ConnmatPanClickTool(PanTool):
 		self.event_state='panning'
 		return self.panning_mouse_move(event)
 		
-class ChooserWindowHandler(Handler):
+class SubwindowHandler(Handler):
 	def closed(self,info,is_ok):
 		info.object.finished=is_ok
 		info.object.notify=True
+
+class BasicSubwindow(HasTraits):
+	finished=Bool(False)
+	notify=Event
 	
-class AdjmatChooserWindow(HasTraits):
+class AdjmatChooserWindow(BasicSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
 		"  Specify unwanted channels as 'delete' in the label order.  Data "
@@ -72,19 +76,17 @@ class AdjmatChooserWindow(HasTraits):
 	adjmat_order=File
 	max_edges=Int
 	field_name=Str('adj_matrices')
-	finished=Bool(False)
-	notify=Event
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=145,width=250),
 		Item(name='adjmat'),
 		Item(name='adjmat_order',label='Label Order'),
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
-		kind='live',buttons=OKCancelButtons,handler=ChooserWindowHandler(),
-		title='This should be -46 convenient',
+		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title='Your doom awaits you',
 		resizable=True)
 
-class ParcellationChooserWindow(HasTraits):
+class ParcellationChooserWindow(BasicSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
 		' morphology of an individual subject, it is recommended to use'
 		' fsaverage5 and leave the first two fields alone.')
@@ -92,8 +94,6 @@ class ParcellationChooserWindow(HasTraits):
 	SUBJECT=Str('fsavg5')
 	labelnames_f=File
 	parcellation_name=Str
-	finished=Bool(False)
-	notify=Event
 	traits_view=View(
 		Group(
 			Item(name='Please_note',style='readonly',height=85,width=250),
@@ -101,15 +101,35 @@ class ParcellationChooserWindow(HasTraits):
 			Item(name='SUBJECTS_DIR'),
 			Item(name='parcellation_name',label='Parcellation'),
 			Item(name='labelnames_f',label='Label Display Order'),
-		), kind='live',buttons=OKCancelButtons,handler=ChooserWindowHandler(),
+		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 			title="This should not be particularly convenient",)
+
+class SaveSnapshotWindow(BasicSubwindow):
+	savefile=Str(os.environ['HOME']+'/')
+	dpi=Int(300)
+	whichplot=Enum('mayavi','chaco','circ')
+	traits_view=View(Group(
+		Item(name='savefile'),
+		Item(name='dpi'),
+	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title="Help I'm a bug",height=250,width=250)
+
+class ReallyOverwriteFileWindow(BasicSubwindow):
+	Please_note=Str('That file exists.  Really overwrite?')
+	save_continuation=Function # Continuation passing style
+	traits_view=View(Spring(),
+		Item(name='Please_note',style='readonly',#height=50,width=250,
+			show_label=False),
+		Spring(),
+		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title='Oh no you\'ve done it now')
 
 class ErrorDialogWindow(HasTraits):
 	message=Str
 	traits_view=View(Item(name='error',editor=TextEditor(),
 		style='readonly'),
-		buttons=[OKButton],kind='nonmodal',
-		title='This should be only slightly convenient',)
+		buttons=[OKButton],kind='nonmodal',height=150,width=300,
+		title='Evil mutant zebras did this',)
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
@@ -119,6 +139,7 @@ class Cvu(CvuPlaceholder):
 	group_by_strength = Enum('all','strong','medium','weak')
 	thresh = Range(0.0,1.0,.95)
 	surface_visibility = Range(0.0,1.0,.15)
+	circ_size = Range(7,20,10,mode='spinner')
 	curr_node = Trait(None,None,Int)
 	cur_module = Trait(None,None,Int)
 	prune_modules = Bool
@@ -127,20 +148,21 @@ class Cvu(CvuPlaceholder):
 	up_node_button = Button('^')
 	down_node_button = Button('v')
 	all_node_button = Button('all')
-	calc_mod_button = Button('Calculate modules')
-	cycle_mod_button = Button('cycle\nmodule')
+	calc_mod_button = Button('Calc modules')
+	cycle_mod_button = Button('Cycle module')
 	load_adjmat_button = Button('Load an adjacency matrix')
-	draw_stuff_button = Button('Perform outstanding rendering')
+	draw_stuff_button = Button('Force render')
 	load_parc_button=Button('Load a parcellation')
 	load_surface_button=Button('Load surface files')
-	extra_button = Button('clickme')
+	mayavi_snapshot_button=Button('3D snapshot')
+	chaco_snapshot_button=Button('Adjmat snapshot')
+	circ_snapshot_button = Button('Circle snapshot')
 
-	#parcellation chooser window
+	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
-
-	#adjmat chooser window
 	adjmat_chooser_window = Instance(HasTraits)
-
+	save_snapshot_window = Instance(HasTraits)
+	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
 
 	file_chooser_window = Instance(HasTraits)
@@ -159,7 +181,12 @@ class Cvu(CvuPlaceholder):
 					Group(	Item(name='up_node_button',show_label=False),
 							Item(name='down_node_button',show_label=False),
 							Item(name='all_node_button',show_label=False),
+							Spring(),
+							Item(name='calc_mod_button',show_label=False),
 							Item(name='cycle_mod_button',show_label=False),
+							Spring(),
+							Item(name='draw_stuff_button',show_label=False),
+							Item(name='group_by_strength',show_label=False),
 					)
 				),
 				HSplit(
@@ -173,16 +200,19 @@ class Cvu(CvuPlaceholder):
 							Item(name='load_surface_button',show_label=False),
 						),
 						HSplit(
-							Item(name='calc_mod_button',show_label=False),
-							Item(name='draw_stuff_button',show_label=False),
-							Item(name='extra_button',show_label=False),
+							Item(name='mayavi_snapshot_button'),
+							Item(name='chaco_snapshot_button'),
+							Item(name='circ_snapshot_button'),
+							show_labels=False
 						),
 						HSplit(
-							Item(name='group_by_strength',show_label=False),
+							Item(name='circ_size'),
 							Item(name='prune_modules'),
 						),
-						Item(name='thresh'),
-						Item(name='surface_visibility'),
+						HSplit(
+							Item(name='thresh'),
+							Item(name='surface_visibility'),
+						),
 						HSplit(
 							Item(name='python_shell',editor=ShellEditor(),
 							show_label=False),
@@ -214,6 +244,8 @@ class Cvu(CvuPlaceholder):
 		#print np.shape(self.lab_pos)
 		self.adjmat_chooser_window=AdjmatChooserWindow()
 		self.parc_chooser_window=ParcellationChooserWindow()
+		self.save_snapshot_window=SaveSnapshotWindow()
+		self.really_overwrite_file_window=ReallyOverwriteFileWindow()
 		self.error_dialog_window=ErrorDialogWindow()
 	
 	@on_trait_change('scene.activated')	
@@ -634,6 +666,11 @@ class Cvu(CvuPlaceholder):
 		self.syrf_lh.actor.property.set(opacity=self.surface_visibility)
 		self.syrf_rh.actor.property.set(opacity=self.surface_visibility)
 
+	@on_trait_change('circ_size')
+	def chg_circ_size(self):
+		self.circ_fig.axes[0].set_ylim(0,self.circ_size)
+		#self.redraw_circ()
+
 	@on_trait_change('calc_mod_button')
 	def calc_modules(self):
 		import modularity
@@ -661,15 +698,6 @@ class Cvu(CvuPlaceholder):
 		self.adjmat_chooser_window.finished=False
 		self.adjmat_chooser_window.edit_traits()
 
-	def _load_parc_button_fired(self):
-		self.parc_chooser_window.finished=False
-		self.parc_chooser_window.edit_traits()
-
-	def _load_surface_button_fired(self):
-		self.error_dialog('not supported yet')
-		#self.load_what='surface'
-		#util.fancy_file_chooser(self)
-	
 	@on_trait_change('parc_chooser_window:notify')
 	def load_parc_check(self):
 		pcw=self.parc_chooser_window
@@ -683,6 +711,10 @@ class Cvu(CvuPlaceholder):
 				'the desired label ordering, and the parcellation name '
 				'(e.g. aparc.2009)')
 
+	def _load_parc_button_fired(self):
+		self.parc_chooser_window.finished=False
+		self.parc_chooser_window.edit_traits()
+
 	@on_trait_change('adjmat_chooser_window:notify')
 	def load_adjmat_check(self):
 		acw=self.adjmat_chooser_window
@@ -692,6 +724,73 @@ class Cvu(CvuPlaceholder):
 			self.load_new_adjmat()
 		else:
 			self.error_dialog('You must specify the adjacency matrix')
+
+	def _mayavi_snapshot_button_fired(self):
+		self.save_snapshot_window.finished=False
+		self.save_snapshot_window.whichplot='mayavi'
+		self.save_snapshot_window.edit_traits()
+
+	def _chaco_snapshot_button_fired(self):
+		self.save_snapshot_window.finished=False
+		self.save_snapshot_window.whichplot='chaco'
+		self.save_snapshot_window.edit_traits()
+
+	def _circ_snapshot_button_fired(self):
+		self.save_snapshot_window.finished=False
+		self.save_snapshot_window.whichplot='circ'
+		self.save_snapshot_window.edit_traits()
+
+	@on_trait_change('save_snapshot_window:notify')
+	def save_circ_check(self):
+		ssw=self.save_snapshot_window
+		if not ssw.finished:
+			pass
+		# use continuation passing style
+		elif ssw.savefile:
+			# capture the continuation
+			def saveit():
+				# the contents of the continuation depend on the plot type
+				if ssw.whichplot=='circ':
+					self.circ_fig.savefig(ssw.savefile,dpi=ssw.dpi,
+						facecolor='black')
+				elif ssw.whichplot=='mayavi':
+					res=np.ceil(500*ssw.dpi/8000.0*111)
+					mlab.savefig(ssw.savefile,size=(res,res))
+				elif ssw.whichplot=='chaco':
+					gc=PlotGraphicsContext(self.conn_mat.outer_bounds,
+						dpi=ssw.dpi)
+					gc.render_component(self.conn_mat)
+					gc.save(ssw.savefile)
+			if os.path.exists(ssw.savefile):
+				# set the continuation on the rofw widget and spawn it
+				self.set_save_continuation_and_spawn_rofw(saveit)
+			else:
+				# not a duplicate filename, just call the save continuation
+				saveit()
+		else:
+			self.error_dialog('You must specify the save file')
+		#mlab.savefig('/autofs/homes/005/rlaplant/testres.png',magnification=5)
+
+	def set_save_continuation_and_spawn_rofw(self,continuation):
+		self.really_overwrite_file_window.finished=False
+		self.really_overwrite_file_window.save_continuation=continuation
+		self.really_overwrite_file_window.edit_traits()
+
+	@on_trait_change('really_overwrite_file_window:notify')
+	def really_overwrite_file_check(self):
+		rofw=self.really_overwrite_file_window
+		# if the user clicks OK, call the save continuation
+		if rofw.finished:
+			try:
+				rofw.save_continuation()
+			except IOError as e:
+				self.error_dialog(e)
+		# otherwise, don't do anything
+
+	def _load_surface_button_fired(self):
+		self.error_dialog('not supported yet')
+		#self.load_what='surface'
+		#util.fancy_file_chooser(self)
 
 	@on_trait_change('cycle_mod_button')
 	def cycle_module(self):
@@ -727,9 +826,6 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.display_node(self.curr_node-1)
 	
-	def _extra_button_fired(self):
-		self.error_dialog('This button is not currently used')
-
 	## DRAWING FUNCTIONS ##
 	def edge_color_on(self):
 		self.myvectors.actor.mapper.scalar_visibility=True
@@ -743,8 +839,8 @@ class Cvu(CvuPlaceholder):
 		mlab.draw()
 
 	def reset_node_color_circ(self):
-		#the circle only plots the ~10000 highest edges.  the exact number of edges
-		#is variable dependent on the data, but we can inspect a variable to find it
+		#the circle only plots the ~max_edges highest edges.  the exact number 
+		#varies with the data, but we can inspect a variable to find it
 		circ_path_offset=len(self.sorted_adjdat)
 		for n in xrange(0,self.nr_labels,1):
 			self.circ_data[circ_path_offset+n].set_fc(self.circ_node_colors[n])
@@ -782,8 +878,7 @@ def preproc():
 	adj = util.loadmat(args['adjmat'],args['field']) 
 
 	#load surface for visual display
-	import os.path as op
-	surf_fname=op.join(args['subjdir'],args['subject'],'surf',
+	surf_fname=os.path.join(args['subjdir'],args['subject'],'surf',
 		'lh.%s'%args['surftype'])
 	surf_struct=util.loadsurf(surf_fname)
 
