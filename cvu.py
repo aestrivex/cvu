@@ -89,6 +89,7 @@ class Cvu(CvuPlaceholder):
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
 	adjmat_chooser_window = Instance(HasTraits)
+	load_modules_window = Instance(HasTraits)
 	node_chooser_window = Instance(HasTraits)
 	module_chooser_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
@@ -178,6 +179,7 @@ class Cvu(CvuPlaceholder):
 		#print np.shape(self.lab_pos)
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
+		self.load_modules_window=dialogs.LoadCommunityStructureWindow()
 		self.node_chooser_window=dialogs.NodeChooserWindow()
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
@@ -286,11 +288,11 @@ class Cvu(CvuPlaceholder):
 	def flip_adj_ord(self,adj):
 		if self.adjlabfile == None or self.adjlabfile == '':
 			return adj
-		des_ord,bads=util.read_parcellation_textfile(self.adjlabfile)
+		init_ord,bads=util.read_parcellation_textfile(self.adjlabfile)
 		#delete the extras
 		adj=np.delete(adj,bads,axis=0)
 		adj=np.delete(adj,bads,axis=1)
-		adj_ord=util.adj_sort(des_ord,self.labnam)
+		adj_ord=util.adj_sort(init_ord,self.labnam)
 		#swap the new order
 		adj=adj[adj_ord][:,adj_ord]
 		return adj
@@ -421,13 +423,16 @@ class Cvu(CvuPlaceholder):
 		except (util.CVUError,IOError) as e:
 			self.error_dialog(str(e))
 			return
-		except ValueError as e:
-			self.error_dialog("Bad specification of bad channels: %s" % str(e))
+		except (ValueError,IndexError) as e:
+			self.error_dialog("Mismatched channels: %s" % str(e))
+			return
+		except KeyError as e:
+			self.error_dialog("Field not found: %s" % str(e))
 			return
 		if len(adj) != self.nr_labels:
 			self.error_dialog('The adjacency matrix you specified is not '
 				'correctly aligned with the parcellation.  The adjmat size was '
-				'%i and the parcellation ROIs was %i' %(len(adj),self.nr_labels))
+				'%i and the number of ROIs was %i' %(len(adj),self.nr_labels))
 			return
 		self.adj_nulldiag = adj
 		self.adj_helper_gen()
@@ -441,6 +446,30 @@ class Cvu(CvuPlaceholder):
 		self.redraw_circ()
 		self.reset_node_color_mayavi()
 		self.reset_node_color_circ()
+
+	def load_new_module_vector(self):
+		lmw=self.load_modules_window
+		try:
+			ci=util.loadmat(lmw.comm,field=lmw.field_name)
+			if lmw.comm_order:
+				init_ord,bads=util.read_parcellation_textfile(lmw.comm_order)
+				#delete the extras
+				ci=np.delete(ci,bads)
+				ci_ord=util.adj_sort(init_ord,self.labnam)
+				#swap the new order
+				ci=ci[ci_ord]
+		except (util.CVUError,IOError) as e:
+			self.error_dialog(str(e))
+			return
+		except (ValueError,IndexError) as e:
+			self.error_dialog("Mismatched channels: %s" % str(e))
+			return
+		except KeyError as e:
+			self.error_dialog("Field not found: %s" % str(e))
+			return
+		import modularity
+		self.modules=modularity.comm2list(ci)
+		self.update_modules_metadata()
 
 	## USER-DRIVEN INTERACTIONS ##
 	def error_dialog(self,message):
@@ -606,13 +635,16 @@ class Cvu(CvuPlaceholder):
 				delete_extras=self.prune_modules)
 		else:
 			raise Exception("Partition type %s not found" % self.partitiontype)
+		self.update_modules_metadata()
+
+	def update_modules_metadata(self):
+		if self.modules is None:
+			print "zacket"
+			return
 		self.nr_modules=len(self.modules)
 		self.module_chooser_window.module_list=[]
 		for i in xrange(0,self.nr_modules):
 			self.module_chooser_window.module_list.append('Module '+str(i))
-
-	def _load_mod_button_fired(self):
-		pass
 
 	def _select_mod_button_fired(self):
 		if self.modules is None:
@@ -665,6 +697,10 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.error_dialog('You must specify the adjacency matrix')
 
+	def _load_parc_button_fired(self):
+		self.parc_chooser_window.finished=False
+		self.parc_chooser_window.edit_traits()
+
 	@on_trait_change('parc_chooser_window:notify')
 	def load_parc_check(self):
 		pcw=self.parc_chooser_window
@@ -678,10 +714,20 @@ class Cvu(CvuPlaceholder):
 				'the desired label ordering, and the parcellation name '
 				'(e.g. aparc.2009)')
 
-	def _load_parc_button_fired(self):
-		self.parc_chooser_window.finished=False
-		self.parc_chooser_window.edit_traits()
+	def _load_mod_button_fired(self):
+		self.load_modules_window.finished=False
+		self.load_modules_window.edit_traits()
 
+	@on_trait_change('load_modules_window:notify')
+	def load_modules_check(self):
+		lmw=self.load_modules_window
+		if not lmw.finished:
+			pass
+		elif lmw.comm:
+			self.load_new_module_vector()
+		else:
+			self.error_dialog('You must specify a file with a module vector')	
+		
 	#snapshots
 	def _mayavi_snapshot_button_fired(self):
 		self.save_snapshot_window.finished=False

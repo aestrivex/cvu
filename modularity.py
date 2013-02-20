@@ -20,7 +20,7 @@ def threshold_prop(adjmat,threshold_p,delete_extras=False):
 
 	return adjmat,deleters
 
-def comms2modlist(indices,zeroindexed=False):
+def comm2list(indices,zeroindexed=False):
 	nr_indices=max(indices)
 	ls=[]
 	for c in xrange(0,nr_indices,1):
@@ -31,7 +31,7 @@ def comms2modlist(indices,zeroindexed=False):
 		ls[indices[i]-z].append(i)
 	return ls
 
-def modlist2comms(mlist,zeroindexed=False):
+def list2comm(mlist,zeroindexed=False):
 	nr_indices=sum(map(len,mlist))
 	ci=np.zeros((nr_indices,))	
 	z=int(not zeroindexed)

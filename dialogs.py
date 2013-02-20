@@ -24,14 +24,13 @@ class AdjmatChooserWindow(BasicSubwindow):
 	max_edges=Int
 	field_name=Str('adj_matrices')
 	traits_view=View(
-		Item(name='Please_note',style='readonly',height=145,width=250),
+		Item(name='Please_note',style='readonly',height=140,width=250),
 		Item(name='adjmat'),
 		Item(name='adjmat_order',label='Label Order'),
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Your doom awaits you',
-		resizable=True)
+		title='Your doom awaits you',)
 
 class ParcellationChooserWindow(BasicSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
@@ -50,6 +49,19 @@ class ParcellationChooserWindow(BasicSubwindow):
 			Item(name='labelnames_f',label='Label Display Order'),
 		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 			title="This should not be particularly convenient",)
+
+class LoadCommunityStructureWindow(BasicSubwindow):
+	Please_note=Str('Same rules for adjmat ordering files apply')
+	comm=File
+	comm_order=File
+	field_name=Str
+	traits_view=View(
+		Item(name='Please_note',style='readonly',height=50,width=250),
+		Item(name='comm',label='Modules'),
+		Item(name='comm_order',label='Module ordering'),
+		Item(name='field_name',label='Data field name'),
+		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title='Behold the power of zombies')
 
 class NodeChooserWindow(BasicSubwindow):
 	node_list=List(Str)
