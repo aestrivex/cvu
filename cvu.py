@@ -17,7 +17,7 @@ from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
-import circle_plot as circ; import mpleditor
+import circle_plot as circ; import mpleditor; import dialogs
 if __name__=="__main__":
 	print "All libraries loaded"
 
@@ -56,80 +56,6 @@ class ConnmatPanClickTool(PanTool):
 	def deciding_mouse_move(self,event):
 		self.event_state='panning'
 		return self.panning_mouse_move(event)
-		
-class SubwindowHandler(Handler):
-	def closed(self,info,is_ok):
-		info.object.finished=is_ok
-		info.object.notify=True
-
-class BasicSubwindow(HasTraits):
-	finished=Bool(False)
-	notify=Event
-	
-class AdjmatChooserWindow(BasicSubwindow):
-	Please_note=Str("All but first field are optional.  Specify adjmat order "
-		"if the desired display order differs from the existing matrix order."
-		"  Specify unwanted channels as 'delete' in the label order.  Data "
-		"field name applies to the data field for .mat matrices only.")
-	adjmat=File
-	#adjmat_order=Trait(None,None,File)
-	adjmat_order=File
-	max_edges=Int
-	field_name=Str('adj_matrices')
-	traits_view=View(
-		Item(name='Please_note',style='readonly',height=145,width=250),
-		Item(name='adjmat'),
-		Item(name='adjmat_order',label='Label Order'),
-		Item(name='max_edges',label='Max Edges'),
-		Item(name='field_name',label='Data Field Name'),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Your doom awaits you',
-		resizable=True)
-
-class ParcellationChooserWindow(BasicSubwindow):
-	Please_note=Str('Unless you are specifically interested in the'
-		' morphology of an individual subject, it is recommended to use'
-		' fsaverage5 and leave the first two fields alone.')
-	SUBJECTS_DIR=Directory('./')
-	SUBJECT=Str('fsavg5')
-	labelnames_f=File
-	parcellation_name=Str
-	traits_view=View(
-		Group(
-			Item(name='Please_note',style='readonly',height=85,width=250),
-			Item(name='SUBJECT'),
-			Item(name='SUBJECTS_DIR'),
-			Item(name='parcellation_name',label='Parcellation'),
-			Item(name='labelnames_f',label='Label Display Order'),
-		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-			title="This should not be particularly convenient",)
-
-class SaveSnapshotWindow(BasicSubwindow):
-	savefile=Str(os.environ['HOME']+'/')
-	dpi=Int(300)
-	whichplot=Enum('mayavi','chaco','circ')
-	traits_view=View(Group(
-		Item(name='savefile'),
-		Item(name='dpi'),
-	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title="Help I'm a bug",height=250,width=250)
-
-class ReallyOverwriteFileWindow(BasicSubwindow):
-	Please_note=Str('That file exists.  Really overwrite?')
-	save_continuation=Function # Continuation passing style
-	traits_view=View(Spring(),
-		Item(name='Please_note',style='readonly',#height=50,width=250,
-			show_label=False),
-		Spring(),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Oh no you\'ve done it now')
-
-class ErrorDialogWindow(HasTraits):
-	message=Str
-	traits_view=View(Item(name='error',editor=TextEditor(),
-		style='readonly'),
-		buttons=[OKButton],kind='nonmodal',height=150,width=300,
-		title='Evil mutant zebras did this',)
 
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
@@ -147,9 +73,11 @@ class Cvu(CvuPlaceholder):
 	#buttons
 	up_node_button = Button('^')
 	down_node_button = Button('v')
-	all_node_button = Button('all')
+	select_node_button = Button('Choose node')
+	all_node_button = Button('Show all')
 	calc_mod_button = Button('Calc modules')
-	cycle_mod_button = Button('Cycle module')
+	load_mod_button = Button('Load modules')
+	select_mod_button = Button('View module')
 	load_adjmat_button = Button('Load an adjacency matrix')
 	draw_stuff_button = Button('Force render')
 	load_parc_button=Button('Load a parcellation')
@@ -161,6 +89,8 @@ class Cvu(CvuPlaceholder):
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
 	adjmat_chooser_window = Instance(HasTraits)
+	node_chooser_window = Instance(HasTraits)
+	module_chooser_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
@@ -178,15 +108,18 @@ class Cvu(CvuPlaceholder):
 					Item(name='conn_mat',
 						editor=ComponentEditor(),
 						show_label=False,height=450,width=450,resizable=True),
-					Group(	Item(name='up_node_button',show_label=False),
-							Item(name='down_node_button',show_label=False),
-							Item(name='all_node_button',show_label=False),
+					Group(	Item(name='up_node_button'),
+							Item(name='down_node_button'),
+							Item(name='select_node_button'),
+							Item(name='all_node_button'),
 							Spring(),
-							Item(name='calc_mod_button',show_label=False),
-							Item(name='cycle_mod_button',show_label=False),
+							Item(name='calc_mod_button'),
+							Item(name='load_mod_button'),
+							Item(name='select_mod_button'),
 							Spring(),
-							Item(name='draw_stuff_button',show_label=False),
-							Item(name='group_by_strength',show_label=False),
+							Item(name='draw_stuff_button'),
+							Item(name='group_by_strength'),
+						show_labels=False,
 					)
 				),
 				HSplit(
@@ -195,15 +128,16 @@ class Cvu(CvuPlaceholder):
 						height=500,width=500,show_label=False,resizable=True),
 					Group(
 						HSplit(
-							Item(name='load_parc_button',show_label=False),
-							Item(name='load_adjmat_button',show_label=False),
-							Item(name='load_surface_button',show_label=False),
+							Item(name='load_parc_button',),
+							Item(name='load_adjmat_button',),
+							Item(name='load_surface_button',),
+							show_labels=False,
 						),
 						HSplit(
 							Item(name='mayavi_snapshot_button'),
 							Item(name='chaco_snapshot_button'),
 							Item(name='circ_snapshot_button'),
-							show_labels=False
+							show_labels=False,
 						),
 						HSplit(
 							Item(name='circ_size'),
@@ -242,11 +176,15 @@ class Cvu(CvuPlaceholder):
 	
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
-		self.adjmat_chooser_window=AdjmatChooserWindow()
-		self.parc_chooser_window=ParcellationChooserWindow()
-		self.save_snapshot_window=SaveSnapshotWindow()
-		self.really_overwrite_file_window=ReallyOverwriteFileWindow()
-		self.error_dialog_window=ErrorDialogWindow()
+		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
+		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
+		self.node_chooser_window=dialogs.NodeChooserWindow()
+		self.module_chooser_window=dialogs.ModuleChooserWindow()
+		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
+		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
+		self.error_dialog_window=dialogs.ErrorDialogWindow()
+
+		self.node_chooser_window.node_list=self.labnam
 	
 	@on_trait_change('scene.activated')	
 	def setup(self):
@@ -255,12 +193,12 @@ class Cvu(CvuPlaceholder):
 		self.adj_nulldiag=self.flip_adj_ord(self.adj_nulldiag)
 		self.adj_helper_gen()
 
+		self.modules=None
+		self.cur_module=None
+
 		## SET UP COLORS AND COLORMAPS ##
 		self.yellow_map=get_cmap('YlOrRd')
 		self.cool_map=get_cmap('cool')
-
-		#blrd=RdYlBu(None)
-		#blrd.reverse_colormap()
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -456,6 +394,7 @@ class Cvu(CvuPlaceholder):
 			self.error_dialog(str(e))
 			return
 		self.labnam=labnam
+		self.node_choose_window.node_list=labnam
 		self.nr_labels=len(self.labnam)
 		self.pos_helper_gen()
 		print "Parcellation %s loaded successfully" % pcw.parcellation_name
@@ -511,8 +450,7 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('all_node_button')
 	def display_all(self):
 		self.curr_node=None
-		if self.cur_module != None and self.cur_module >=1:
-			self.cur_module*=-1
+		self.cur_module=None
 		#change mlab source data in main scene
 		self.vectorsrc.mlab_source.set(x=self.starts[:,0],y=self.starts[:,1],
 			z=self.starts[:,2],u=self.vecs[:,0],v=self.vecs[:,1],
@@ -537,8 +475,6 @@ class Cvu(CvuPlaceholder):
 			#odd-looking errors, best to just return quietly and do nothing
 			return
 		self.curr_node=n
-		if self.cur_module != None and self.cur_module >= 1:
-			self.cur_module*=-1
 		#change mlab source data in main scene
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		count_edges = 0
@@ -572,11 +508,9 @@ class Cvu(CvuPlaceholder):
 		self.reset_node_color_circ()
 		self.redraw_circ()
 
-	#module is an optional array of node indices to display.  if module
-	#is not provided it is assumed that we are looking for the builtin modules
-	def display_module(self,module=None):
-		if module==None:
-			module=self.modules[self.cur_module-1]
+	def display_module(self,modnum):
+		self.cur_module=modnum
+		module=self.modules[self.cur_module]
 		if not quiet:
 			print str(np.size(module))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
@@ -654,6 +588,43 @@ class Cvu(CvuPlaceholder):
 		mpledit._process_circ_click(event,self)
 
 	## TRAITS-DRIVEN INTERACTIONS ##
+	#node selection
+	def _select_node_button_fired(self):
+		self.node_chooser_window.edit_traits()
+
+	@on_trait_change('node_chooser_window:cur_node')
+	def finish_node_select(self):
+		self.display_node(self.node_chooser_window.cur_node)
+
+	#module selection
+	def _calc_mod_button_fired(self):
+		import modularity
+		if self.partitiontype=="metis":
+			self.modules=modularity.use_metis(self.adj_nulldiag)
+		elif self.partitiontype=="spectral":
+			self.modules=modularity.spectral_partition(self.adj_nulldiag,
+				delete_extras=self.prune_modules)
+		else:
+			raise Exception("Partition type %s not found" % self.partitiontype)
+		self.nr_modules=len(self.modules)
+		self.module_chooser_window.module_list=[]
+		for i in xrange(0,self.nr_modules):
+			self.module_chooser_window.module_list.append('Module '+str(i))
+
+	def _load_mod_button_fired(self):
+		pass
+
+	def _select_mod_button_fired(self):
+		if self.modules is None:
+			self.error_dialog('No modules loaded')
+		else:
+			self.module_chooser_window.edit_traits()
+
+	@on_trait_change('module_chooser_window:cur_mod')
+	def finish_mod_select(self):
+		self.display_module(self.module_chooser_window.cur_mod)
+
+	#small changes
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
@@ -671,21 +642,6 @@ class Cvu(CvuPlaceholder):
 		self.circ_fig.axes[0].set_ylim(0,self.circ_size)
 		#self.redraw_circ()
 
-	@on_trait_change('calc_mod_button')
-	def calc_modules(self):
-		import modularity
-		if self.partitiontype=="metis":
-			self.modules=modularity.use_metis(self.adj_nulldiag)
-		elif self.partitiontype=="spectral":
-			self.modules=modularity.spectral_partition(self.adj_nulldiag,
-				delete_extras=self.prune_modules)
-		else:
-			raise Exception("Partition type %s not found" % self.partitiontype)
-		self.display_all()
-		self.cur_module=1
-		self.nr_modules=len(self.modules)
-		self.display_module()
-
 	#def load_timecourse_data():
 		#if self.dataloc==None:
 		#	raise Exception('No raw data was specified')
@@ -694,9 +650,20 @@ class Cvu(CvuPlaceholder):
 		#		' --modality')
 		#raise Exception("I like exceptions")
 
+	#load adjmat/parc
 	def _load_adjmat_button_fired(self):
 		self.adjmat_chooser_window.finished=False
 		self.adjmat_chooser_window.edit_traits()
+
+	@on_trait_change('adjmat_chooser_window:notify')
+	def load_adjmat_check(self):
+		acw=self.adjmat_chooser_window
+		if not acw.finished:
+			pass
+		elif acw.adjmat:
+			self.load_new_adjmat()
+		else:
+			self.error_dialog('You must specify the adjacency matrix')
 
 	@on_trait_change('parc_chooser_window:notify')
 	def load_parc_check(self):
@@ -715,16 +682,7 @@ class Cvu(CvuPlaceholder):
 		self.parc_chooser_window.finished=False
 		self.parc_chooser_window.edit_traits()
 
-	@on_trait_change('adjmat_chooser_window:notify')
-	def load_adjmat_check(self):
-		acw=self.adjmat_chooser_window
-		if not acw.finished:
-			pass
-		elif acw.adjmat:
-			self.load_new_adjmat()
-		else:
-			self.error_dialog('You must specify the adjacency matrix')
-
+	#snapshots
 	def _mayavi_snapshot_button_fired(self):
 		self.save_snapshot_window.finished=False
 		self.save_snapshot_window.whichplot='mayavi'
@@ -741,7 +699,7 @@ class Cvu(CvuPlaceholder):
 		self.save_snapshot_window.edit_traits()
 
 	@on_trait_change('save_snapshot_window:notify')
-	def save_circ_check(self):
+	def save_snapshot_check(self):
 		ssw=self.save_snapshot_window
 		if not ssw.finished:
 			pass
@@ -786,25 +744,12 @@ class Cvu(CvuPlaceholder):
 			except IOError as e:
 				self.error_dialog(e)
 		# otherwise, don't do anything
-
+	
+	#load surface
 	def _load_surface_button_fired(self):
 		self.error_dialog('not supported yet')
 		#self.load_what='surface'
 		#util.fancy_file_chooser(self)
-
-	@on_trait_change('cycle_mod_button')
-	def cycle_module(self):
-		self.display_all()
-		if self.cur_module==None:
-			return
-		elif self.cur_module < 0:
-			self.cur_module*=-1
-		if self.cur_module==self.nr_modules:
-			self.cur_module=1
-		else:
-			self.cur_module=self.cur_module+1
-		self.display_module()	
-	#TODO MAJOR REWORK AND MODULARIZATION (no pun intended) OF ALL DISPLAY LOGIC
 
 	def _draw_stuff_button_fired(self):
 		#self.error_dialog('This button is not currently used')	
@@ -854,11 +799,8 @@ class Cvu(CvuPlaceholder):
 			if self.sorted_adjdat[e] <= self.thres.upper_threshold and \
 					self.sorted_adjdat[e] >= self.thres.lower_threshold and \
 					(self.curr_node==None or self.curr_node in [a,b]) and \
-					(self.cur_module==None or self.cur_module<0 or 
-					#the current module is 0 indexed but saved as 1-n because
-					#negative values are stateful
-					(a in self.modules[self.\
-					cur_module-1] and b in self.modules[self.cur_module-1])):
+					(self.cur_module is None or (a in self.modules[self.\
+					cur_module] and b in self.modules[self.cur_module])):
 				self.circ_data[e].set_visible(True)
 				if self.myvectors.actor.mapper.scalar_visibility:
 					self.circ_data[e].set_ec(self.yellow_map((self.\

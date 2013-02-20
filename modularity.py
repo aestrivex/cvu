@@ -20,6 +20,26 @@ def threshold_prop(adjmat,threshold_p,delete_extras=False):
 
 	return adjmat,deleters
 
+def comms2modlist(indices,zeroindexed=False):
+	nr_indices=max(indices)
+	ls=[]
+	for c in xrange(0,nr_indices,1):
+		ls.append([])
+	i=0
+	z=int(not zeroindexed)
+	for i in xrange(0,len(indices),1):
+		ls[indices[i]-z].append(i)
+	return ls
+
+def modlist2comms(mlist,zeroindexed=False):
+	nr_indices=sum(map(len,mlist))
+	ci=np.zeros((nr_indices,))	
+	z=int(not zeroindexed)
+	for i in xrange(0,len(mlist),1):
+		for j in xrange(0,len(mlist[i]),1): #THIS IS BUGGED FIX IT
+			ci[mlist[i][j]]=i+z
+	return list(ci)
+
 def unpermute(mods,perm,forward=False):
 	mapper={}
 	for i in xrange(0,len(perm),1):
