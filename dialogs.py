@@ -9,11 +9,11 @@ class SubwindowHandler(Handler):
 		info.object.finished=is_ok
 		info.object.notify=True
 
-class BasicSubwindow(HasTraits):
+class InteractiveSubwindow(HasTraits):
 	finished=Bool(False)
 	notify=Event
 	
-class AdjmatChooserWindow(BasicSubwindow):
+class AdjmatChooserWindow(InteractiveSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
 		"  Specify unwanted channels as 'delete' in the label order.  Data "
@@ -32,7 +32,7 @@ class AdjmatChooserWindow(BasicSubwindow):
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Your doom awaits you',)
 
-class ParcellationChooserWindow(BasicSubwindow):
+class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
 		' morphology of an individual subject, it is recommended to use'
 		' fsaverage5 and leave the first two fields alone.')
@@ -50,7 +50,7 @@ class ParcellationChooserWindow(BasicSubwindow):
 		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 			title="This should not be particularly convenient",)
 
-class LoadCommunityStructureWindow(BasicSubwindow):
+class LoadCommunityStructureWindow(InteractiveSubwindow):
 	Please_note=Str('Same rules for adjmat ordering files apply')
 	comm=File
 	comm_order=File
@@ -63,16 +63,16 @@ class LoadCommunityStructureWindow(BasicSubwindow):
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Behold the power of zombies')
 
-class NodeChooserWindow(BasicSubwindow):
+class NodeChooserWindow(InteractiveSubwindow):
 	node_list=List(Str)
 	cur_node=Int
 	traits_view=View(
 		Item(name='node_list',editor=
-			ListStrEditor(selected_index='cur_node')),
+			ListStrEditor(selected_index='cur_node'),show_label=False),
 		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
 		resizable=True,title='Do you know the muffin man?')
 
-class ModuleChooserWindow(BasicSubwindow):
+class ModuleChooserWindow(InteractiveSubwindow):
 	module_list=List(Str)
 	cur_mod=Int
 	traits_view=View(
@@ -81,7 +81,7 @@ class ModuleChooserWindow(BasicSubwindow):
 		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
 		resizable=True,title='Roll d12 for dexterity check')
 
-class SaveSnapshotWindow(BasicSubwindow):
+class SaveSnapshotWindow(InteractiveSubwindow):
 	savefile=Str(os.environ['HOME']+'/')
 	dpi=Int(300)
 	whichplot=Enum('mayavi','chaco','circ')
@@ -91,7 +91,7 @@ class SaveSnapshotWindow(BasicSubwindow):
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title="Help I'm a bug",height=250,width=250)
 
-class ReallyOverwriteFileWindow(BasicSubwindow):
+class ReallyOverwriteFileWindow(InteractiveSubwindow):
 	Please_note=Str('That file exists.  Really overwrite?')
 	save_continuation=Function # Continuation passing style
 	traits_view=View(Spring(),

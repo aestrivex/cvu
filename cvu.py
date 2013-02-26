@@ -17,7 +17,8 @@ from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
-import circle_plot as circ; import mpleditor; import dialogs
+import circle_plot as circ; import mpleditor; import dialogs;
+import color_legend;
 if __name__=="__main__":
 	print "All libraries loaded"
 
@@ -65,7 +66,7 @@ class Cvu(CvuPlaceholder):
 	group_by_strength = Enum('all','strong','medium','weak')
 	thresh = Range(0.0,1.0,.95)
 	surface_visibility = Range(0.0,1.0,.15)
-	circ_size = Range(7,20,10,mode='spinner')
+	circ_size = Range(7,20,9,mode='spinner')
 	curr_node = Trait(None,None,Int)
 	cur_module = Trait(None,None,Int)
 	prune_modules = Bool
@@ -76,10 +77,11 @@ class Cvu(CvuPlaceholder):
 	select_node_button = Button('Choose node')
 	all_node_button = Button('Show all')
 	calc_mod_button = Button('Calc modules')
-	load_mod_button = Button('Load modules')
+	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
 	load_adjmat_button = Button('Load an adjacency matrix')
 	draw_stuff_button = Button('Force render')
+	color_legend_button = Button('Color legend')
 	load_parc_button=Button('Load a parcellation')
 	load_surface_button=Button('Load surface files')
 	mayavi_snapshot_button=Button('3D snapshot')
@@ -95,8 +97,8 @@ class Cvu(CvuPlaceholder):
 	save_snapshot_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
+	color_legend_window = Instance(HasTraits)
 
-	file_chooser_window = Instance(HasTraits)
 	python_shell = Dict
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
@@ -113,6 +115,7 @@ class Cvu(CvuPlaceholder):
 							Item(name='down_node_button'),
 							Item(name='select_node_button'),
 							Item(name='all_node_button'),
+							Item(name='color_legend_button'),
 							Spring(),
 							Item(name='calc_mod_button'),
 							Item(name='load_mod_button'),
@@ -185,6 +188,7 @@ class Cvu(CvuPlaceholder):
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 		self.error_dialog_window=dialogs.ErrorDialogWindow()
+		self.color_legend_window=color_legend.ColorLegendWindow()
 
 		self.node_chooser_window.node_list=self.labnam
 	
@@ -218,9 +222,7 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.conn_mat.x_axis.set(visible=False)
-		self.conn_mat.x_grid.set(visible=False)
 		self.conn_mat.y_axis.set(visible=False)
-		self.conn_mat.y_grid.set(visible=False)
 		#TODO write a controller that asks chaco to explicitly redraw
 
 		## SET UP THE CIRCLE PLOT ##
@@ -252,11 +254,10 @@ class Cvu(CvuPlaceholder):
 				self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
 				self.edges[i,0],self.edges[i,1] = r1,r2
 				i+=1
-		if not quiet:
-			print str(self.nr_edges)+" total connections"
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
+		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
 		self.adjdat = np.zeros((self.nr_edges,1),dtype=float)
 		i=0
 		for r2 in xrange(0,self.nr_labels,1):
@@ -283,6 +284,8 @@ class Cvu(CvuPlaceholder):
 			self.adjdat=self.adjdat[zi[0]]
 			
 			self.nr_edges=len(self.adjdat)
+		if not quiet:
+			print str(self.nr_edges)+" total connections"
 
 	# acts on intermediate computation adjacency matrix, NOT instance variable
 	def flip_adj_ord(self,adj):
@@ -373,7 +376,7 @@ class Cvu(CvuPlaceholder):
 	# but if the user changes the data the existing figure should be preserved
 	def circ_fig_gen(self,figure=None):
 		fig_holdr,self.sorted_edges,self.sorted_adjdat,\
-			self.circ_node_colors=\
+			self.node_colors=\
 			circ.plot_connectivity_circle2(
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
 			indices=self.edges.T,colormap="YlOrRd",fig=figure,
@@ -396,7 +399,7 @@ class Cvu(CvuPlaceholder):
 			self.error_dialog(str(e))
 			return
 		self.labnam=labnam
-		self.node_choose_window.node_list=labnam
+		self.node_chooser_window.node_list=labnam
 		self.nr_labels=len(self.labnam)
 		self.pos_helper_gen()
 		print "Parcellation %s loaded successfully" % pcw.parcellation_name
@@ -435,6 +438,10 @@ class Cvu(CvuPlaceholder):
 				'%i and the number of ROIs was %i' %(len(adj),self.nr_labels))
 			return
 		self.adj_nulldiag = adj
+		#it is necessary to rerun pos_helper_gen() because the number of edges
+		#is not constant from one adjmat to another.  thus the positions of
+		#the edges cannot be assumed to be the same
+		self.pos_helper_gen()
 		self.adj_helper_gen()
 		print "Adjacency matrix %s loaded successfully" % acw.adjmat
 
@@ -656,7 +663,7 @@ class Cvu(CvuPlaceholder):
 	def finish_mod_select(self):
 		self.display_module(self.module_chooser_window.cur_mod)
 
-	#small changes
+	#misc trait changes
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
@@ -797,6 +804,17 @@ class Cvu(CvuPlaceholder):
 		#self.load_what='surface'
 		#util.fancy_file_chooser(self)
 
+	#misc button presses
+	def _color_legend_button_fired(self):
+		#set up the color legend
+		def create_entry(zipped):
+			label,color=zipped
+			return color_legend.LegendEntry(metaregion=label,col=color)
+		self.color_legend_window.legend=\
+			map(create_entry,zip(self.labnam,self.node_colors))
+		#spawn the legend window
+		self.color_legend_window.edit_traits()
+
 	def _draw_stuff_button_fired(self):
 		#self.error_dialog('This button is not currently used')	
 		self.redraw_circ()
@@ -834,9 +852,9 @@ class Cvu(CvuPlaceholder):
 		#varies with the data, but we can inspect a variable to find it
 		circ_path_offset=len(self.sorted_adjdat)
 		for n in xrange(0,self.nr_labels,1):
-			self.circ_data[circ_path_offset+n].set_fc(self.circ_node_colors[n])
+			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
 			#self.circ_data[circ_path_offset+n].set_fc((0,0,0))
-			#self.circ_data[circ_path_offset+n].set_ec(self.circ_node_colors[n])
+			#self.circ_data[circ_path_offset+n].set_ec(self.node_colors[n])
 	
 	def redraw_circ(self):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold

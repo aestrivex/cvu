@@ -9,6 +9,7 @@ from mne.fixes import tril_indices
 import pylab as pl
 import matplotlib.path as m_path
 import matplotlib.patches as m_patches
+import matplotlib.colors as m_col
 
 #there are some minor changes in this function from the mne version
 #namely the return arguments and the figure size which were hard coded in the
@@ -66,11 +67,7 @@ vmin : float | None
 Minimum value for colormap. If None, it is determined automatically.
 vmax : float | None
 Maximum value for colormap. If None, it is determined automatically.
-c
-
-
-
-defolorbar : bool
+colorbar : bool
 Display a colorbar or not.
 title : str
 The figure title.
@@ -80,6 +77,9 @@ Returns
 fig : instance of pyplot.Figure
 The figure handle.
 """
+	#TODO	in principle, color code via a list of allowed regions
+	# rather than by _div.  Important for compatibility with nonfreesurfer
+	# parcellations in principle.  Punt on it for now.
 
 	n_nodes = len(node_names)
 
@@ -98,13 +98,43 @@ The figure handle.
 	else:
 		node_width = node_width * np.pi / 180
 
-	if node_colors is not None:
-		if len(node_colors) < n_nodes:
-			node_colors = cycle(node_colors)
-	else:
-		# assign colors using colormap
-		node_colors = [pl.cm.spectral(i / float(n_nodes))
-					   for i in range(n_nodes)]
+	#assign a group to each node, in order already
+	#TODO node_groups should be passed in as a dictionary
+
+	node_groups=map(lambda n:n[3:].replace('div','').strip('1234567890_')
+		,node_names)
+	n_groups=len(set(node_groups))
+
+	# remove all duplicates and return in same order
+	# set() is inherently unordered in py, it returns in order of hash values
+	n_set=set()
+	n_grp_uniqs=[i for i in node_groups if i not in n_set and not n_set.add(i)]
+
+	# currently node_groups is a list of strings, we need unique ID #s
+	# node_ids maps from strings to group id
+	grp_ids = dict(zip(n_grp_uniqs,xrange(n_groups)))	
+
+	#special=['#b016d8','#26ed1a','#0e89ee','#eaf60b','#ed7fe5','#6372f2',
+ 	#	'#05d5d5','#e726f4','#bbb27e','#641197','#068c40']
+	special=['#26ed1a','#eaf60b','#e726f4','#002aff',
+        '#05d5d5','#f4a5e0','#bbb27e','#641179','#068c40']
+
+	hi_contrast=m_col.LinearSegmentedColormap.from_list('hi_contrast',special)
+
+	# assign colors using colormap
+	# group assignments and color assignments both refer to index in range
+	#grp_colors = [pl.cm.Set3(i / float(n_groups)) for i in xrange(n_groups)]
+	grp_colors = [hi_contrast(i/float(n_groups)) for i in xrange(n_groups)]
+
+	node_colors=map(lambda n:grp_colors[grp_ids[n]],node_groups)
+
+
+	# get angles for text placement
+	text_angles = np.linspace(0, 2*np.pi, n_groups*2, endpoint=False)
+	start_hemi = node_names[0][:3]
+	end_hemi = node_names[-1][:3]	
+
+
 
 	# handle 1D and 2D connectivity information
 	if con.ndim == 1:
@@ -225,8 +255,8 @@ The figure handle.
 
 	# Draw ring with colored nodes
 	#radii = np.ones(n_nodes) * 8
-	radii=np.ones(n_nodes)
-	bars = axes.bar(node_angles, radii, width=node_width, bottom=7,
+	radii=np.ones(n_nodes)-.2
+	bars = axes.bar(node_angles, radii, width=node_width, bottom=7.2,
 					edgecolor=node_edgecolor, linewidth=0, facecolor='.9',
 					align='center',zorder=10)
 
@@ -234,8 +264,13 @@ The figure handle.
 		bar.set_facecolor(color)
 
 	# Draw node labels
-	angles_deg = 180 * node_angles / np.pi
-	for name, angle_rad, angle_deg in zip(node_names, node_angles, angles_deg):
+	angles_deg = 180 * text_angles / np.pi
+
+	grp_labels=[]
+	grp_labels.extend(map(lambda x:start_hemi+x,n_grp_uniqs))
+	grp_labels.extend(map(lambda x:end_hemi+x,n_grp_uniqs))
+
+	for name, angle_rad, angle_deg in zip(grp_labels, text_angles, angles_deg):
 		if angle_deg >= 270 or angle_deg < 90:
 			ha = 'left'
 		else:
@@ -243,10 +278,14 @@ The figure handle.
 			angle_deg += 180
 			ha = 'right'
 
-		if not name[-1].isdigit() or (name[-1]=='1' and not name[-2].isdigit()):
-			axes.text(angle_rad, 8.2, name, size=8, rotation=angle_deg,
-					rotation_mode='anchor', horizontalalignment=ha,
-					verticalalignment='center', color=textcolor)
+		axes.text(angle_rad, 8.2, name, size=8, rotation=angle_deg,
+			rotation_mode='anchor', horizontalalignment=ha,
+			verticalalignment='center', color=textcolor)
+
+	#if not name[-1].isdigit() or (name[-1]=='1' and not name[-2].isdigit()):
+		#	axes.text(angle_rad, 8.2, name, size=8, rotation=angle_deg,
+		#			rotation_mode='anchor', horizontalalignment=ha,
+		#			verticalalignment='center', color=textcolor)
 
 	if title is not None:
 		pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.75)
@@ -262,11 +301,5 @@ The figure handle.
 		cb = fig.colorbar(sm, cax=ax)
 		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
 		pl.setp(cb_yticks, color=textcolor)
-
-	#f='/autofs/homes/005/rlaplant/testzebra.png'
-	#pl.savefig(f,facecolor='black')
-	#import os.path as op
-	#print op.exists(f)
-		
 	
 	return fig,indices,con,node_colors
