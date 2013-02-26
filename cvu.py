@@ -32,10 +32,8 @@ class ConnmatPanClickTool(PanTool):
 	drag_pointer=Pointer("arrow")
 
 	def __init__(self,holder,*args,**kwargs):
-		super(PanTool,self).__init__(**kwargs)
+		super(PanTool,self).__init__(component=holder.conn_mat,**kwargs)
 		self.cvu=holder	
-		#there is some weird problem with component not being set in super()
-		self.component=self.cvu.conn_mat
 		
 	def normal_left_down(self,event):
 		self.event_state='deciding'
