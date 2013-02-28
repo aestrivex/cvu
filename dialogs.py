@@ -23,12 +23,14 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 	adjmat_order=File
 	max_edges=Int
 	field_name=Str('adj_matrices')
+	ignore_deletes=Bool
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=140,width=250),
 		Item(name='adjmat'),
 		Item(name='adjmat_order',label='Label Order'),
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
+		Item(name='ignore_deletes',label='Ignore deletes'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Report all man-eating vultures to security',)
 
@@ -55,12 +57,14 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	mat=File
 	mat_order=File
 	field_name=Str
+	ignore_deletes=Bool
 	whichkind=Enum('modules','scalars')
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=50,width=250),
 		Item(name='mat',label='Filename'),
 		Item(name='mat_order',label='Ordering file'),
 		Item(name='field_name',label='Data field name'),
+		Item(name='ignore_deletes',label='Ignore deletes'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Behold the awesome power of zombies')
 	

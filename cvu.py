@@ -282,13 +282,14 @@ class Cvu(CvuPlaceholder):
 			print str(self.nr_edges)+" total connections"
 
 	# acts on intermediate computation adjacency matrix, NOT instance variable
-	def flip_adj_ord(self,adj):
+	def flip_adj_ord(self,adj,ign_dels=False):
 		if self.adjlabfile == None or self.adjlabfile == '':
 			return adj
 		init_ord,bads=util.read_parcellation_textfile(self.adjlabfile)
 		#delete the extras
-		adj=np.delete(adj,bads,axis=0)
-		adj=np.delete(adj,bads,axis=1)
+		if not ign_dels:
+			adj=np.delete(adj,bads,axis=0)
+			adj=np.delete(adj,bads,axis=1)
 		adj_ord=util.adj_sort(init_ord,self.labnam)
 		#swap the new order
 		adj=adj[adj_ord][:,adj_ord]
@@ -434,7 +435,7 @@ class Cvu(CvuPlaceholder):
 			adj=util.loadmat(acw.adjmat,field=acw.field_name)
 			if acw.adjmat_order:
 				self.adjlabfile=acw.adjmat_order
-				adj=self.flip_adj_ord(adj)
+				adj=self.flip_adj_ord(adj,ign_dels=acw.ignore_deletes)
 			if acw.max_edges>0:
 				self.soft_max_edges=acw.max_edges
 		except (util.CVUError,IOError) as e:
@@ -476,7 +477,8 @@ class Cvu(CvuPlaceholder):
 			if lsmw.mat_order:
 				init_ord,bads=util.read_parcellation_textfile(lsmw.mat_order)
 				#delete the extras
-				ci=np.delete(ci,bads)
+				if not lsmw.ignore_deletes:
+					ci=np.delete(ci,bads)
 				ci_ord=util.adj_sort(init_ord,self.labnam)
 				#swap the new order
 				ci=ci[ci_ord]
@@ -844,6 +846,28 @@ class Cvu(CvuPlaceholder):
 			except IOError as e:
 				self.error_dialog(e)
 		# otherwise, don't do anything
+
+	def hack_mlabsavefig(self,fname,size):
+		#TODO hacky fix pull request etc
+		seen = self.scene.scene_editor
+		curx,cury=tuple(seen.get_size())
+		targx,targy=size
+		magnif_desired = max(targx//curx,targy//cury)+1
+		targx=int(targx/magnif_desired)
+		targy=int(targy/magnif_desired)
+		newsize=targx,targy
+		orig_size=seen.get_size()
+		seen.set_size(newsize)
+		from tvtk.api import tvtk
+		filter=tvtk.WindowToImageFilter(read_front_buffer=True)
+		filter.magnification=int(magnif_desired)
+		seen._lift()
+		filter.input = seen._renwin
+		ex = tvtk.PNGWriter()
+		ex.file_name = fname
+		ex.input = filter.output
+		seen._exporter_write(ex)
+		seen.set_size(orig_size)
 	
 	#load surface
 	def _load_surface_button_fired(self):
@@ -921,30 +945,6 @@ class Cvu(CvuPlaceholder):
 			else:
 				self.circ_data[e].set_visible(False)
 		self.circ_fig.canvas.draw()
-
-	def hack_mlabsavefig(self,fname,size):
-		seen = self.scene.scene_editor
-		curx,cury=tuple(seen.get_size())
-		targx,targy=size
-		magnif_desired = max(targx//curx,targy//cury)+1
-		targx=int(targx/magnif_desired)
-		targy=int(targy/magnif_desired)
-		newsize=targx,targy
-
-		def submethod():
-			from tvtk.api import tvtk
-			filter=tvtk.WindowToImageFilter(read_front_buffer=True)
-			filter.magnification=int(magnif_desired)
-			seen._lift()
-			filter.input = seen._renwin
-			ex = tvtk.PNGWriter()
-			ex.file_name = fname
-			ex.input = filter.output
-			seen._exporter_write(ex)
-		orig_size=seen.get_size()
-		seen.set_size(newsize)
-		submethod()
-		seen.set_size(orig_size)
 
 def preproc():
 	#load label names from specified text file for ordering
