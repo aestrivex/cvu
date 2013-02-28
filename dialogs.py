@@ -30,7 +30,7 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Your doom awaits you',)
+		title='Report all man-eating vultures to security',)
 
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
@@ -50,35 +50,38 @@ class ParcellationChooserWindow(InteractiveSubwindow):
 		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 			title="This should not be particularly convenient",)
 
-class LoadCommunityStructureWindow(InteractiveSubwindow):
+class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	Please_note=Str('Same rules for adjmat ordering files apply')
-	comm=File
-	comm_order=File
+	mat=File
+	mat_order=File
 	field_name=Str
+	whichkind=Enum('modules','scalars')
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=50,width=250),
-		Item(name='comm',label='Modules'),
-		Item(name='comm_order',label='Module ordering'),
+		Item(name='mat',label='Filename'),
+		Item(name='mat_order',label='Ordering file'),
 		Item(name='field_name',label='Data field name'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Behold the power of zombies')
-
+		title='Behold the awesome power of zombies')
+	
 class NodeChooserWindow(InteractiveSubwindow):
 	node_list=List(Str)
-	cur_node=Int
+	cur_node=Int(-1)
 	traits_view=View(
 		Item(name='node_list',editor=
 			ListStrEditor(selected_index='cur_node'),show_label=False),
 		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
+		handler=SubwindowHandler(),
 		resizable=True,title='Do you know the muffin man?')
 
 class ModuleChooserWindow(InteractiveSubwindow):
 	module_list=List(Str)
-	cur_mod=Int
+	cur_mod=Int(-1)
 	traits_view=View(
 		Item(name='module_list',editor=
 			ListStrEditor(editable=True,selected_index='cur_mod')),
 		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
+		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
 
 class SaveSnapshotWindow(InteractiveSubwindow):
@@ -95,11 +98,11 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 	Please_note=Str('That file exists.  Really overwrite?')
 	save_continuation=Function # Continuation passing style
 	traits_view=View(Spring(),
-		Item(name='Please_note',style='readonly',#height=50,width=250,
+		Item(name='Please_note',style='readonly',height=25,width=250,
 			show_label=False),
 		Spring(),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title='Oh no you\'ve done it now')
+		title='Your doom awaits you')
 
 class ErrorDialogWindow(HasTraits):
 	message=Str

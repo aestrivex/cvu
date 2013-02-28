@@ -272,7 +272,8 @@ def cli_args(argv,):
 	if not subjdir:
 		subjdir = op.dirname(__file__)
 	if not adjmat:
-		adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliA1.mat'
+		#adjmat = '/autofs/cluster/neuromind/rlaplant/pdata/adjmats/pliA1.mat'
+		adjmat = '/local_mount/space/truffles/1/users/rlaplant/pdata/sl/synclikB_68.mat'
 	if not parc:
 		parc = 'sparc'
 	if not parcorder:

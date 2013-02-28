@@ -302,4 +302,4 @@ The figure handle.
 		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
 		pl.setp(cb_yticks, color=textcolor)
 	
-	return fig,indices,con,node_colors
+	return fig,indices,con,node_colors,n_grp_uniqs,grp_colors

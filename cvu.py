@@ -18,7 +18,7 @@ from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
 import circle_plot as circ; import mpleditor; import dialogs;
-import color_legend;
+import color_legend; import color_axis
 if __name__=="__main__":
 	print "All libraries loaded"
 
@@ -61,13 +61,12 @@ class Cvu(CvuPlaceholder):
 	circ_fig = Instance(Figure,())
 	
 	#stateful traits
-	group_by_strength = Enum('all','strong','medium','weak')
 	thresh = Range(0.0,1.0,.95)
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,9,mode='spinner')
-	curr_node = Trait(None,None,Int)
-	cur_module = Trait(None,None,Int)
 	prune_modules = Bool
+
+	node_scalars=Instance(np.ndarray)
 
 	#buttons
 	up_node_button = Button('^')
@@ -77,6 +76,8 @@ class Cvu(CvuPlaceholder):
 	calc_mod_button = Button('Calc modules')
 	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
+	display_scalars_button = Button('Show scalars')
+	load_scalars_button = Button('Load scalars')
 	load_adjmat_button = Button('Load an adjacency matrix')
 	draw_stuff_button = Button('Force render')
 	color_legend_button = Button('Color legend')
@@ -89,7 +90,7 @@ class Cvu(CvuPlaceholder):
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
 	adjmat_chooser_window = Instance(HasTraits)
-	load_modules_window = Instance(HasTraits)
+	load_standalone_matrix_window = Instance(HasTraits)
 	node_chooser_window = Instance(HasTraits)
 	module_chooser_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
@@ -119,8 +120,10 @@ class Cvu(CvuPlaceholder):
 							Item(name='load_mod_button'),
 							Item(name='select_mod_button'),
 							Spring(),
+							Item(name='load_scalars_button'),
+							Item(name='display_scalars_button'),
+							Spring(),
 							Item(name='draw_stuff_button'),
-							Item(name='group_by_strength'),
 						show_labels=False,
 					)
 				),
@@ -180,7 +183,7 @@ class Cvu(CvuPlaceholder):
 		#print np.shape(self.lab_pos)
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
-		self.load_modules_window=dialogs.LoadCommunityStructureWindow()
+		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow()
 		self.node_chooser_window=dialogs.NodeChooserWindow()
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
@@ -203,6 +206,7 @@ class Cvu(CvuPlaceholder):
 		## SET UP COLORS AND COLORMAPS ##
 		self.yellow_map=get_cmap('YlOrRd')
 		self.cool_map=get_cmap('cool')
+		self.bluegreen_map=get_cmap('BuGn')
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -211,24 +215,16 @@ class Cvu(CvuPlaceholder):
 		self.nodes_gen()
 		self.vectors_gen()
 
-		## SET UP CHACO VARIABLES ##
-		# set the diagonal of the adjmat to min(data) and not 0 so the
-		# plot's color scheme is not completely messed up
-		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
-		self.conn_mat.img_plot("imagedata",name='conmatplot',
-			colormap=cmap_reverse(RdYlBu))
-		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
-		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
-		self.conn_mat.x_axis.set(visible=False)
-		self.conn_mat.y_axis.set(visible=False)
-		#TODO write a controller that asks chaco to explicitly redraw
-
 		## SET UP THE CIRCLE PLOT ##
 		self.circ_fig_gen()
 
+		## SET UP CHACO VARIABLES ##
+		self.chaco_gen()
+		self.color_legend_gen()
+
 		## SET UP THE CALLBACKS (for mayavi and matplotlib) ##
 		pck = self.fig.on_mouse_pick(self.leftpick_callback)
-		pck.tolerance = 10000
+		pck.tolerance = .02
 		self.fig.on_mouse_pick(self.rightpick_callback,button='Right')
 
 		self.display_all()
@@ -314,6 +310,8 @@ class Cvu(CvuPlaceholder):
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.surface_visibility,
 			color=(.82,.82,.82),name='syrfr')
+		self.syrf_lh.actor.actor.pickable=0
+		self.syrf_rh.actor.actor.pickable=0
 		#some colors
 		#(.4,.75,0) #DARKISH GREEN
 		#(.82,1,.82) #LIGHTER GREEN
@@ -332,6 +330,7 @@ class Cvu(CvuPlaceholder):
 			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
 		self.nodes.glyph.color_mode='color_by_scalar'
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
+		self.txt.actor.actor.pickable=0
 		self.reset_node_color_mayavi()
 
 	def vectors_clear(self):
@@ -358,13 +357,23 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.glyph.glyph.clamping=False
 		self.myvectors.glyph.color_mode='color_by_scalar'
 		self.myvectors.actor.property.opacity=.3
+		self.myvectors.actor.actor.pickable=0
 
 	def chaco_clear(self):
 		self.conn_mat.data.set_data("imagedata",np.tile(0,(self.nr_labels,
 			self.nr_labels)))
 		
 	def chaco_gen(self):
-		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
+		# set the diagonal of the adjmat to min(data) and not 0 so the
+		# plot's color scheme is not completely messed up
+		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
+		self.conn_mat.img_plot("imagedata",name='conmatplot',
+			colormap=cmap_reverse(RdYlBu))
+		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
+		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
+		self.xa=color_axis.ColorfulAxis(self.conn_mat,self.node_colors,'x')
+		self.ya=color_axis.ColorfulAxis(self.conn_mat,self.node_colors,'y')
+		self.conn_mat.underlays=[self.xa,self.ya]
 
 	def circ_clear(self):
 		self.circ_fig.clf()
@@ -374,7 +383,7 @@ class Cvu(CvuPlaceholder):
 	# but if the user changes the data the existing figure should be preserved
 	def circ_fig_gen(self,figure=None):
 		fig_holdr,self.sorted_edges,self.sorted_adjdat,\
-			self.node_colors=\
+			self.node_colors,self.group_labels,self.group_colors=\
 			circ.plot_connectivity_circle2(
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
 			indices=self.edges.T,colormap="YlOrRd",fig=figure,
@@ -383,6 +392,13 @@ class Cvu(CvuPlaceholder):
 			self.circ_fig=fig_holdr
 		self.circ_data = self.circ_fig.get_axes()[0].patches
 		self.reset_node_color_circ()
+
+	def color_legend_gen(self):
+		def create_entry(zipped):
+			label,color=zipped
+			return color_legend.LegendEntry(metaregion=label,col=color)
+		self.color_legend_window.legend=\
+			map(create_entry,zip(self.group_labels,self.group_colors))
 
 	## FUNCTIONS FOR LOADING NEW DATA ##
 	def load_new_parcellation(self):
@@ -445,19 +461,20 @@ class Cvu(CvuPlaceholder):
 
 		self.vectors_clear()
 		self.vectors_gen()
-		self.chaco_gen()
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
 		self.redraw_circ()
+		self.chaco_gen()
+		self.color_legend_gen()	
 		self.reset_node_color_mayavi()
 		self.reset_node_color_circ()
 
-	def load_new_module_vector(self):
-		lmw=self.load_modules_window
+	def load_standalone_matrix(self):
+		lsmw=self.load_standalone_matrix_window
 		try:
-			ci=util.loadmat(lmw.comm,field=lmw.field_name)
-			if lmw.comm_order:
-				init_ord,bads=util.read_parcellation_textfile(lmw.comm_order)
+			ci=util.loadmat(lsmw.mat,field=lsmw.field_name)
+			if lsmw.mat_order:
+				init_ord,bads=util.read_parcellation_textfile(lsmw.mat_order)
 				#delete the extras
 				ci=np.delete(ci,bads)
 				ci_ord=util.adj_sort(init_ord,self.labnam)
@@ -472,9 +489,12 @@ class Cvu(CvuPlaceholder):
 		except KeyError as e:
 			self.error_dialog("Field not found: %s" % str(e))
 			return
-		import modularity
-		self.modules=modularity.comm2list(ci)
-		self.update_modules_metadata()
+		if lsmw.whichkind=='modules':
+			import modularity
+			self.modules=modularity.comm2list(ci)
+			self.update_modules_metadata()
+		elif lsmw.whichkind=='scalars':
+			self.node_scalars=ci
 
 	## USER-DRIVEN INTERACTIONS ##
 	def error_dialog(self,message):
@@ -500,6 +520,7 @@ class Cvu(CvuPlaceholder):
 		#change data in circle plot
 		self.reset_node_color_mayavi()
 		self.reset_node_color_circ()
+		self.reset_node_color_chaco()
 		self.redraw_circ()
 
 	def display_node(self,n):
@@ -536,11 +557,12 @@ class Cvu(CvuPlaceholder):
 		dat=np.tile(np.min(self.adj_thresdiag),(self.nr_labels,self.nr_labels))
 		dat[n,:]=self.adj_thresdiag[n,:]
 		self.conn_mat.data.set_data("imagedata",dat)
-		#is resetting threshold desirable behavior?  probably not
 
 		#change data in circle plot
-		self.reset_node_color_circ()
+		#self.reset_node_color_circ()
 		self.redraw_circ()
+
+		#how much resetting is desirable?  e.g. colors
 
 	def display_module(self,modnum):
 		self.cur_module=modnum
@@ -560,6 +582,7 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.property.opacity=.75
 		self.vectorsrc.outputs[0].update()
 		
+		self.nodesource.children[0].scalar_lut_manager.lut_mode='cool'
 		new_colors = np.tile(.3,self.nr_labels)
 		new_colors[module]=.8
 		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
@@ -573,42 +596,44 @@ class Cvu(CvuPlaceholder):
 			#self.circ_data[circ_path_offset+n].set_ec(new_color_arr[n,:])
 		self.redraw_circ()
 
-	def display_grouping(self):
-		weakmid_cut=float(sorted(self.adjdat)\
-			[int(round(self.nr_edges*(2.0*self.thresh/3+1.0/3)))-1])
-		midstrong_cut=float(sorted(self.adjdat)\
-			[int(round(self.nr_edges*(1.0*self.thresh/3+2.0/3)))-1])
-		max=float(sorted(self.adjdat)[self.nr_edges-1])
+		#display on chaco plot
+		self.xa.colors=list(new_color_arr)
+		self.ya.colors=list(new_color_arr)
+		self.conn_mat.request_redraw()
 
-		if (self.group_by_strength=="all"):
-			self.thres.set(upper_threshold=max,lower_threshold=self.thresval)
-			self.edge_color_on()
-		else:
-			self.edge_color_off()
-			if (self.group_by_strength=="strong"):
-				self.thres.set(upper_threshold=max,\
-					lower_threshold=midstrong_cut)
-			elif (self.group_by_strength=="medium"):
-				self.thres.set(lower_threshold=weakmid_cut,\
-					upper_threshold=midstrong_cut)
-			elif (self.group_by_strength=="weak"):
-				self.thres.set(upper_threshold=weakmid_cut,\
-				lower_threshold=self.thresval)
-		self.vectorsrc.outputs[0].update()	
-		if not quiet:
-			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
-			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
+	@on_trait_change('display_scalars_button')
+	def display_scalars(self):
+		if self.node_scalars is None:
+			self.error_dialog('Load some scalars first')
+			return
+		self.nodesource.children[0].scalar_lut_manager.lut_mode='BuGn'
+		self.nodes.mlab_source.dataset.point_data.scalars=self.node_scalars
+		mlab.draw()
+		
+		new_color_arr=self.bluegreen_map(self.node_scalars)
+		circ_path_offset=len(self.sorted_adjdat)
+		for n in xrange(0,self.nr_labels,1):
+			self.circ_data[circ_path_offset+n].set_fc(new_color_arr[n,:])
 		self.redraw_circ()
+
+		self.xa.colors=list(new_color_arr)
+		self.ya.colors=list(new_color_arr)
+		self.conn_mat.request_redraw()
 
 	## CALLBACK FUNCTIONS ##
 	#chaco callbacks are in ConnmatPointSelector class out of necessity
 	#where they override the _select method
 	def leftpick_callback(self,picker):
+		#for actor in picker.actors
+			#if actor in self.nodes.actor.actors:
+			#	correct_actor=actor
+			#ptid
 		if picker.actor in self.nodes.actor.actors:
 			ptid = picker.point_id/self.nodes.glyph.glyph_source.glyph_source.\
 				output.points.to_array().shape[0]
 			if (ptid != -1):
 				self.display_node(int(ptid))
+		self.pick=picker
 
 	def rightpick_callback(self,picker):
 		self.display_all()
@@ -624,11 +649,16 @@ class Cvu(CvuPlaceholder):
 	## TRAITS-DRIVEN INTERACTIONS ##
 	#node selection
 	def _select_node_button_fired(self):
+		self.node_chooser_window.cur_node=-1
 		self.node_chooser_window.edit_traits()
 
-	@on_trait_change('node_chooser_window:cur_node')
-	def finish_node_select(self):
-		self.display_node(self.node_chooser_window.cur_node)
+	@on_trait_change('node_chooser_window:notify')
+	def node_select_check(self):
+		ncw=self.node_chooser_window
+		if not ncw.finished or ncw.cur_node==-1:
+			pass
+		else:
+			self.display_node(self.ncw.cur_node)
 
 	#module selection
 	def _calc_mod_button_fired(self):
@@ -644,7 +674,7 @@ class Cvu(CvuPlaceholder):
 
 	def update_modules_metadata(self):
 		if self.modules is None:
-			print "zacket"
+			self.error_dialog('Modules were not loaded properly')
 			return
 		self.nr_modules=len(self.modules)
 		self.module_chooser_window.module_list=[]
@@ -655,19 +685,30 @@ class Cvu(CvuPlaceholder):
 		if self.modules is None:
 			self.error_dialog('No modules loaded')
 		else:
+			self.module_chooser_window.cur_mod=-1
 			self.module_chooser_window.edit_traits()
 
-	@on_trait_change('module_chooser_window:cur_mod')
-	def finish_mod_select(self):
-		self.display_module(self.module_chooser_window.cur_mod)
+	@on_trait_change('module_chooser_window:notify')
+	def mod_select_check(self):
+		mcw=self.module_chooser_window
+		if not mcw.finished or mcw.cur_mod==-1:
+			pass
+		else:
+			self.display_module(mcw.cur_mod)
 
 	#misc trait changes
 	@on_trait_change('thresh')
 	def reset_thresh(self):	
 		self.thresval = float(sorted(self.adjdat)\
 			[int(round(self.thresh*self.nr_edges))-1])
-		self.display_grouping()
-		#display grouping takes care of circle plot 
+		dmax=float(sorted(self.adjdat)[self.nr_edges-1])
+		self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
+		self.edge_color_on()
+		self.vectorsrc.outputs[0].update()	
+		if not quiet:
+			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
+			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
+		self.redraw_circ()
 
 	@on_trait_change('surface_visibility')
 	def chg_syrf_vis(self):
@@ -720,18 +761,26 @@ class Cvu(CvuPlaceholder):
 				'(e.g. aparc.2009)')
 
 	def _load_mod_button_fired(self):
-		self.load_modules_window.finished=False
-		self.load_modules_window.edit_traits()
+		self.load_standalone_matrix_window.finished=False
+		self.load_standalone_matrix_window.whichkind='modules'
+		self.load_standalone_matrix_window.edit_traits()
 
-	@on_trait_change('load_modules_window:notify')
-	def load_modules_check(self):
-		lmw=self.load_modules_window
+	def _load_scalars_button_fired(self):
+		self.load_standalone_matrix_window.finished=False
+		self.load_standalone_matrix_window.whichkind='scalars'
+		self.load_standalone_matrix_window.edit_traits()
+
+	@on_trait_change('load_standalone_matrix_window:notify')
+	def load_standalone_matrix_check(self):
+		lmw=self.load_standalone_matrix_window
 		if not lmw.finished:
 			pass
-		elif lmw.comm:
-			self.load_new_module_vector()
+		elif lmw.mat:
+			#check whichkind in the load_standalone() function,
+			#in both cases the ordering procedure is the same
+			self.load_standalone_matrix()
 		else:
-			self.error_dialog('You must specify a file with a module vector')	
+			self.error_dialog('You must specify a valid matrix file')	
 		
 	#snapshots
 	def _mayavi_snapshot_button_fired(self):
@@ -764,7 +813,7 @@ class Cvu(CvuPlaceholder):
 						facecolor='black')
 				elif ssw.whichplot=='mayavi':
 					res=np.ceil(500*ssw.dpi/8000.0*111)
-					mlab.savefig(ssw.savefile,size=(res,res))
+					self.hack_mlabsavefig(ssw.savefile,size=(res,res))
 				elif ssw.whichplot=='chaco':
 					gc=PlotGraphicsContext(self.conn_mat.outer_bounds,
 						dpi=ssw.dpi)
@@ -805,17 +854,12 @@ class Cvu(CvuPlaceholder):
 	#misc button presses
 	def _color_legend_button_fired(self):
 		#set up the color legend
-		def create_entry(zipped):
-			label,color=zipped
-			return color_legend.LegendEntry(metaregion=label,col=color)
-		self.color_legend_window.legend=\
-			map(create_entry,zip(self.labnam,self.node_colors))
 		#spawn the legend window
 		self.color_legend_window.edit_traits()
 
 	def _draw_stuff_button_fired(self):
-		#self.error_dialog('This button is not currently used')	
 		self.redraw_circ()
+		self.conn_mat.request_redraw()
 
 	def _up_node_button_fired(self):
 		if self.curr_node==None:
@@ -841,6 +885,7 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.mapper.scalar_visibility=False
 
 	def reset_node_color_mayavi(self):
+		self.nodesource.children[0].scalar_lut_manager.lut_mode='cool'
 		self.nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,
 			self.nr_labels)
 		mlab.draw()
@@ -853,6 +898,10 @@ class Cvu(CvuPlaceholder):
 			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
 			#self.circ_data[circ_path_offset+n].set_fc((0,0,0))
 			#self.circ_data[circ_path_offset+n].set_ec(self.node_colors[n])
+
+	def reset_node_color_chaco(self):
+		self.xa.colors = self.node_colors
+		self.ya.colors = self.node_colors
 	
 	def redraw_circ(self):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold
@@ -872,6 +921,30 @@ class Cvu(CvuPlaceholder):
 			else:
 				self.circ_data[e].set_visible(False)
 		self.circ_fig.canvas.draw()
+
+	def hack_mlabsavefig(self,fname,size):
+		seen = self.scene.scene_editor
+		curx,cury=tuple(seen.get_size())
+		targx,targy=size
+		magnif_desired = max(targx//curx,targy//cury)+1
+		targx=int(targx/magnif_desired)
+		targy=int(targy/magnif_desired)
+		newsize=targx,targy
+
+		def submethod():
+			from tvtk.api import tvtk
+			filter=tvtk.WindowToImageFilter(read_front_buffer=True)
+			filter.magnification=int(magnif_desired)
+			seen._lift()
+			filter.input = seen._renwin
+			ex = tvtk.PNGWriter()
+			ex.file_name = fname
+			ex.input = filter.output
+			seen._exporter_write(ex)
+		orig_size=seen.get_size()
+		seen.set_size(newsize)
+		submethod()
+		seen.set_size(orig_size)
 
 def preproc():
 	#load label names from specified text file for ordering
