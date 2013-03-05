@@ -12,7 +12,7 @@ import os;
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
 from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
-from chaco.api import reverse as cmap_reverse;
+from chaco.api import reverse,center
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
@@ -331,6 +331,7 @@ class Cvu(CvuPlaceholder):
 			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
 		self.nodes.glyph.color_mode='color_by_scalar'
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
+		self.txt.position=(0,0,83)
 		self.txt.actor.actor.pickable=0
 		self.reset_node_color_mayavi()
 
@@ -367,9 +368,12 @@ class Cvu(CvuPlaceholder):
 	def chaco_gen(self):
 		# set the diagonal of the adjmat to lower threshold rather than 0
 		# otherwise the color scheme is a mess for non-sparse matrices
-		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
+		z_adjmat = (self.adj_thresdiag-np.mean(self.adj_nulldiag))/np.std(self.adj_nulldiag)
+		self.conn_mat = Plot(ArrayPlotData(imagedata=z_adjmat))
+		#centerpoint=np.mean(self.adj_thresdiag)/2+np.max(self.adj_thresdiag)/4+\
+		#	np.min(self.adj_thresdiag)/4
 		self.conn_mat.img_plot("imagedata",name='conmatplot',
-			colormap=cmap_reverse(RdYlBu))
+			colormap=reverse(RdYlBu))
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.xa=color_axis.ColorfulAxis(self.conn_mat,self.node_colors,'x')
@@ -460,6 +464,8 @@ class Cvu(CvuPlaceholder):
 		self.adj_helper_gen()
 		print "Adjacency matrix %s loaded successfully" % acw.adjmat
 
+		self.curr_node=None
+		self.cur_module=None
 		self.vectors_clear()
 		self.vectors_gen()
 		self.circ_clear()
@@ -553,7 +559,7 @@ class Cvu(CvuPlaceholder):
 			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 		self.myvectors.actor.property.opacity=.75
 		self.vectorsrc.outputs[0].update()
-		self.txt.set(position=self.lab_pos[n],text='  '+self.labnam[n])
+		self.txt.set(text='  '+self.labnam[n]) #position=self.lab_pos[n]
 
 		#change data in chaco plot
 		dat=np.tile(np.min(self.adj_thresdiag),(self.nr_labels,self.nr_labels))

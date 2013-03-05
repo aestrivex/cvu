@@ -63,7 +63,8 @@ class ColorfulAxis(PlotAxis):
 		else:
 			raise IndexError('Internal error in ColorfulAxis max')
 
-		inds=xrange(min_r,max_r)
+		moddiv=int(np.ceil(max((max_r-min_r)//75,1)))
+		inds=xrange(min_r,max_r,moddiv)
 		nr_ticks=len(inds)
 
 		# add .5 to each tick to place them in the center of the grid
@@ -72,10 +73,8 @@ class ColorfulAxis(PlotAxis):
 
 		if self.direction=='x':
 			ticks=np.vstack((ticks_axis,ticks_static)).T
-			#ticks[:,0]+=.5
 		elif self.direction=='y':
 			ticks=np.vstack((ticks_static,ticks_axis)).T
-			#ticks[:,1]+=.5
 
 		for tick_pos,i in zip(ticks,inds):
 			if i<0 or i>=len(self.colors):
