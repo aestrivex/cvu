@@ -63,7 +63,7 @@ class Cvu(CvuPlaceholder):
 	#stateful traits
 	thresh = Range(0.0,1.0,.95)
 	surface_visibility = Range(0.0,1.0,.15)
-	circ_size = Range(7,20,9,mode='spinner')
+	circ_size = Range(7,20,10,mode='spinner')
 	prune_modules = Bool
 
 	node_scalars=Instance(np.ndarray)
@@ -365,8 +365,8 @@ class Cvu(CvuPlaceholder):
 			self.nr_labels)))
 		
 	def chaco_gen(self):
-		# set the diagonal of the adjmat to min(data) and not 0 so the
-		# plot's color scheme is not completely messed up
+		# set the diagonal of the adjmat to lower threshold rather than 0
+		# otherwise the color scheme is a mess for non-sparse matrices
 		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
 		self.conn_mat.img_plot("imagedata",name='conmatplot',
 			colormap=cmap_reverse(RdYlBu))
@@ -657,10 +657,10 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('node_chooser_window:notify')
 	def node_select_check(self):
 		ncw=self.node_chooser_window
-		if not ncw.finished or ncw.cur_node==-1:
+		if (not ncw.finished) or ncw.cur_node==-1:
 			pass
 		else:
-			self.display_node(self.ncw.cur_node)
+			self.display_node(ncw.cur_node)
 
 	#module selection
 	def _calc_mod_button_fired(self):
@@ -849,25 +849,34 @@ class Cvu(CvuPlaceholder):
 
 	def hack_mlabsavefig(self,fname,size):
 		#TODO hacky fix pull request etc
-		seen = self.scene.scene_editor
-		curx,cury=tuple(seen.get_size())
-		targx,targy=size
-		magnif_desired = max(targx//curx,targy//cury)+1
-		targx=int(targx/magnif_desired)
-		targy=int(targy/magnif_desired)
-		newsize=targx,targy
-		orig_size=seen.get_size()
-		seen.set_size(newsize)
+		curx,cury=tuple(self.scene.scene_editor.get_size())
+		magnif_desired = max(size[0]//curx,size[1]//cury)+1
+		newsize=(int(size[0]/magnif_desired),int(size[1]/magnif_desired))
+		self.scene.scene_editor.set_size(newsize)
 		from tvtk.api import tvtk
 		filter=tvtk.WindowToImageFilter(read_front_buffer=True)
 		filter.magnification=int(magnif_desired)
-		seen._lift()
-		filter.input = seen._renwin
+		self.scene.scene_editor._lift()
+		filter.input = self.scene.scene_editor._renwin
 		ex = tvtk.PNGWriter()
 		ex.file_name = fname
 		ex.input = filter.output
-		seen._exporter_write(ex)
-		seen.set_size(orig_size)
+		self.scene.scene_editor._exporter_write(ex)
+		self.scene.scene_editor.set_size((curx,cury))
+
+	def hack_mlabsavefigmag(self,fname,mag):
+		curx,cury=tuple(self.scene.scene_editor.get_size())
+		self.scene.scene_editor.set_size((curx-1,cury-1))
+		from tvtk.api import tvtk
+		filter=tvtk.WindowToImageFilter(read_front_buffer=True)
+		filter.magnification=mag
+		self.scene.scene_editor._lift()
+		filter.input = self.scene.scene_editor._renwin
+		ex = tvtk.PNGWriter()
+		ex.file_name = fname
+		ex.input = filter.output
+		self.scene.scene_editor._exporter_write(ex)
+		self.scene.scene_editor.set_size((curx,cury))
 	
 	#load surface
 	def _load_surface_button_fired(self):

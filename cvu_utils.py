@@ -221,6 +221,8 @@ def usage():
 		'--use-greg: uses the "greg" method for graph partitioning.  valid '+\
 		'choices are: --use-spectral, --use-metis\n'+\
 		'--max-edges 46000: discards all but the strongest ~46000 connections\n'+\
+		'-f greg --field greg: uses the "greg" field of a .mat matrix for the '+\
+		'initial adjmat\n'+\
 		'-h --help: display this help'
 	exit(78)
 

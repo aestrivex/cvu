@@ -74,7 +74,7 @@ class NodeChooserWindow(InteractiveSubwindow):
 	traits_view=View(
 		Item(name='node_list',editor=
 			ListStrEditor(selected_index='cur_node'),show_label=False),
-		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
+		kind='live',height=350,width=350,buttons=OKCancelButtons,
 		handler=SubwindowHandler(),
 		resizable=True,title='Do you know the muffin man?')
 
@@ -83,8 +83,8 @@ class ModuleChooserWindow(InteractiveSubwindow):
 	cur_mod=Int(-1)
 	traits_view=View(
 		Item(name='module_list',editor=
-			ListStrEditor(editable=True,selected_index='cur_mod')),
-		kind='nonmodal',height=350,width=350,buttons=OKCancelButtons,
+			ListStrEditor(editable=True,selected_index='cur_mod'),show_label=False),
+		kind='live',height=350,width=350,buttons=OKCancelButtons,
 		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
 
