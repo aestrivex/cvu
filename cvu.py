@@ -86,6 +86,7 @@ class Cvu(CvuPlaceholder):
 	mayavi_snapshot_button=Button('3D snapshot')
 	chaco_snapshot_button=Button('Adjmat snapshot')
 	circ_snapshot_button = Button('Circle snapshot')
+	center_adjmat_button = Button('Center adjmat')
 
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
@@ -115,6 +116,7 @@ class Cvu(CvuPlaceholder):
 							Item(name='select_node_button'),
 							Item(name='all_node_button'),
 							Item(name='color_legend_button'),
+							Item(name='center_adjmat_button'),
 							Spring(),
 							Item(name='calc_mod_button'),
 							Item(name='load_mod_button'),
@@ -368,8 +370,12 @@ class Cvu(CvuPlaceholder):
 	def chaco_gen(self):
 		# set the diagonal of the adjmat to lower threshold rather than 0
 		# otherwise the color scheme is a mess for non-sparse matrices
-		z_adjmat = (self.adj_thresdiag-np.mean(self.adj_nulldiag))/np.std(self.adj_nulldiag)
-		self.conn_mat = Plot(ArrayPlotData(imagedata=z_adjmat))
+		#z_adjmat = (self.adj_thresdiag-np.mean(self.adj_thresdiag))/np.std(self.adj_thresdiag)
+		#l_adjmat = np.log(self.adj_thresdiag/(1-self.adj_thresdiag))
+ 		#print np.where(np.isnan(l_adjmat))
+		#l_adjmat[np.where(np.isnan(l_adjmat))]=0
+		#print np.where(np.isnan(l_adjmat))
+		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
 		#centerpoint=np.mean(self.adj_thresdiag)/2+np.max(self.adj_thresdiag)/4+\
 		#	np.min(self.adj_thresdiag)/4
 		self.conn_mat.img_plot("imagedata",name='conmatplot',
@@ -915,6 +921,11 @@ class Cvu(CvuPlaceholder):
 			self.display_node(self.nr_labels-1)
 		else:
 			self.display_node(self.curr_node-1)
+	
+	def _center_adjmat_button_fired(self):
+		for ax in [self.xa,self.ya]:
+			ax.mapper.range.high_setting=self.nr_labels
+			ax.mapper.range.low_setting=0
 	
 	## DRAWING FUNCTIONS ##
 	def edge_color_on(self):
