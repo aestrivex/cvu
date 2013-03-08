@@ -1,7 +1,7 @@
 from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
 from traits.api import List
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
-from traitsui.api import ListStrEditor
+from traitsui.api import ListStrEditor,CheckListEditor
 import os
 
 class SubwindowHandler(Handler):
@@ -87,6 +87,23 @@ class ModuleChooserWindow(InteractiveSubwindow):
 		kind='live',height=350,width=350,buttons=OKCancelButtons,
 		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
+
+class ModuleCustomizerWindow(InteractiveSubwindow):
+	initial_node_list=List(Str)
+	intermediate_node_list=List(Str)
+	return_module=List(Int)
+	traits_view=View(
+		Item(name='intermediate_node_list',editor=CheckListEditor(
+			name='initial_node_list',cols=2),show_label=False,style='custom'),
+		kind='live',height=400,width=500,buttons=OKCancelButtons,
+		handler=SubwindowHandler(),
+		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
+
+	#index_convert may return a ValueError if the code is buggy, it should be
+	#contained in try/except from higher up.
+	def index_convert(self):
+		self.return_module=[self.initial_node_list.index(i) \
+			for i in self.intermediate_node_list]
 
 class SaveSnapshotWindow(InteractiveSubwindow):
 	savefile=Str(os.environ['HOME']+'/')

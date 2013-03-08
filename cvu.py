@@ -76,6 +76,7 @@ class Cvu(CvuPlaceholder):
 	calc_mod_button = Button('Calc modules')
 	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
+	custom_mod_button = Button('Custom module')
 	display_scalars_button = Button('Show scalars')
 	load_scalars_button = Button('Load scalars')
 	load_adjmat_button = Button('Load an adjacency matrix')
@@ -94,6 +95,7 @@ class Cvu(CvuPlaceholder):
 	load_standalone_matrix_window = Instance(HasTraits)
 	node_chooser_window = Instance(HasTraits)
 	module_chooser_window = Instance(HasTraits)
+	module_customizer_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
@@ -121,6 +123,7 @@ class Cvu(CvuPlaceholder):
 							Item(name='calc_mod_button'),
 							Item(name='load_mod_button'),
 							Item(name='select_mod_button'),
+							Item(name='custom_mod_button'),
 							Spring(),
 							Item(name='load_scalars_button'),
 							Item(name='display_scalars_button'),
@@ -188,12 +191,14 @@ class Cvu(CvuPlaceholder):
 		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow()
 		self.node_chooser_window=dialogs.NodeChooserWindow()
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
+		self.module_customizer_window=dialogs.ModuleCustomizerWindow()
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 		self.error_dialog_window=dialogs.ErrorDialogWindow()
 		self.color_legend_window=color_legend.ColorLegendWindow()
 
 		self.node_chooser_window.node_list=self.labnam
+		self.module_customizer_window.initial_node_list=self.labnam
 	
 	@on_trait_change('scene.activated')	
 	def setup(self):
@@ -578,9 +583,10 @@ class Cvu(CvuPlaceholder):
 
 		#how much resetting is desirable?  e.g. colors
 
-	def display_module(self,modnum):
+	def display_module(self,modnum=None,module=None):
 		self.cur_module=modnum
-		module=self.modules[self.cur_module]
+		if module is None:
+			module=self.modules[self.cur_module]
 		if not quiet:
 			print str(np.size(module))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
@@ -700,6 +706,7 @@ class Cvu(CvuPlaceholder):
 			self.error_dialog('No modules loaded')
 		else:
 			self.module_chooser_window.cur_mod=-1
+			self.module_chooser_window.finished=False
 			self.module_chooser_window.edit_traits()
 
 	@on_trait_change('module_chooser_window:notify')
@@ -709,6 +716,23 @@ class Cvu(CvuPlaceholder):
 			pass
 		else:
 			self.display_module(mcw.cur_mod)
+
+	def _custom_mod_button_fired(self):
+		self.module_customizer_window.finished=False
+		self.module_customizer_window.edit_traits()
+
+	@on_trait_change('module_customizer_window:notify')
+	def custom_mod_check(self):
+		mcw=self.module_customizer_window
+		if not mcw.finished:
+			pass
+		else:
+			try:
+				mcw.index_convert()
+			except ValueError as e:
+				self.error_dialog('Something went wrong! Blame the programmer')
+			self.display_module(module=mcw.return_module)
+				
 
 	#misc trait changes
 	@on_trait_change('thresh')
