@@ -4,7 +4,7 @@ This documentation is also on https://gate.nmr.mgh.harvard.edu/wiki/stufflebeaml
 
 
 
-The connectome visualization utility is a program in development in the Stufflebeam lab specifically designed for the visualization of brain-based networks.  The primary developer is Roan LaPlante.
+The connectome visualization utility is a program in development in the Stufflebeam lab specifically designed for the visualization of brain-based networks.  The primary developer is Roan LaPlante.  You can contact him at <rlaplant at nmr.mgh.harvard.edu>
 
 ==Usage==
 
@@ -13,8 +13,9 @@ From within the Martinos center, the easiest way to run CVU is
 
 From outside the Martinos center, you will need to download the source code yourself, as well as the required packages.  You can get the source from [https://github.com/aestrivex github].
 
-The packages needed are MNE_python and EPD (enthought python distribution).  EPD is not free as in beer (but the source is transparent to customers) but Martinos has access to it and you may be able to get access on your personal machine from this.  MNE python is free as in speech.
+The packages needed are MNE python and EPD (enthought python distribution).  EPD is available freely to academics or by downloading the source yourself.  MNE python is free as in speech.  If you are downloading EPD from its source packages by yourself, the packages needed are numpy, scipy, traits, traitsui, tvtk, enable, chaco, matplotlib, tvtk, pylab, and mayavi.
 
+It is possible that MNE python might be optionally replaced in the near future, and gibabel/nipy could be used instead.  If this would be useful to you send me an email and hassle me about it.
 
 CVU accepts various command line arguments.  Because these may change with development, run with --help to see the full list.  As of 13:22, 5 February 2013 (EST) these are the accepted arguments:
  -p greg.gii --parc=greg: location of annotations *h.greg.annot
@@ -30,13 +31,15 @@ CVU accepts various command line arguments.  Because these may change with devel
  --max-edges 46000: discards all but the strongest ~46000 connections
  -h --help: display this help
 
-In order to display connectivity, CVU requires three types of data: a Freesurfer parcellation (in the form of two .annot files, one for each hemisphere), an symmetric adjacency matrix (in .npy or .mat format), and a list of ROI names specifying the order that these ROIs appear in the adjacency matrix (a text file with one ROI per line).  CVU does not yet allow you alter the order of these ROIs in the adjacency matrix, but eventually I will get around to fixing this properly.  If you do not specify these data on the command line, CVU will load some sample data from a parcellation with 138 regions.  You will be able to use the GUI to load new data.
+In order to display connectivity, CVU requires three types of data: a Freesurfer parcellation (in the form of two .annot files, one for each hemisphere), an symmetric adjacency matrix (in .npy or .mat format), and a list of ROI names specifying the order that these ROIs appear in the adjacency matrix (a text file with one ROI per line).  You can load this data using the command line options as specified above, or by specifying files to load within the GUI.  If you do not specify the location of any data on the command line, some sample data will be loaded with which you can examine the interactive features of the tool.  If you specify any of these data on the command line, you must specify all of it.
+
+Parcellations must be freesurfer annotations at this time.  Matrices must be in numpy or matlab format.
 
 =====order files=====
 
-Order files are text files specifying the order in which labels appear in some data files.  As the command line options suggest, there are two independent ways in which order files can be specified -- a ''parcellation'' order and an ''adjacency'' order.  The multiplicity of files is a bit confusing, but conceptually it is necessary in order for the program to know what to do.
+Order files are text files specifying the order in which labels appear in some data files.  As the command line options suggest, there are two completely different types of order files -- a ''parcellation'' order and an ''adjacency'' order.  The multiplicity of files is a bit confusing, but conceptually it is necessary in order for the program to know what to do.
 
-The parcellation order file or with the -o/--order command line option is the '''desired''' output order you wish for CVU to display in the connection matrix and on the circle plot.  This permits your adjacency matrices to have an ordering that is different from this, which you can tell CVU about by specifying a file upon loading the adjmat or with the --adj-order command line option.  Specifying an ordering upon loading an adjmat is optional; if you don't do so, CVU will assume that the adjmat is already in parcellation order.  However, you must specify a parcellation order; otherwise CVU would have no idea which nodes have which labels.
+The parcellation order file or with the -o/--order command line option is the '''desired''' output order you wish for CVU to display in the connection matrix and on the circle plot.  This permits your adjacency matrices to have an ordering that is different from this, which you can tell CVU about by specifying a file upon loading the adjmat or with the --adj-order command line option.  Specifying an ordering upon loading an adjmat is optional; if you don't do so, CVU will assume that the adjmat is already in parcellation order.  However, you must always specify a parcellation order; otherwise CVU would have no idea which nodes have which labels.
 
 Note that adjmat orderings can also be specified for module communities and scalar data.
 
@@ -44,18 +47,25 @@ The delete keyword is a special label in the order files.  It means, "ignore thi
 
 This behavior has the useful feature that if you have an adjmat with more entries than the parcellation, and you wish to get rid of the garbage entries, you can use the same ordering file for both the parcellation and adjacency order; the adjmat will automatically reduce in size (This condition is true when using adjacency matrices produced by Connectomemapper which generates some outputs for subcortical structures).  However, in some circumstances where the parcellation and adjmat order are significantly different (e.g. if the adjmat is completely scrambled) it will be important to make sure that the "delete" channels, if used, are specified in the correct order, and after deleted channels the adjmat has the correct size (e.g. the same size as the parcellation).  You can also tell the program to ignore the delete entries.
 
-Some orderings have been made standard already for the Lausanne 2008 parcellations at different resolutions.  They have the suffixes _cmp and _alph -- the _alph suffix merely orders all the labels in alphabetical order, deleting the corpus callosum and unknown at their alphabetical positions.  The _cmp suffix uses the canonical connectomemapper ordering (starting at lateral orbitofrontal cortex and ending at insula) and deletes all of the subcortical regions at their positions in the connectomemapper adjmats. (Support for connections to and from subcortical structures may be added at some point later).
+Some orderings have been made standard already for the Lausanne 2008 parcellations at different resolutions.  They have the suffixes _cmp and _alph -- the _alph suffix merely orders all the labels in alphabetical order, deleting the corpus callosum and unknown at their alphabetical positions.  The _cmp suffix uses the canonical connectomemapper ordering (starting at lateral orbitofrontal cortex and ending at insula) and deletes all of the subcortical regions at their positions in the connectomemapper adjmats.  There are presently additional ordering files for data specific to the Stufflebeam Lab (Support for connections to and from subcortical structures may be added at some point later).  But you can certainly create your own.
 
-=====--max-edges=====
+=====--max-edges and thresholds=====
 
-A little bit of explanation is required to understand the purpose of the --max-edges option.  When the number of connections is too large, several things happen.  One thing that can happen is that there are too many connections for effective visualization; there is too much data to usefully see or make sense of anything.  This occurs at around roughly 500 connections (play around with the threshold slider to examine this effect).  Another thing that can happen is that CVU has to repeatedly process a very large number of connections, and so becomes very slow.  This occurs at around roughly 75000 connections.  In order to improve performance, by default the program will discard all but the first 50000 connections.  This is a soft cap that examines the value of the 50000th strongest connection and includes all connections with an equal value to it, so in practice with real data the real max is slightly higher (but beware of test data taking forever to run!)
+A little bit of explanation is required to understand the purpose of the --max-edges option.  When the number of connections is too large, several things happen.  One thing that can happen is that there are too many connections for effective visualization; there is too much data to usefully see or make sense of anything.  This occurs at around roughly 500 connections (play around with the threshold slider to examine this effect).  Another thing that can happen is that CVU has to repeatedly process a very large number of connections, and so becomes very slow.  This occurs at around roughly 75000 connections.  In order to improve performance, by default the program (i.e. when --max-edges is not specified or left as 0) will discard all but the first 50000 connections.  This is a soft cap that examines the value of the 50000th strongest connection and includes all connections with an equal value to it, so in practice with real data the real max is slightly higher.  Note that if the soft max massively exceeds the hard max, the excess connections will be discarded -- again, to override this behavior, increase the max.
 
-Nonetheless, there may be purposes for which users want to work with more connections than that.  There are two reasons I can imagine to do that: generation of extremely high-resolution images, or calculation of graph statistics on high-resolution data.  For the latter purpose, eventually CVU may include a non-interactive mode where visualization is disabled or frozen.  However, since the only graph statistic you can currently calculate is the modularity, I have not had a chance to focus on that yet.  Anyway, this option is provided for that particular purpose.
+Nonetheless, there may be purposes for which users want to work with more connections than that.  There are two reasons I can imagine to do that: generation of extremely high-resolution images, or calculation of graph statistics on high-resolution data.
+
+**IMPORTANT TL;DR** If you do nothing, and ignore max-edges whenever you load data, only the 50000 strongest connections will be displayed!
+
+After the roughly 50000 or max-edges connections are removed, there is an additional threshold which limits the number of connections to display.  This threshold is different from the max-edges cutoff in that the program keeps track of all of the connections that are not being displayed because they are under threshold, but all connections below the max-edges cutoff are discarded entirely and cannot be recovered without loading the adjacency matrix file again with a higher value of max-edges.  As such, any graph statistics that you might calculate with the new threshold will take into account all of the invisible connections up to the max-edges cutoff (but many of these statistics will examine only a proportion of these connections).
+
+The display threshold can be either proportional or numerical.  If it is proportional, it will be a number between 0 and 1 -- for instance, if pthresh is .90, 10% of connections will be displayed and 90% will be thresholded.  If the threshold is numerical, any connections with an edge value exceeding the value of the threshold will be preserved.  As a rule of thumb, the proprtional threshold is more valuable for exploratory analysis, and the numerical threshold is more valuable for generating figures and visualizing statistics.
 
 ===Plotting windows===
-CVU currently has three main windows in which data is displayed for visualization -- an interactive 3D brain model rendered with mayavi displaying the centroids of the ROIs and the connectivity between these regions as a glass model, an interactive adjacency matrix rendered with chaco, and a circle plot displaying the connectivity rendered in matplotlib.
 
-To rotate the 3D brain, drag and click.  By default, this will rotate the scene in 3 dimensions about its center.  Use SHIFT and CONTROL to alter this behavior.  SHIFT will allow you to pan in any direction without zooming (dragging while holding down middle click has the same effect).  CONTROL allows you to rotate the scene about its center for only the 2 dimensions currently defining the field of view.  To zoom, scroll the mouse wheel or hold and drag the right mouse button.  Clicking on the nodes, or selecting a node from the 'show node' button will display the connectivity only originating at that node.  To restore all of the connections, right click on any of the plots or click the 'show all' button.
+CVU currently has three main windows in which data is displayed for visualization -- an interactive 3D brain model rendered with mayavi displaying the centroids of the ROIs and the connectivity between these regions as a glass model, an interactive adjacency matrix rendered with chaco, and a circle plot displaying the connectivity rendered in matplotlib.  Mostly, whenever you change any views in one of these windows, the view and color scheme in the other windows will also change.
+
+To rotate the 3D brain, drag and click.  By default, this will rotate the scene in 3 dimensions about its center.  Use SHIFT and CONTROL to alter this behavior.  SHIFT will allow you to pan in any direction without zooming (dragging while holding down middle click has the same effect).  CONTROL allows you to rotate the scene about its center for only the 2 dimensions currently defining the field of view.  To zoom, scroll the mouse wheel or hold and drag the right mouse button.  Clicking on the nodes, or selecting a node from the 'show node' button will display the connectivity only originating at that node.  To restore all of the connections, right click on any of the plots or click the 'show all' button.  Note also that you can specify many other parameters of the 3D brain display by clicking on the configuration button in the top left hand corner.
 
 The adjacency matrix can be panned by left clicking and dragging.  Clicking anywhere on the adjacency matrix will show the connectivity for the node corresponding to the row selected from the matrix.  Zooming is done with the mouse wheel or the right mouse button.  Right click to restore the entire matrix of connections.
 
@@ -63,11 +73,15 @@ The circle plot cannot be panned or zoomed due to fundamental limitations in mat
 
 Whenever a node is highlighted/displayed in any one of the plots, each of the other plots shows the same data.  In this way it is easy to compare the same data in several different views.
 
-Each of these plots can be captured in a high resolution image.  Click on the 'snapshot' buttons and specify the desired dpi.  The dpi cannot be increased beyond that of the plots, but the resolution can and as such the image quality will be high for small images with a small amount of image postprocessing.  Note that some parts of the 3D brain may be slightly cut off in some instances; try to keep the brain in the upper right hand corner to avoid this.  This is difficult to fix, but it may be fixed at some point.
+Each of these plots can be captured in a high resolution image.  Click on the 'snapshot' buttons and specify the desired dpi.  Technically speaking, high values of dpi will not translate to images with high dots per inch, but they will generate much larger images so the effective image quality will be roughly as specified.
 
 ===Modules===
+
 CVU will calculate graph partitions and display modules based on minimal cut sets.  Partioning a graph is an NP-hard problem, and CVU is designed to be adaptable for use with a variety of approximation algorithms.  To calculate the modules using a standard algorithm, click on the 'calculate modules' button.  If you don't like any of the standard algorithms, you can use your own algorithm and load a community structure from a file (a vector with numbers from 1 to N, with N modules).  To view only the nodes and connections within a module, click on the 'view module' button and select the desired module.  The order of the modules calculated with the default algorithm is not meaningful.
 
+You can also specify a series of nodes on the fly, from a list and visualize only the connections between those nodes.
+
 ===Scalars===
-CVU will show scalar values.  Load them as vectors from files.  It is straightforward.
+
+CVU will show scalar values.  Load them as vectors from files.  The scalar data will be displayed as color information each node.  You can change the color on the mayavi plot in the mayavi module manager.
 
