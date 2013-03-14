@@ -1,3 +1,5 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
 import wx
 import matplotlib
 from matplotlib.figure import Figure

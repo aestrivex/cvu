@@ -1,3 +1,6 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
+
 from chaco.api import PlotAxis,LinearMapper
 import numpy as np
 from traits.api import RGBColor,List,Any,Enum,HasTraits,Instance,Int

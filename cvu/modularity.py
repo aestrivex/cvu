@@ -1,3 +1,5 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
 import numpy as np
 import scipy.linalg as lin
 

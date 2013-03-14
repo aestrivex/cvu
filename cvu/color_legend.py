@@ -1,3 +1,7 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
+
+
 from traits.api import HasTraits,Str,List,RGBColor,Any
 from traitsui.api import View,Item,TableEditor,TextEditor,ObjectColumn
 

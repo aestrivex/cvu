@@ -1,3 +1,6 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
+
 from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
 from traits.api import List
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group

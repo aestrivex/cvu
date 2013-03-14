@@ -1,3 +1,5 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
 quiet=True
 import cvu_utils as util
 if __name__=="__main__":
@@ -61,16 +63,18 @@ class Cvu(CvuPlaceholder):
 	circ_fig = Instance(Figure,())
 	
 	#stateful traits
-	thresh = Range(0.0,1.0,.95)
+	pthresh = Range(0.0,1.0,.95)
+	nthresh = Float
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,10,mode='spinner')
-	prune_modules = Bool
+	prune_modules = Bool(True)
+	thresh_type = Enum('prop','num')
+	show_floating_text = Bool(True)
+	reset_thresh = Method
 
-	node_scalars=Instance(np.ndarray)
+#	node_scalars=Instance(np.ndarray)
 
 	#buttons
-	up_node_button = Button('^')
-	down_node_button = Button('v')
 	select_node_button = Button('Choose node')
 	all_node_button = Button('Show all')
 	calc_mod_button = Button('Calc modules')
@@ -89,17 +93,20 @@ class Cvu(CvuPlaceholder):
 	circ_snapshot_button = Button('Circle snapshot')
 	center_adjmat_button = Button('Center adjmat')
 
+	# There is no need to declare all of these, in the interest of clean code
+	# Only declare what is needed by the UI or truly benefits from static typing
+
 	#various subwindows
-	parc_chooser_window = Instance(HasTraits)
-	adjmat_chooser_window = Instance(HasTraits)
-	load_standalone_matrix_window = Instance(HasTraits)
-	node_chooser_window = Instance(HasTraits)
-	module_chooser_window = Instance(HasTraits)
-	module_customizer_window = Instance(HasTraits)
-	save_snapshot_window = Instance(HasTraits)
-	really_overwrite_file_window = Instance(HasTraits)
-	error_dialog_window = Instance(HasTraits)
-	color_legend_window = Instance(HasTraits)
+#	parc_chooser_window = Instance(HasTraits)
+#	adjmat_chooser_window = Instance(HasTraits)
+#	load_standalone_matrix_window = Instance(HasTraits)
+#	node_chooser_window = Instance(HasTraits)
+#	module_chooser_window = Instance(HasTraits)
+#	module_customizer_window = Instance(HasTraits)
+#	save_snapshot_window = Instance(HasTraits)
+#	really_overwrite_file_window = Instance(HasTraits)
+#	error_dialog_window = Instance(HasTraits)
+#	color_legend_window = Instance(HasTraits)
 
 	python_shell = Dict
 
@@ -113,9 +120,7 @@ class Cvu(CvuPlaceholder):
 					Item(name='conn_mat',
 						editor=ComponentEditor(),
 						show_label=False,height=450,width=450,resizable=True),
-					Group(	Item(name='up_node_button'),
-							Item(name='down_node_button'),
-							Item(name='select_node_button'),
+					Group(	Item(name='select_node_button'),
 							Item(name='all_node_button'),
 							Item(name='color_legend_button'),
 							Item(name='center_adjmat_button'),
@@ -147,15 +152,19 @@ class Cvu(CvuPlaceholder):
 							Item(name='mayavi_snapshot_button'),
 							Item(name='chaco_snapshot_button'),
 							Item(name='circ_snapshot_button'),
+							Item(name='show_floating_text',show_label=True,label='Text on'),
 							show_labels=False,
 						),
 						HSplit(
 							Item(name='circ_size'),
-							Item(name='prune_modules'),
+							#Item(name='prune_modules'),
+							Item(name='surface_visibility'),
 						),
 						HSplit(
-							Item(name='thresh'),
-							Item(name='surface_visibility'),
+							Item(name='pthresh'),
+							Item(name='nthresh',editor=DefaultOverride(
+								auto_set=False,enter_set=True)),
+							Item(name='thresh_type')
 						),
 						HSplit(
 							Item(name='python_shell',editor=ShellEditor(),
@@ -199,7 +208,11 @@ class Cvu(CvuPlaceholder):
 
 		self.node_chooser_window.node_list=self.labnam
 		self.module_customizer_window.initial_node_list=self.labnam
-	
+
+	#default initializations
+	def _reset_thresh_default(self):
+		return self.prop_thresh
+
 	@on_trait_change('scene.activated')	
 	def setup(self):
 		## SET UP DATA ##
@@ -239,9 +252,9 @@ class Cvu(CvuPlaceholder):
 	## VISUALIZATION GENERATOR FUNCTIONS ##
 	def init_thres_gen(self):
 		self.thresval = float(sorted(self.adjdat)\
-			[int(round(self.thresh*self.nr_edges))-1])
+			[int(round(self.pthresh*self.nr_edges))-1])
 		if not quiet:
-			print "Initial threshold: "+str(self.thresh)
+			print "Initial threshold: "+str(self.pthresh)
 
 	def pos_helper_gen(self):
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
@@ -532,6 +545,7 @@ class Cvu(CvuPlaceholder):
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(text='')
 		self.reset_thresh()
+		self.edge_color_on()
 		
 		#change data in chaco plot
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
@@ -583,7 +597,7 @@ class Cvu(CvuPlaceholder):
 
 		#how much resetting is desirable?  e.g. colors
 
-	def display_module(self,modnum=None,module=None):
+	def display_module(self,modnum,module=None):
 		self.cur_module=modnum
 		if module is None:
 			module=self.modules[self.cur_module]
@@ -731,22 +745,49 @@ class Cvu(CvuPlaceholder):
 				mcw.index_convert()
 			except ValueError as e:
 				self.error_dialog('Something went wrong! Blame the programmer')
-			self.display_module(module=mcw.return_module)
-				
+			self.custom_module=mcw.return_module
+			self.display_module('custom',module=self.custom_module)
 
 	#misc trait changes
-	@on_trait_change('thresh')
-	def reset_thresh(self):	
-		self.thresval = float(sorted(self.adjdat)\
-			[int(round(self.thresh*self.nr_edges))-1])
-		dmax=float(sorted(self.adjdat)[self.nr_edges-1])
+	@on_trait_change('pthresh')
+	def prop_thresh(self):	
+		if self.thresh_type!='prop':
+			return
+		sort_adjdat=sorted(self.adjdat)
+		self.thresval=float(sort_adjdat[int(round(self.pthresh\
+			*self.nr_edges))-1])
+		dmax=sort_adjdat[self.nr_edges-1]
 		self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
-		self.edge_color_on()
 		self.vectorsrc.outputs[0].update()	
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
 		self.redraw_circ()
+
+	@on_trait_change('nthresh')
+	def num_thresh(self):
+		if self.thresh_type!='num':
+			return
+		try:
+			self.thresval=self.nthresh
+			dmax=float(sorted(self.adjdat)[self.nr_edges-1])
+			self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
+		except TraitError as e:
+			self.error_dialog(str(e))
+			return
+		self.vectorsrc.outputs[0].update()
+		if not quiet:
+			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
+			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
+		self.redraw_circ()
+	
+	@on_trait_change('thresh_type')
+	def chg_thresh_type(self):
+		if self.thresh_type=='prop':
+			self.reset_thresh=self.prop_thresh
+		elif self.thresh_type=='num':
+			self.reset_thresh=self.num_thresh
+		self.reset_thresh()
 
 	@on_trait_change('surface_visibility')
 	def chg_syrf_vis(self):
@@ -757,6 +798,10 @@ class Cvu(CvuPlaceholder):
 	def chg_circ_size(self):
 		self.circ_fig.axes[0].set_ylim(0,self.circ_size)
 		#self.redraw_circ()
+
+	@on_trait_change('show_floating_text')
+	def chg_float_text(self):
+		self.txt.visible=self.show_floating_text
 
 	#def load_timecourse_data():
 		#if self.dataloc==None:
@@ -885,6 +930,7 @@ class Cvu(CvuPlaceholder):
 
 	def hack_mlabsavefig(self,fname,size):
 		#TODO hacky fix pull request etc
+		self.txt.visible=False
 		curx,cury=tuple(self.scene.scene_editor.get_size())
 		magnif_desired = max(size[0]//curx,size[1]//cury)+1
 		newsize=(int(size[0]/magnif_desired),int(size[1]/magnif_desired))
@@ -899,21 +945,9 @@ class Cvu(CvuPlaceholder):
 		ex.input = filter.output
 		self.scene.scene_editor._exporter_write(ex)
 		self.scene.scene_editor.set_size((curx,cury))
+		#set the mayavi text to nothing for the snapshot, then restore it
+		self.txt.visible=self.show_floating_text
 
-	def hack_mlabsavefigmag(self,fname,mag):
-		curx,cury=tuple(self.scene.scene_editor.get_size())
-		self.scene.scene_editor.set_size((curx-1,cury-1))
-		from tvtk.api import tvtk
-		filter=tvtk.WindowToImageFilter(read_front_buffer=True)
-		filter.magnification=mag
-		self.scene.scene_editor._lift()
-		filter.input = self.scene.scene_editor._renwin
-		ex = tvtk.PNGWriter()
-		ex.file_name = fname
-		ex.input = filter.output
-		self.scene.scene_editor._exporter_write(ex)
-		self.scene.scene_editor.set_size((curx,cury))
-	
 	#load surface
 	def _load_surface_button_fired(self):
 		self.error_dialog('not supported yet')
@@ -985,7 +1019,9 @@ class Cvu(CvuPlaceholder):
 					self.sorted_adjdat[e] >= self.thres.lower_threshold and \
 					(self.curr_node==None or self.curr_node in [a,b]) and \
 					(self.cur_module is None or (a in self.modules[self.\
-					cur_module] and b in self.modules[self.cur_module])):
+					cur_module] and b in self.modules[self.cur_module]) \
+					or self.cur_module=='custom' and (a in self.custom_module \
+					and b in self.custom_module)):
 				self.circ_data[e].set_visible(True)
 				if self.myvectors.actor.mapper.scalar_visibility:
 					self.circ_data[e].set_ec(self.yellow_map((self.\

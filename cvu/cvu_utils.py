@@ -1,3 +1,6 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
+
 def eqfun(x):
 	return lambda y:y==x
 

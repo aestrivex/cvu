@@ -1,3 +1,7 @@
+# (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
+
+
+
 import numpy as np
 from matplotlib.backends.backend_wxagg import *
 from matplotlib.backends.backend_wx import *
