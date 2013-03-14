@@ -93,20 +93,19 @@ class Cvu(CvuPlaceholder):
 	circ_snapshot_button = Button('Circle snapshot')
 	center_adjmat_button = Button('Center adjmat')
 
-	# There is no need to declare all of these, in the interest of clean code
-	# Only declare what is needed by the UI or truly benefits from static typing
-
 	#various subwindows
-#	parc_chooser_window = Instance(HasTraits)
-#	adjmat_chooser_window = Instance(HasTraits)
-#	load_standalone_matrix_window = Instance(HasTraits)
-#	node_chooser_window = Instance(HasTraits)
-#	module_chooser_window = Instance(HasTraits)
-#	module_customizer_window = Instance(HasTraits)
-#	save_snapshot_window = Instance(HasTraits)
-#	really_overwrite_file_window = Instance(HasTraits)
-#	error_dialog_window = Instance(HasTraits)
-#	color_legend_window = Instance(HasTraits)
+	parc_chooser_window = Instance(HasTraits)
+	adjmat_chooser_window = Instance(HasTraits)
+	load_standalone_matrix_window = Instance(HasTraits)
+	node_chooser_window = Instance(HasTraits)
+	module_chooser_window = Instance(HasTraits)
+	module_customizer_window = Instance(HasTraits)
+	save_snapshot_window = Instance(HasTraits)
+	really_overwrite_file_window = Instance(HasTraits)
+	error_dialog_window = Instance(HasTraits)
+	color_legend_window = Instance(HasTraits)
+	#Must declare each of the subwindows specifically as a trait so its 
+	#attributes can be listened for as traits with decorators.
 
 	python_shell = Dict
 
@@ -910,7 +909,6 @@ class Cvu(CvuPlaceholder):
 				saveit()
 		else:
 			self.error_dialog('You must specify the save file')
-		#mlab.savefig('/autofs/homes/005/rlaplant/testres.png',magnification=5)
 
 	def set_save_continuation_and_spawn_rofw(self,continuation):
 		self.really_overwrite_file_window.finished=False
