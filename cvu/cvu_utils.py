@@ -230,7 +230,7 @@ def usage():
 	exit(78)
 
 def cli_args(argv,):
-	import getopt; import os.path as op
+	import getopt; import os
 	subjdir=None;adjmat=None;parc=None;parcorder=None;surftype=None;
 	field=None;dataloc=None;modality=None;partitiontype=None;
 	subject=None;maxedges=None;adjorder=None;quiet=False
@@ -275,7 +275,7 @@ def cli_args(argv,):
 		elif opt in ["--max-edges"]:
 			maxedges=arg
 	if not subjdir:
-		subjdir = op.dirname(__file__)
+		subjdir = os.path.dirname(__file__)
 	if not adjmat:
 		adjmat = 'data/synclikT_15.mat'
 	if not parc:
@@ -286,7 +286,7 @@ def cli_args(argv,):
 				' supplied with your parcellation')
 		else:
 			#TODO export this design pattern for relative paths where necessary
-			parcorder=op.join(op.dirname(__file__),'orders/sparc.txt')
+			parcorder=os.path.join(os.path.dirname(__file__),'orders/sparc.txt')
 	if modality not in ["meg","fmri","dti",None]:
 		raise Exception('Modality %s is not supported' % modality)
 	if modality in ["fmri","dti"]:
@@ -301,13 +301,13 @@ def cli_args(argv,):
 		field="adjmat"
 	if not maxedges:
 		maxedges=20000
-	if not op.isfile(parcorder):
+	if not os.path.isfile(parcorder):
 		raise Exception('Channel names %s file not found' % parcorder)
-	if not op.isfile(adjmat):
+	if not os.path.isfile(adjmat):
 		raise Exception('Adjacency matrix %s file not found' % adjmat)
-	if not op.isdir(subjdir):
+	if not os.path.isdir(subjdir):
 		raise Exception('SUBJECTS_DIR %s file not found' % subjdir)
-	if adjorder and op.isfile(adjorder):
+	if adjorder and os.path.isfile(adjorder):
 		raise Exception('Adjancency matrix order %s file not found' % adjorder)
 	return {'parc':parc,'adjmat':adjmat,'parcorder':parcorder,
 		'modality':modality,\
