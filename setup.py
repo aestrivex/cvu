@@ -11,7 +11,7 @@ setuptools.setup(
 	maintainer_email="rlaplant@nmr.mgh.harvard.edu",
 	description=("A visualizer for human brain networks"),
 	license="Visuddhimagga Sutta; GPLv3+",
-	packages=["cvu"],
+	packages=["cvu"],#package_data={'cvu':['data/*','docs/*','fsavg5/label/*','fsavg5/surf/*','orders/*']},
 	url="https://github.com/aestrivex/cvu",
 	long_description=read('README'),
 	classifiers=[
