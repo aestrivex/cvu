@@ -61,7 +61,7 @@ class ConnmatPanClickTool(PanTool):
 class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
 	circ_fig = Instance(Figure,())
-	
+
 	#stateful traits
 	pthresh = Range(0.0,1.0,.95)
 	nthresh = Float
@@ -107,72 +107,86 @@ class Cvu(CvuPlaceholder):
 	#Must declare each of the subwindows specifically as a trait so its 
 	#attributes can be listened for as traits with decorators.
 
+	#current display information
+	cur_display_title = Str('CURRENT DISPLAY')
+	cur_display_brain = Str
+	cur_display_parc = Str
+	cur_display_mat = Str
+
 	python_shell = Dict
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
 	traits_view = View(
-			VSplit(
+		VSplit(
+			HSplit(
+				Item(name='cur_display_title',show_label=False),
+				Item(name='cur_display_brain',label='subject'),
+				#Spring(),
+				Item(name='cur_display_parc',label='parcellation'),
+				#Spring(),
+				Item(name='cur_display_mat',label='matrix'),
+				show_labels=True,style='readonly',layout='split'),
+			HSplit(
+				Item(name='scene',
+					editor=SceneEditor(scene_class=MayaviScene),
+					height=500,width=500,show_label=False,resizable=True),
+				Item(name='conn_mat',
+					editor=ComponentEditor(),
+					show_label=False,height=450,width=450,resizable=True),
+				Group(	Item(name='select_node_button'),
+						Item(name='all_node_button'),
+						Item(name='color_legend_button'),
+						Item(name='center_adjmat_button'),
+						Spring(),
+						Item(name='calc_mod_button'),
+						Item(name='load_mod_button'),
+						Item(name='select_mod_button'),
+						Item(name='custom_mod_button'),
+						Spring(),
+						Item(name='load_scalars_button'),
+						Item(name='display_scalars_button'),
+						Spring(),
+						Item(name='draw_stuff_button'),
+					show_labels=False,
+				)
+			),
+			HSplit(
+				Item(name='circ_fig',
+					editor=mpleditor.MPLFigureEditor(),
+					height=500,width=500,show_label=False,resizable=True),
+				Group(
 				HSplit(
-					Item(name='scene',
-						editor=SceneEditor(scene_class=MayaviScene),
-						height=500,width=500,show_label=False,resizable=True),
-					Item(name='conn_mat',
-						editor=ComponentEditor(),
-						show_label=False,height=450,width=450,resizable=True),
-					Group(	Item(name='select_node_button'),
-							Item(name='all_node_button'),
-							Item(name='color_legend_button'),
-							Item(name='center_adjmat_button'),
-							Spring(),
-							Item(name='calc_mod_button'),
-							Item(name='load_mod_button'),
-							Item(name='select_mod_button'),
-							Item(name='custom_mod_button'),
-							Spring(),
-							Item(name='load_scalars_button'),
-							Item(name='display_scalars_button'),
-							Spring(),
-							Item(name='draw_stuff_button'),
+					Item(name='load_parc_button',),
+						Item(name='load_adjmat_button',),
+						Item(name='load_surface_button',),
 						show_labels=False,
-					)
-				),
-				HSplit(
-					Item(name='circ_fig',
-						editor=mpleditor.MPLFigureEditor(),
-						height=500,width=500,show_label=False,resizable=True),
-					Group(
-						HSplit(
-							Item(name='load_parc_button',),
-							Item(name='load_adjmat_button',),
-							Item(name='load_surface_button',),
-							show_labels=False,
-						),
-						HSplit(
-							Item(name='mayavi_snapshot_button'),
-							Item(name='chaco_snapshot_button'),
-							Item(name='circ_snapshot_button'),
-							Item(name='show_floating_text',show_label=True,label='Text on'),
-							show_labels=False,
-						),
-						HSplit(
-							Item(name='circ_size'),
-							#Item(name='prune_modules'),
-							Item(name='surface_visibility'),
-						),
-						HSplit(
-							Item(name='pthresh'),
-							Item(name='nthresh',editor=DefaultOverride(
-								auto_set=False,enter_set=True)),
-							Item(name='thresh_type')
-						),
-						HSplit(
-							Item(name='python_shell',editor=ShellEditor(),
-							show_label=False),
-						),
+					),
+					HSplit(
+						Item(name='mayavi_snapshot_button'),
+						Item(name='chaco_snapshot_button'),
+						Item(name='circ_snapshot_button'),
+						Item(name='show_floating_text',show_label=True,label='Text on'),
+						show_labels=False,
+					),
+					HSplit(
+						Item(name='circ_size'),
+						#Item(name='prune_modules'),
+						Item(name='surface_visibility'),
+					),
+					HSplit(
+					Item(name='pthresh'),
+						Item(name='nthresh',editor=DefaultOverride(
+							auto_set=False,enter_set=True)),
+						Item(name='thresh_type')
+					),
+					HSplit(
+						Item(name='python_shell',editor=ShellEditor(),
+						show_label=False),
 					),
 				),
 			),
-			resizable=True,title="Connectome Visualization Utility")
+		),
+		resizable=True,title="Connectome Visualization Utility")
 
 	## INITIALIZE THE CVU OBJECT ##
 	# args are in order pos,adj,names,srfinfo,datainfo
@@ -191,6 +205,10 @@ class Cvu(CvuPlaceholder):
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
+
+		self.cur_display_brain=args[5][4]
+		self.cur_display_parc=args[5][5]
+		self.cur_display_mat=args[5][6]
 	
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
@@ -437,6 +455,9 @@ class Cvu(CvuPlaceholder):
 				pcw.SUBJECTS_DIR)
 			self.lab_pos = util.calcparc(labv,labnam,quiet=quiet,
 				parcname=pcw.parcellation_name)
+			self.cur_display_brain=pcw.SUBJECT
+			self.cur_display_parc=pcw.parcellation_name
+			self.cur_display_mat=''
 		except IOError as e:
 			self.error_dialog(str(e))
 			return
@@ -465,6 +486,7 @@ class Cvu(CvuPlaceholder):
 				adj=self.flip_adj_ord(adj,ign_dels=acw.ignore_deletes)
 			if acw.max_edges>0:
 				self.soft_max_edges=acw.max_edges
+			self.cur_display_mat=acw.adjmat
 		except (util.CVUError,IOError) as e:
 			self.error_dialog(str(e))
 			return
@@ -525,7 +547,8 @@ class Cvu(CvuPlaceholder):
 			self.modules=modularity.comm2list(ci)
 			self.update_modules_metadata()
 		elif lsmw.whichkind=='scalars':
-			self.node_scalars=ci
+			#normalize scalars to 0-1 range
+			self.node_scalars=(ci-np.min(ci))/np.max(ci)
 
 	## USER-DRIVEN INTERACTIONS ##
 	def error_dialog(self,message):
@@ -545,6 +568,8 @@ class Cvu(CvuPlaceholder):
 		self.txt.set(text='')
 		self.reset_thresh()
 		self.edge_color_on()
+		self.nodes.glyph.scale_mode='data_scaling_off'
+		self.nodes.glyph.glyph.scale_factor=3
 		
 		#change data in chaco plot
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
@@ -641,6 +666,8 @@ class Cvu(CvuPlaceholder):
 			return
 		self.nodesource.children[0].scalar_lut_manager.lut_mode='BuGn'
 		self.nodes.mlab_source.dataset.point_data.scalars=self.node_scalars
+		self.nodes.mlab_source.glyph.scale_mode='scale_by_scalar'
+		self.nodes.mlab_source.glyph.glyph.scale_factor=8
 		mlab.draw()
 		
 		new_color_arr=self.bluegreen_map(self.node_scalars)
@@ -745,6 +772,7 @@ class Cvu(CvuPlaceholder):
 			except ValueError as e:
 				self.error_dialog('Something went wrong! Blame the programmer')
 			self.custom_module=mcw.return_module
+			#self.cur_module='custom'
 			self.display_module('custom',module=self.custom_module)
 
 	#misc trait changes
@@ -1013,16 +1041,20 @@ class Cvu(CvuPlaceholder):
 		vrange=self.thres.upper_threshold-self.thres.lower_threshold
 		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
 				self.sorted_edges[1])):
-			if self.sorted_adjdat[e] <= self.thres.upper_threshold and \
-					self.sorted_adjdat[e] >= self.thres.lower_threshold and \
-					(self.curr_node==None or self.curr_node in [a,b]) and \
-					(self.cur_module is None or (a in self.modules[self.\
-					cur_module] and b in self.modules[self.cur_module]) \
-					or self.cur_module=='custom' and (a in self.custom_module \
-					and b in self.custom_module)):
+			if ((self.sorted_adjdat[e] <= self.thres.upper_threshold) and
+				(self.sorted_adjdat[e] >= self.thres.lower_threshold) and
+				(self.curr_node==None or self.curr_node in [a,b]) and
+		#logic for module display
+				(self.cur_module is None or
+		#check for a custom module first to avoid null pointer
+					(self.cur_module=='custom' and (a in self.
+					custom_module and b in self.custom_module)) or
+		#check for the current module
+					(self.modules is not None and a in self.modules[self.
+					cur_module] and b in self.modules[self.cur_module]))):
 				self.circ_data[e].set_visible(True)
 				if self.myvectors.actor.mapper.scalar_visibility:
-					self.circ_data[e].set_ec(self.yellow_map((self.\
+					self.circ_data[e].set_ec(self.yellow_map((self.
 						sorted_adjdat[e]-self.thres.lower_threshold)/vrange))
 				else:
 					self.circ_data[e].set_ec((1,1,1))
@@ -1051,7 +1083,7 @@ def preproc():
 
 	# Package dataloc and modality into tuple for passing
 	datainfo =(args['dataloc'],args['modality'],args['partitiontype'],
-		args['maxedges'])
+		args['maxedges'],args['subject'],args['parc'],args['adjmat'])
 
 	# Return tuple with summary required data
 	return lab_pos,adj,labnam,adjlabs,surf_struct,datainfo
