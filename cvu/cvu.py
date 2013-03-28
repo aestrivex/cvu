@@ -514,6 +514,7 @@ class Cvu(CvuPlaceholder):
 
 		self.curr_node=None
 		self.cur_module=None
+		self.thresh_type='prop'
 		self.vectors_clear()
 		self.vectors_gen()
 		self.circ_clear()
@@ -647,6 +648,7 @@ class Cvu(CvuPlaceholder):
 		new_colors = np.tile(.3,self.nr_labels)
 		new_colors[module]=.8
 		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
+		self.txt.set(text='')
 		mlab.draw()
 		
 		#display on circle plot
