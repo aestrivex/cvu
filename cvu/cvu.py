@@ -120,12 +120,15 @@ class Cvu(CvuPlaceholder):
 		VSplit(
 			HSplit(
 				Item(name='cur_display_title',show_label=False),
-				Item(name='cur_display_brain',label='subject'),
+				Item(name='cur_display_brain',label='subject',resizable=True,
+					height=19),
 				#Spring(),
-				Item(name='cur_display_parc',label='parcellation'),
+				Item(name='cur_display_parc',label='parcellation',
+					resizable=True,height=19),
 				#Spring(),
-				Item(name='cur_display_mat',label='matrix'),
-				show_labels=True,style='readonly',layout='split'),
+				Item(name='cur_display_mat',label='matrix',resizable=True,
+					height=19),
+				show_labels=True,style='readonly'),
 			HSplit(
 				Item(name='scene',
 					editor=SceneEditor(scene_class=MayaviScene),
@@ -666,8 +669,8 @@ class Cvu(CvuPlaceholder):
 			return
 		self.nodesource.children[0].scalar_lut_manager.lut_mode='BuGn'
 		self.nodes.mlab_source.dataset.point_data.scalars=self.node_scalars
-		self.nodes.mlab_source.glyph.scale_mode='scale_by_scalar'
-		self.nodes.mlab_source.glyph.glyph.scale_factor=8
+		self.nodes.glyph.scale_mode='scale_by_scalar'
+		self.nodes.glyph.glyph.scale_factor=8
 		mlab.draw()
 		
 		new_color_arr=self.bluegreen_map(self.node_scalars)
