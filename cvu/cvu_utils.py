@@ -183,11 +183,12 @@ def calcparc_gifti(labnam,labv,surf_struct,quiet=False):
 
 	return lab_pos
 
-def file_chooser(main_window):
+def file_chooser(**kwargs):
+	# use kwarg initialdir='/some_path'
 	from Tkinter import Tk
 	Tk().withdraw()
 	from tkFileDialog import askopenfilename
-	return askopenfilename()
+	return askopenfilename(**kwargs)
 
 def fancy_file_chooser(main_window):
 	from traits.api import HasPrivateTraits,File,Str,on_trait_change
@@ -277,7 +278,7 @@ def cli_args(argv,):
 	if not subjdir:
 		subjdir = os.path.dirname(__file__)
 	if not adjmat:
-		adjmat = 'data/synclikT_15.mat'
+		adjmat = 'data/sample_data.npy'
 	if not parc:
 		parc = 'sparc'
 	if not parcorder:
@@ -297,8 +298,6 @@ def cli_args(argv,):
 		subject='fsavg5'
 	if not partitiontype:
 		partitiontype="spectral"
-	if not field:
-		field="adjmat"
 	if not maxedges:
 		maxedges=20000
 	if not os.path.isfile(parcorder):

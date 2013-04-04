@@ -2,10 +2,12 @@
 
 
 from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
-from traits.api import List
+from traits.api import List,Button
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
-from traitsui.api import ListStrEditor,CheckListEditor
+from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor
+from traitsui.file_dialog import open_file
 import os
+import cvu_utils as util
 
 class SubwindowHandler(Handler):
 	def closed(self,info,is_ok):
@@ -22,6 +24,7 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		"  Specify unwanted channels as 'delete' in the label order.  Data "
 		"field name applies to the data field for .mat matrices only.")
 	adjmat=File
+	open_adjmat=Button('Browse')
 	#adjmat_order=Trait(None,None,File)
 	adjmat_order=File
 	max_edges=Int
@@ -29,13 +32,20 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 	ignore_deletes=Bool
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=140,width=250),
-		Item(name='adjmat'),
-		Item(name='adjmat_order',label='Label Order'),
+		#HSplit(
+		#	Item(name='adjmat',style='text'),
+		#	Item(name='open_adjmat',show_label=False),
+		#),
+		Item(name='adjmat',),
+		Item(name='adjmat_order',label='Label Order',),
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Report all man-eating vultures to security',)
+
+	def _open_adjmat_fired(self):
+		self.adjmat=open_file()
 
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
@@ -44,6 +54,7 @@ class ParcellationChooserWindow(InteractiveSubwindow):
 	SUBJECTS_DIR=Directory('./')
 	SUBJECT=Str('fsavg5')
 	labelnames_f=File
+	open_labelnames_f=Button('Browse')
 	parcellation_name=Str
 	traits_view=View(
 		Group(
@@ -52,12 +63,21 @@ class ParcellationChooserWindow(InteractiveSubwindow):
 			Item(name='SUBJECTS_DIR'),
 			Item(name='parcellation_name',label='Parcellation'),
 			Item(name='labelnames_f',label='Label Display Order'),
+			#HSplit(
+			#	Item(name='labelnames_f',label='Label Display Order',
+			#		style='text',springy=True),
+			#	Item(name='open_labelnames_f',show_label=False)
+			#),
 		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 			title="This should not be particularly convenient",)
+
+	def _open_labelnames_f_fired(self):
+		self.labelnames_f=open_file()
 
 class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	Please_note=Str('Same rules for adjmat ordering files apply')
 	mat=File
+	open_mat=Button('Browse')
 	mat_order=File
 	field_name=Str
 	ignore_deletes=Bool
@@ -65,11 +85,23 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=50,width=250),
 		Item(name='mat',label='Filename'),
+		#HSplit(
+		#	Item(name='mat',label='Filename',style='text',springy=True),
+		#	Item(name='open_mat',show_label=False),
+		#),
+		#Item(name='mat',label='Filename',editor=FileEditor(entries=10),style='simple'),
 		Item(name='mat_order',label='Ordering file'),
 		Item(name='field_name',label='Data field name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Behold the awesome power of zombies')
+
+	def _open_mat_fired(self):
+		#self.mat=open_file()
+		res=util.file_chooser(initialdir=os.path.dirname(self.mat),
+			title='Roentgenium is very useful')
+		if len(res)>0:
+			self.mat=res
 	
 class NodeChooserWindow(InteractiveSubwindow):
 	node_list=List(Str)

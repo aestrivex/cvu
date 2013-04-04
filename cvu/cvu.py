@@ -120,14 +120,14 @@ class Cvu(CvuPlaceholder):
 		VSplit(
 			HSplit(
 				Item(name='cur_display_title',show_label=False),
-				Item(name='cur_display_brain',label='subject',resizable=True,
-					height=19),
+				Item(name='cur_display_brain',label='subject',
+					height=21,width=100),
 				#Spring(),
-				Item(name='cur_display_parc',label='parcellation',
-					resizable=True,height=19),
+				Item(name='cur_display_parc',label='parcellation'
+					,height=21,width=100),
 				#Spring(),
-				Item(name='cur_display_mat',label='matrix',resizable=True,
-					height=19),
+				Item(name='cur_display_mat',label='matrix',
+					height=21,width=500),
 				show_labels=True,style='readonly'),
 			HSplit(
 				Item(name='scene',
@@ -922,18 +922,25 @@ class Cvu(CvuPlaceholder):
 		elif ssw.savefile:
 			# capture the continuation
 			def saveit():
-				# the contents of the continuation depend on the plot type
-				if ssw.whichplot=='circ':
-					self.circ_fig.savefig(ssw.savefile,dpi=ssw.dpi,
-						facecolor='black')
-				elif ssw.whichplot=='mayavi':
-					res=np.ceil(500*ssw.dpi/8000.0*111)
-					self.hack_mlabsavefig(ssw.savefile,size=(res,res))
-				elif ssw.whichplot=='chaco':
-					gc=PlotGraphicsContext(self.conn_mat.outer_bounds,
-						dpi=ssw.dpi)
-					gc.render_component(self.conn_mat)
-					gc.save(ssw.savefile)
+				try:
+					# the contents of the continuation depend on the plot type
+					if ssw.whichplot=='circ':
+						self.circ_fig.savefig(ssw.savefile,dpi=ssw.dpi,
+							facecolor='black')
+					elif ssw.whichplot=='mayavi':
+						res=np.ceil(500*ssw.dpi/8000.0*111)
+						self.hack_mlabsavefig(ssw.savefile,size=(res,res))
+					elif ssw.whichplot=='chaco':
+						gc=PlotGraphicsContext(self.conn_mat.outer_bounds,
+							dpi=ssw.dpi)
+						gc.render_component(self.conn_mat)
+						gc.save(ssw.savefile)
+				except IOError as e:
+					self.error_dialog(str(e))
+				except KeyError as e:
+					self.error_dialog("The library handling the operation you "
+						"requested supports multiple file types.  Please "
+						"specify a file extension to disambiguate.")
 			if os.path.exists(ssw.savefile):
 				# set the continuation on the rofw widget and spawn it
 				self.set_save_continuation_and_spawn_rofw(saveit)
@@ -953,10 +960,7 @@ class Cvu(CvuPlaceholder):
 		rofw=self.really_overwrite_file_window
 		# if the user clicks OK, call the save continuation
 		if rofw.finished:
-			try:
-				rofw.save_continuation()
-			except IOError as e:
-				self.error_dialog(e)
+			rofw.save_continuation()
 		# otherwise, don't do anything
 
 	def hack_mlabsavefig(self,fname,size):
