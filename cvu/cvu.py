@@ -361,6 +361,7 @@ class Cvu(CvuPlaceholder):
 	def nodes_clear(self):
 		try:
 			self.nodesource.remove()
+			self.txt.remove()
 		except ValueError:
 			pass
 
@@ -515,6 +516,7 @@ class Cvu(CvuPlaceholder):
 		self.curr_node=None
 		self.cur_module=None
 		self.thresh_type='prop'
+		self.txt.set(text='')
 		self.vectors_clear()
 		self.vectors_gen()
 		self.circ_clear()
