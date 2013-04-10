@@ -2,9 +2,9 @@
 
 
 from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
-from traits.api import List,Button
+from traits.api import List,Button,Range
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
-from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor
+from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
@@ -17,7 +17,35 @@ class SubwindowHandler(Handler):
 class InteractiveSubwindow(HasTraits):
 	finished=Bool(False)
 	notify=Event
-	
+
+class OptionsWindow(InteractiveSubwindow):
+	surface_visibility = Range(0.0,1.0,.15)
+	circ_size = Range(7,20,10,mode='spinner')
+	prune_modules = Bool(True)
+	show_floating_text = Bool(True)
+	lh_off = Bool(False)
+	rh_off = Bool(False)
+
+	traits_view=View(
+		VSplit(
+			HSplit(
+				Item(name='circ_size'),
+				Item(name='surface_visibility'),
+			),
+			HSplit(
+				Item(name='prune_modules',label='prune empty/singleton modules'),
+				Item(name='show_floating_text',label='3D ROI text on'),
+			),
+			#HSplit(
+			#	Item(name='lh_off'),
+			#	Item(name='rh_off'),
+			#),
+			show_labels=False,
+		),
+		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title='Select your desired destiny',
+	)
+
 class AdjmatChooserWindow(InteractiveSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
@@ -134,10 +162,10 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 		handler=SubwindowHandler(),
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
 
-	#index_convert may return a ValueError if the code is buggy, it should be
+	#index_convert may return a ValueError, it should be
 	#contained in try/except from higher up.
 	def index_convert(self):
-		self.return_module=[self.initial_node_list.index(i) \
+		self.return_module=[self.initial_node_list.index(i)
 			for i in self.intermediate_node_list]
 
 class SaveSnapshotWindow(InteractiveSubwindow):

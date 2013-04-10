@@ -65,11 +65,7 @@ class Cvu(CvuPlaceholder):
 	#stateful traits
 	pthresh = Range(0.0,1.0,.95)
 	nthresh = Float
-	surface_visibility = Range(0.0,1.0,.15)
-	circ_size = Range(7,20,10,mode='spinner')
-	prune_modules = Bool(True)
 	thresh_type = Enum('prop','num')
-	show_floating_text = Bool(True)
 	reset_thresh = Method
 
 #	node_scalars=Instance(np.ndarray)
@@ -87,7 +83,7 @@ class Cvu(CvuPlaceholder):
 	draw_stuff_button = Button('Force render')
 	color_legend_button = Button('Color legend')
 	load_parc_button=Button('Load a parcellation')
-	load_surface_button=Button('Load surface files')
+	options_button=Button('Options')
 	mayavi_snapshot_button=Button('3D snapshot')
 	chaco_snapshot_button=Button('Adjmat snapshot')
 	circ_snapshot_button = Button('Circle snapshot')
@@ -104,6 +100,7 @@ class Cvu(CvuPlaceholder):
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
 	color_legend_window = Instance(HasTraits)
+	opts = Instance(HasTraits)
 	#Must declare each of the subwindows specifically as a trait so its 
 	#attributes can be listened for as traits with decorators.
 
@@ -159,22 +156,16 @@ class Cvu(CvuPlaceholder):
 					height=500,width=500,show_label=False,resizable=True),
 				Group(
 				HSplit(
-					Item(name='load_parc_button',),
+						Item(name='load_parc_button',),
 						Item(name='load_adjmat_button',),
-						Item(name='load_surface_button',),
+						Item(name='options_button',),
 						show_labels=False,
 					),
 					HSplit(
 						Item(name='mayavi_snapshot_button'),
 						Item(name='chaco_snapshot_button'),
 						Item(name='circ_snapshot_button'),
-						Item(name='show_floating_text',show_label=True,label='Text on'),
 						show_labels=False,
-					),
-					HSplit(
-						Item(name='circ_size'),
-						#Item(name='prune_modules'),
-						Item(name='surface_visibility'),
 					),
 					HSplit(
 					Item(name='pthresh'),
@@ -215,6 +206,7 @@ class Cvu(CvuPlaceholder):
 	
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
+		self.opts=dialogs.OptionsWindow()
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
 		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow()
@@ -346,10 +338,10 @@ class Cvu(CvuPlaceholder):
 
 	def surfs_gen(self):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
-			self.srf[0][:,2],self.srf[1],opacity=self.surface_visibility,
+			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
 			color=(.82,.82,.82),name='syrfl')
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
-			self.srf[2][:,2],self.srf[3],opacity=self.surface_visibility,
+			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
 			color=(.82,.82,.82),name='syrfr')
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
@@ -467,6 +459,7 @@ class Cvu(CvuPlaceholder):
 			return
 		self.labnam=labnam
 		self.node_chooser_window.node_list=labnam
+		self.module_customizer_window.initial_node_list=labnam
 		self.nr_labels=len(self.labnam)
 		self.pos_helper_gen()
 		print "Parcellation %s loaded successfully" % pcw.parcellation_name
@@ -734,7 +727,7 @@ class Cvu(CvuPlaceholder):
 			self.modules=modularity.use_metis(self.adj_nulldiag)
 		elif self.partitiontype=="spectral":
 			self.modules=modularity.spectral_partition(self.adj_nulldiag,
-				delete_extras=self.prune_modules)
+				delete_extras=self.opts.prune_modules)
 		else:
 			raise Exception("Partition type %s not found" % self.partitiontype)
 		self.update_modules_metadata()
@@ -823,19 +816,19 @@ class Cvu(CvuPlaceholder):
 			self.reset_thresh=self.num_thresh
 		self.reset_thresh()
 
-	@on_trait_change('surface_visibility')
+	@on_trait_change('opts:surface_visibility')
 	def chg_syrf_vis(self):
-		self.syrf_lh.actor.property.set(opacity=self.surface_visibility)
-		self.syrf_rh.actor.property.set(opacity=self.surface_visibility)
+		self.syrf_lh.actor.property.set(opacity=self.opts.surface_visibility)
+		self.syrf_rh.actor.property.set(opacity=self.opts.surface_visibility)
 
-	@on_trait_change('circ_size')
+	@on_trait_change('opts:circ_size')
 	def chg_circ_size(self):
-		self.circ_fig.axes[0].set_ylim(0,self.circ_size)
+		self.circ_fig.axes[0].set_ylim(0,self.opts.circ_size)
 		#self.redraw_circ()
 
-	@on_trait_change('show_floating_text')
+	@on_trait_change('opts:show_floating_text')
 	def chg_float_text(self):
-		self.txt.visible=self.show_floating_text
+		self.txt.visible=self.opts.show_floating_text
 
 	#def load_timecourse_data():
 		#if self.dataloc==None:
@@ -983,15 +976,12 @@ class Cvu(CvuPlaceholder):
 		self.scene.scene_editor._exporter_write(ex)
 		self.scene.scene_editor.set_size((curx,cury))
 		#set the mayavi text to nothing for the snapshot, then restore it
-		self.txt.visible=self.show_floating_text
-
-	#load surface
-	def _load_surface_button_fired(self):
-		self.error_dialog('not supported yet')
-		#self.load_what='surface'
-		#util.fancy_file_chooser(self)
+		self.txt.visible=self.opts.show_floating_text
 
 	#misc button presses
+	def _options_button_fired(self):
+		self.opts.edit_traits()
+
 	def _color_legend_button_fired(self):
 		#set up the color legend
 		#spawn the legend window
