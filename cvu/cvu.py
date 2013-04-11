@@ -229,7 +229,8 @@ class Cvu(CvuPlaceholder):
 	def setup(self):
 		## SET UP DATA ##
 		self.pos_helper_gen()
-		self.adj_nulldiag=self.flip_adj_ord(self.adj_nulldiag)
+		self.adj_nulldiag=util.flip_adj_ord(self.adj_nulldiag,self.adjlabfile,
+			self.labnam)
 		self.adj_helper_gen()
 
 		self.modules=None
@@ -312,21 +313,6 @@ class Cvu(CvuPlaceholder):
 			self.nr_edges=len(self.adjdat)
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
-
-	# acts on intermediate computation adjacency matrix, NOT instance variable
-	def flip_adj_ord(self,adj,ign_dels=False):
-		if self.adjlabfile == None or self.adjlabfile == '':
-			return adj
-		init_ord,bads=util.read_parcellation_textfile(self.adjlabfile)
-		#delete the extras
-		if not ign_dels:
-			adj=np.delete(adj,bads,axis=0)
-			adj=np.delete(adj,bads,axis=1)
-		adj_ord=util.adj_sort(init_ord,self.labnam)
-		#swap the new order
-		adj=adj[adj_ord][:,adj_ord]
-		return adj
-
 	# this one is intended only for displaying individuals other than fsaverage
 	# not necessary for now
 	def surfs_clear(self):
@@ -480,7 +466,8 @@ class Cvu(CvuPlaceholder):
 			adj=util.loadmat(acw.adjmat,field=acw.field_name)
 			if acw.adjmat_order:
 				self.adjlabfile=acw.adjmat_order
-				adj=self.flip_adj_ord(adj,ign_dels=acw.ignore_deletes)
+				adj=util.flip_adj_ord(adj,self.adjlabfile,self.labnam,
+					ign_dels=acw.ignore_deletes)
 			if acw.max_edges>0:
 				self.soft_max_edges=acw.max_edges
 			self.cur_display_mat=acw.adjmat
@@ -489,14 +476,14 @@ class Cvu(CvuPlaceholder):
 			return
 		except (ValueError,IndexError) as e:
 			self.error_dialog("Mismatched channels: %s" % str(e))
-			return
+			raise
+			#return
 		except KeyError as e:
 			self.error_dialog("Field not found: %s" % str(e))
 			return
 		if len(adj) != self.nr_labels:
-			self.error_dialog('The adjacency matrix you specified is not '
-				'correctly aligned with the parcellation.  The adjmat size was '
-				'%i and the number of ROIs was %i' %(len(adj),self.nr_labels))
+			self.error_dialog('The adjmat specified is of size %i and the '
+				'parcellation size is %i' %(len(adj),self.nr_labels))
 			return
 		self.adj_nulldiag = adj
 		#it is necessary to rerun pos_helper_gen() because the number of edges

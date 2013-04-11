@@ -11,9 +11,6 @@ def rreplace(s,old,new,occurrence):
 	li=s.rsplit(old,occurrence)
 	return new.join(li)
 
-def mangle_hemi(s):
-	return s[-2:]+'_'+s[0:-3]
-
 def hemineutral(s):
 	lhind=s.find('lh')
 	rhind=s.find('rh')
@@ -76,6 +73,9 @@ def loadsurf(fname):
 	surf_rh,sfaces_rh=mne.surface.read_surface(hemineutral(fname)%'rh')
 	return (surf_lh,sfaces_lh,surf_rh,sfaces_rh)
 
+def mangle_hemi(s):
+	return s[-2:]+'_'+s[0:-3]
+
 def calcparc(labv,labnam,quiet=False,parcname=' '):
 	import numpy as np
 	lab_pos=np.zeros((len(labnam),3))
@@ -86,34 +86,70 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 			i=labnam.index(mangle_hemi(lab.name))
 			labs_used.append(mangle_hemi(lab.name))
 		except ValueError:
-			#if not quiet:
-			#	print "Warning: Label %s not found in parcellation %s" % \
-			#		(lab.name,parcname)
+			if not quiet:
+				print ("Label %s deleted as requested" % 
+					lab.name)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
 	#the data seems to be incorrectly scaled by a factor of 1000
 	lab_pos*=1000
-	#let the user know if parc order file has some unrecongized entries
+	#let the user know if parc order file has unrecongized entries
 	if not quiet:
 		for lab in labnam:
 			if lab not in labs_used:
-				print "Warning: Label %s not found in parcellation %s" % \
-					(lab,parcname)
+				print ("Warning: Label %s not found in parcellation %s" % 
+					(lab,parcname))
 	return lab_pos
 
 class CVUError(Exception):
 	pass
 
 def adj_sort(adj_ord,desired_ord):
-	if len(adj_ord) != len(desired_ord):
-		raise CVUError('Parcellation and adjmat label orderings do not match.  '
-			'Parc lab_ord has %i non-delete entries, adj lab_ord %i non-delete '			'entries' % (len(adj_ord),len(desired_ord)))
+	#if len(adj_ord) != len(desired_ord):
+	#	raise CVUError('Parcellation and adjmat label orderings do not match.  '
+	#		'Parc lab_ord has %i non-delete entries, adj lab_ord %i non-delete '			
+	#		'entries' % (len(adj_ord),len(desired_ord)))
+	if len(adj_ord) < len(desired_ord):
+		raise CVUError('Parcellation order is larger than adjmat order.  Parc '
+			'ordering has %i (non-delete) entries and adjmat order has %i ' %
+			(len(adj_ord),len(desired_ord)))
 	keys={}
 	for i in xrange(0,len(desired_ord)):
 		keys.update({desired_ord[i]:i})
 	#return sorted(adj_ord,key=keys.get)
 	return map(keys.get,adj_ord)
 		
+# acts on intermediate computation adjacency matrix, then given to instance
+def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
+	import numpy as np
+	if adjlabfile == None or adjlabfile == '':
+		return adj
+	init_ord,bads=read_parcellation_textfile(adjlabfile)
+	#delete the extras
+	if not ign_dels:
+		adj=np.delete(adj,bads,axis=0)
+		adj=np.delete(adj,bads,axis=1)
+	#if adj ordering is a different size than the new adjmat, we can't
+	#possibly know how to fix it.  crash outright.
+	if len(init_ord) != len(adj):
+		raise CVUError('The adjmat ordering file %s has %i entries '
+			'after deletions, but the adjmat specified has %i regions.'
+			 % (adjlabfile,len(init_ord),len(adj)))
+	adj_ord=adj_sort(init_ord,labnam)
+	#get rid of the None items, regions not in parc ordering	
+	ord_extras_rm=np.ma.masked_equal(adj_ord,None)
+	adj_ord=np.array(ord_extras_rm.compressed(),dtype=int)
+	#swap the new order
+	adj=adj[adj_ord][:,adj_ord]
+	#warn about the omitted entries
+	if len(adj_ord)!=len(init_ord):
+		for lab in init_ord:
+			if lab not in labnam:
+				print ("Warning: Label %s present in adjmat ordering %s "
+					"was not in the current parcellation. It was omitted." 
+					% (lab, adjlabfile))
+	return adj
+
 #functions operating on GIFTI annotations are deprecated
 def loadannot_gifti(fname):
 	import nibabel.gifti
@@ -141,7 +177,7 @@ def calcparc_gifti(labnam,labv,surf_struct,quiet=False):
 	if nr_verts != len(vert):
 		print nr_verts
 		print len(vert)
-		raise Exception('Parcellation has inconsistent number of vertices')
+		raise CVUError('Parcellation has inconsistent number of vertices')
 	if not quiet:
 		print 'Surface has '+str(nr_verts)+' vertices'
 		print ('Parcellation has '+str(nr_labels)+' labels (before bad channel'
