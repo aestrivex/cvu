@@ -5,6 +5,7 @@ from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
 from traits.api import List,Button,Range
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
 from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit
+from traitsui.api import Action
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
@@ -25,6 +26,7 @@ class OptionsWindow(InteractiveSubwindow):
 	show_floating_text = Bool(True)
 	lh_off = Bool(False)
 	rh_off = Bool(False)
+	intramodule_only = Bool(True)
 
 	traits_view=View(
 		VSplit(
@@ -35,6 +37,9 @@ class OptionsWindow(InteractiveSubwindow):
 			HSplit(
 				Item(name='prune_modules',label='prune empty/singleton modules'),
 				Item(name='show_floating_text',label='3D ROI text on'),
+			),
+			HSplit(
+				Item(name='intramodule_only',label='show intramodule connections only')
 			),
 			#HSplit(
 			#	Item(name='lh_off'),
@@ -151,15 +156,27 @@ class ModuleChooserWindow(InteractiveSubwindow):
 		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
 
+class ModuleCustomizerWindowHandler(SubwindowHandler):
+	def do_clear(self,info):
+		info.object.intermediate_node_list=[]
+
 class ModuleCustomizerWindow(InteractiveSubwindow):
 	initial_node_list=List(Str)
 	intermediate_node_list=List(Str)
 	return_module=List(Int)
+	ClearButton=Action(name='Clear Selections',action='do_clear')
+
+	def append_proper_buttons(button):
+		a=[button]
+		a.extend(OKCancelButtons)
+		return a
+	
 	traits_view=View(
 		Item(name='intermediate_node_list',editor=CheckListEditor(
 			name='initial_node_list',cols=2),show_label=False,style='custom'),
-		kind='live',height=400,width=500,buttons=OKCancelButtons,
-		handler=SubwindowHandler(),
+		kind='live',height=400,width=500,
+		buttons=append_proper_buttons(ClearButton),
+		handler=ModuleCustomizerWindowHandler(),
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
 
 	#index_convert may return a ValueError, it should be

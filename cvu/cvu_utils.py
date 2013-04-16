@@ -114,8 +114,8 @@ def adj_sort(adj_ord,desired_ord):
 			'ordering has %i (non-delete) entries and adjmat order has %i ' %
 			(len(adj_ord),len(desired_ord)))
 	keys={}
-	for i in xrange(0,len(desired_ord)):
-		keys.update({desired_ord[i]:i})
+	for i,k in enumerate(desired_ord):
+		keys.update({k:i})
 	#return sorted(adj_ord,key=keys.get)
 	return map(keys.get,adj_ord)
 		

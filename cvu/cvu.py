@@ -615,8 +615,12 @@ class Cvu(CvuPlaceholder):
 			print str(np.size(module))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		for e in xrange(0,self.nr_edges,1):
-			if (self.edges[e,0] in module) and (self.edges[e,1] in module):
-				new_edges[e]=self.edges[e]
+			if self.opts.intramodule_only and (
+				(self.edges[e,0] in module) and (self.edges[e,1] in module)):
+					new_edges[e]=self.edges[e]
+			elif not self.opts.intramodule_only and (
+				(self.edges[e,0] in module) or (self.edges[e,1] in module)):
+					new_edges[e]=self.edges[e]
 			else:
 				new_edges[e]=[0,0]
 		new_starts=self.lab_pos[new_edges[:,0]]
