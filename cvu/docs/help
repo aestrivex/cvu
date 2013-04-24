@@ -86,7 +86,7 @@ To rotate the 3D brain, drag and click.  By default, this will rotate the scene 
 
 The adjacency matrix can be panned by left clicking and dragging.  Clicking anywhere on the adjacency matrix will show the connectivity for the node corresponding to the row selected from the matrix.  Zooming is done with the mouse wheel or the right mouse button.  Right click to restore the entire matrix of connections.
 
-The circle plot cannot be panned or zoomed due to fundamental limitations in matplotlib.  This may not be fixed for some time.  However, you can click on the nodes on the edges, which will highlight the connections originating from only that node.  Right clicking will restore all of the connections in their original glory.
+The circle plot cannot be panned or zoomed due to fundamental limitations in matplotlib.  This may not be fixed for some time.  However, you can click on the nodes on the edges, which will highlight the connections originating from only that node.  Right clicking will restore all of the connections in their original glory.  Note that the text on the circle plots is not exact with respect to the nodes being shown; what is exact is the color.  You can find a listing of colors to brain regions by clicking on the 'color legend' button.
 
 Whenever a node is highlighted/displayed in any one of the plots, each of the other plots shows the same data.  In this way it is easy to compare the same data in several different views.
 
@@ -101,3 +101,19 @@ You can also specify a series of nodes on the fly, from a list and visualize onl
 =====Scalars=====
 
 CVU will show scalar values.  Load them as vectors from files.  The scalar data will be displayed as color information each node.  You can change the color on the mayavi plot in the mayavi module manager.
+
+===Options===
+=====Circle Size=====
+Changes the size of the circle plot.  Unfortunately due to technical limitations it is extremely difficult to only show a small portion (e.g. zoom) of the circle plot, so this alteration in size is the best that can be done to e.g. help read the labels.
+
+=====Surface Visibility=====
+Changes the opacity of the 3D brain between 0 and 1.  At 1, the 3D brain is completely opaque, effectively making it impossible to see any connections.  At 0, the brain surface is not present at all.  Low values provide a good balance between anatomical specificity and transparency, while high values provide some amusingly useless images.
+
+=====Prune empty/singleton modules=====
+This option gets rid of relatively uninteresting singleton modules when using builtin modularity calculations.
+
+=====3D ROI text on=====
+Setting this off removes the text floating around the screen.  Note that the text is disabled by default when making snapshots due to technical limitations.
+
+=====Interhemispheric/LH/RH connections off=====
+There are three types of connections; intrahemispheric connections within only the left hemisphere, intrahemispheric connections within only the right hemisphere, and interhemispheric connections.  Selecting these options will selectively disable connections of the specific type.  Note that you will have to recalculate the view (e.g. by clicking "show all" or right clicking a plot) before these changes will take effect; clicking the "force render" button will not work.
