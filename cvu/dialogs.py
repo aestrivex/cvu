@@ -24,9 +24,11 @@ class OptionsWindow(InteractiveSubwindow):
 	circ_size = Range(7,20,10,mode='spinner')
 	prune_modules = Bool(True)
 	show_floating_text = Bool(True)
+	intramodule_only = Bool(True)
+	interhemi_off = Bool(False)
+	intrahemi_off = Bool(False)
 	lh_off = Bool(False)
 	rh_off = Bool(False)
-	intramodule_only = Bool(True)
 
 	traits_view=View(
 		VSplit(
@@ -41,10 +43,11 @@ class OptionsWindow(InteractiveSubwindow):
 			HSplit(
 				Item(name='intramodule_only',label='show intramodule connections only')
 			),
-			#HSplit(
-			#	Item(name='lh_off'),
-			#	Item(name='rh_off'),
-			#),
+			HSplit(
+				Item(name='interhemi_off',label='interhemispheric conns off'),
+				Item(name='lh_off',label='LH conns off'),
+				Item(name='rh_off',label='RH conns off'),
+			),
 			show_labels=False,
 		),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
@@ -167,6 +170,7 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 	ClearButton=Action(name='Clear Selections',action='do_clear')
 
 	def append_proper_buttons(button):
+		#get around list mutability
 		a=[button]
 		a.extend(OKCancelButtons)
 		return a

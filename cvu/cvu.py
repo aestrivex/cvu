@@ -286,11 +286,18 @@ class Cvu(CvuPlaceholder):
 	def adj_helper_gen(self):
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
 		self.adjdat = np.zeros((self.nr_edges,1),dtype=float)
+		self.interhemi = np.zeros((self.nr_edges,1),dtype=bool)
+		self.left = np.zeros((self.nr_edges,1),dtype=bool)
+		self.right = np.zeros((self.nr_edges,1),dtype=bool)
+		self.masked = np.zeros((self.nr_edges,1),dtype=bool)
 		i=0
 		for r2 in xrange(0,self.nr_labels,1):
 			self.adj_nulldiag[r2][r2]=0
 			for r1 in xrange(0,r2,1):
 				self.adjdat[i] = self.adj_nulldiag[r1][r2]
+				self.interhemi[i] = self.labnam[r1][0] != self.labnam[r2][0]
+				self.left[i] = self.labnam[r1][0]==self.labnam[r2][0]=='l'
+				self.right[i] = self.labnam[r1][0]==self.labnam[r2][0]=='r'
 				i+=1
 		self.adj_thresdiag=self.adj_nulldiag.copy()
 		self.adj_thresdiag[np.nonzero(self.adj_thresdiag==0)]=\
@@ -309,6 +316,7 @@ class Cvu(CvuPlaceholder):
 			self.vecs=self.vecs[zi[0],:]
 			self.edges=self.edges[zi[0],:]
 			self.adjdat=self.adjdat[zi[0]]
+			self.interhemi=self.interhemi[zi[0]]
 			
 			self.nr_edges=len(self.adjdat)
 		if not quiet:
@@ -533,6 +541,8 @@ class Cvu(CvuPlaceholder):
 			self.modules=modularity.comm2list(ci)
 			self.update_modules_metadata()
 		elif lsmw.whichkind=='scalars':
+			#convert data to float to avoid potential integer division
+			ci=np.array(ci,dtype=float)
 			#normalize scalars to 0-1 range
 			self.node_scalars=(ci-np.min(ci))/np.max(ci)
 
@@ -546,9 +556,17 @@ class Cvu(CvuPlaceholder):
 		self.curr_node=None
 		self.cur_module=None
 		#change mlab source data in main scene
-		self.vectorsrc.mlab_source.set(x=self.starts[:,0],y=self.starts[:,1],
-			z=self.starts[:,2],u=self.vecs[:,0],v=self.vecs[:,1],
-			w=self.vecs[:,2])
+		new_edges = np.zeros([self.nr_edges,2],dtype=int)
+		count_edges = 0
+		for e,(a,b) in enumerate(zip(self.edges[:,0],self.edges[:,1])):
+			if not self.masked[e]:
+				new_edges[e]=np.array(self.edges)[e]
+			else:
+				new_edges[e]=[0,0]
+		new_starts=self.lab_pos[new_edges[:,0]]
+		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
+		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
+			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 		self.myvectors.actor.property.opacity=.3
 		self.vectorsrc.outputs[0].update()
 		self.txt.set(text='')
@@ -576,9 +594,8 @@ class Cvu(CvuPlaceholder):
 		#change mlab source data in main scene
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		count_edges = 0
-		for e,(a,b) in enumerate(zip(self.edges[:,0],
-				self.edges[:,1])):
-			if n in [a,b]:
+		for e,(a,b) in enumerate(zip(self.edges[:,0],self.edges[:,1])):
+			if n in [a,b] and not self.masked[e]:
 				new_edges[e]=np.array(self.edges)[e]
 				if self.adjdat[e] >= self.thres.lower_threshold and \
 						self.adjdat[e] <= self.thres.upper_threshold:
@@ -615,10 +632,10 @@ class Cvu(CvuPlaceholder):
 			print str(np.size(module))+" nodes in module"
 		new_edges = np.zeros([self.nr_edges,2],dtype=int)
 		for e in xrange(0,self.nr_edges,1):
-			if self.opts.intramodule_only and (
+			if self.opts.intramodule_only and not self.masked[e] and (
 				(self.edges[e,0] in module) and (self.edges[e,1] in module)):
 					new_edges[e]=self.edges[e]
-			elif not self.opts.intramodule_only and (
+			elif not self.opts.intramodule_only and not self.masked[e] and (
 				(self.edges[e,0] in module) or (self.edges[e,1] in module)):
 					new_edges[e]=self.edges[e]
 			else:
@@ -820,6 +837,30 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('opts:show_floating_text')
 	def chg_float_text(self):
 		self.txt.visible=self.opts.show_floating_text
+
+	# beware.  currently masking only comes from one of these three types
+	# which are mutually exclusive.  if this changes, xor wont work anymore
+	# one thing that would work would be using addition of binary flags as types
+	@on_trait_change('opts:interhemi_off')
+	def chg_intermodule_mask(self):
+		if self.opts.interhemi_off:
+			self.masked=np.logical_or(self.masked,self.interhemi)
+		else:
+			self.masked=np.logical_xor(self.masked,self.interhemi)
+		
+	@on_trait_change('opts:lh_off')
+	def chg_lh_mask(self):
+		if self.opts.lh_off:
+			self.masked=np.logical_or(self.masked,self.left)
+		else:
+			self.masked=np.logical_xor(self.masked,self.left)
+	
+	@on_trait_change('opts:rh_off')
+	def chg_rh_mask(self):
+		if self.opts.rh_off:
+			self.masked=np.logical_or(self.masked,self.right)
+		else:
+			self.masked=np.logical_xor(self.masked,self.right)
 
 	#def load_timecourse_data():
 		#if self.dataloc==None:
