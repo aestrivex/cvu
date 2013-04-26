@@ -9,7 +9,7 @@ if __name__=="__main__":
 if not quiet:
 	print "Importing libraries"
 import numpy as np
-from mayavi import mlab;
+from mayavi import mlab; from mayavi.tools.animator import Animator
 import os; 
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
@@ -87,6 +87,8 @@ class Cvu(CvuPlaceholder):
 	mayavi_snapshot_button=Button('3D snapshot')
 	chaco_snapshot_button=Button('Adjmat snapshot')
 	circ_snapshot_button = Button('Circle snapshot')
+	make_movie_button = Button
+	mk_movie_lbl = String('Make movie')
 	center_adjmat_button = Button('Center adjmat')
 
 	#various subwindows
@@ -97,6 +99,7 @@ class Cvu(CvuPlaceholder):
 	module_chooser_window = Instance(HasTraits)
 	module_customizer_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
+	make_movie_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
 	color_legend_window = Instance(HasTraits)
@@ -110,6 +113,7 @@ class Cvu(CvuPlaceholder):
 	cur_display_parc = Str
 	cur_display_mat = Str
 
+	animator_done_notify = Instance(util.EventHolder)
 	python_shell = Dict
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
@@ -165,6 +169,8 @@ class Cvu(CvuPlaceholder):
 						Item(name='mayavi_snapshot_button'),
 						Item(name='chaco_snapshot_button'),
 						Item(name='circ_snapshot_button'),
+						Item(name='make_movie_button',
+							editor=ButtonEditor(label_value='mk_movie_lbl')),
 						show_labels=False,
 					),
 					HSplit(
@@ -214,12 +220,15 @@ class Cvu(CvuPlaceholder):
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
 		self.module_customizer_window=dialogs.ModuleCustomizerWindow()
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
+		self.make_movie_window=dialogs.MakeMovieWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 		self.error_dialog_window=dialogs.ErrorDialogWindow()
 		self.color_legend_window=color_legend.ColorLegendWindow()
 
 		self.node_chooser_window.node_list=self.labnam
 		self.module_customizer_window.initial_node_list=self.labnam
+
+		self.animator_done_notify=util.EventHolder()
 
 	#default initializations
 	def _reset_thresh_default(self):
@@ -1009,6 +1018,83 @@ class Cvu(CvuPlaceholder):
 		self.scene.scene_editor.set_size((curx,cury))
 		#set the mayavi text to nothing for the snapshot, then restore it
 		self.txt.visible=self.opts.show_floating_text
+
+	def _make_movie_button_fired(self):
+		if self.mk_movie_lbl=='Make movie':
+			self.make_movie_window.finished=False
+			self.make_movie_window.edit_traits()
+		else:
+			self.animator.timer.Stop()
+			del self.animator
+			self.do_mkmovie_finish()
+
+	@on_trait_change('make_movie_window:notify')
+	def make_movie_check(self):
+		mmw=self.make_movie_window
+		if not mmw.finished:
+			pass
+		else:
+			def saveit():
+				self.do_mkmovie(mmw.samplerate)
+			if os.path.exists(mmw.savefile):
+				self.set_save_continuation_and_spawn_rofw(saveit)
+			else:
+				saveit()
+
+	def do_mkmovie(self,samplerate):
+		import tempfile
+		tmp=tempfile.gettempdir()
+		try:
+			os.mkdir(os.path.join(tmp,'cvu'))
+		except OSError: # directory already exists
+			try:
+				for file in os.listdir(os.path.join(tmp,'cvu')):
+					os.unlink(os.path.join(tmp,'cvu',file))
+			except (OSError,IOError) as e:
+				self.error_dialog('Tried to remove files from /tmp/cvu and '
+					'failed.  If you dont understand the error message '
+					'that follows, contact the developer\n%s' % str(e))
+				return
+		except IOError as e: # no permissions
+			self.error_dialog(str(e))
+			return
+		curdir=os.getcwd()
+		os.chdir('/tmp/cvu')
+		self.mk_movie_lbl='Stop movie'
+
+		def anim():
+			i=0
+			while True:
+				mlab.savefig('/tmp/cvu/movie%05d.png' % i)
+				i+=1
+				yield
+
+		animation=anim()
+		fps_in=1000/samplerate #result is in ms, integer division is fine
+		self.animator=Animator(fps_in,animation.next)
+		#self.animator.timer.Stop()
+		#let the user start the animation so he may conveniently position the ui
+		#animator.edit_traits(handler=dialogs.AnimatorHandler(
+		#	self.animator_done_notify))
+
+	def do_mkmovie_finish(self):
+		import tempfile
+		tmp=tempfile.gettempdir()
+		regex=os.path.join(tmp,'cvu','movie%05d.png')
+		mmw=self.make_movie_window
+		cmd = ('ffmpeg -loglevel panic -f image2 -r %i -b %i -i %s -y -sameq ' 
+			'%s -pass 2' % (mmw.framerate,mmw.bitrate*1024,regex,mmw.savefile))
+		try:
+			util.sh_cmd(cmd)
+		except util.CVUError as e:
+			self.error_dialog(str(e))
+		finally:
+			self.mk_movie_lbl='Make movie'
+			print "Done making movie"
+
+	#@on_trait_change('animator_done_notify:e')
+	#def now_mkmovie(self):
+	#	print "make the movie now!"
 
 	#misc button presses
 	def _options_button_fired(self):

@@ -2,7 +2,7 @@
 
 
 from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
-from traits.api import List,Button,Range
+from traits.api import List,Button,Range,Instance
 from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
 from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit
 from traitsui.api import Action
@@ -198,6 +198,29 @@ class SaveSnapshotWindow(InteractiveSubwindow):
 		Item(name='dpi'),
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title="Help I'm a bug",height=250,width=250)
+
+class MakeMovieWindow(InteractiveSubwindow):
+	savefile=Str(os.environ['HOME']+'/')
+	framerate=Int(10)
+	bitrate=Int(200) 
+	samplerate=Int(8)
+	traits_view=View(Group(
+		Item(name='savefile'),
+		Item(name='samplerate',label='sampling rate (frames in)'),
+		Item(name='framerate',label='framerate (frames out)'),
+		Item(name='bitrate',label='bitrate (kb/s)'),
+	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title="Make me a sandwich",height=250,width=400)
+
+class AnimatorHandler(Handler):
+	finished=Instance(util.EventHolder)
+
+	def __init__(self,finished):
+		super(AnimatorHandler,self).__init__()
+		self.finished=finished
+
+	def closed(self,info,is_ok):
+		self.finished.e=True
 
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
 	Please_note=Str('That file exists.  Really overwrite?')

@@ -1,5 +1,9 @@
 # (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
 
+from traits.api import HasTraits,Event
+
+class EventHolder(HasTraits):
+	e=Event
 
 def eqfun(x):
 	return lambda y:y==x
@@ -246,6 +250,15 @@ def fancy_file_chooser(main_window):
 	
 	main_window.file_chooser_window=FileChooserWindow()
 	main_window.file_chooser_window.edit_traits()
+
+def sh_cmd(cmd):
+	import subprocess; import os
+	devnull=open(os.devnull,'wb')
+	try:
+		subprocess.check_call(cmd,#stdout=devnull,stderr=subprocess.STDOUT,
+			shell=True)
+	except subprocess.CalledProcessError as e:
+		raise CVUError(str(e))	
 
 def usage():
 	print 'Command line arguments are as follows:\n'+\
