@@ -204,11 +204,15 @@ class MakeMovieWindow(InteractiveSubwindow):
 	framerate=Int(10)
 	bitrate=Int(200) 
 	samplerate=Int(8)
+	type=Enum('snapshots','x11grab')
+	anim_style=Bool(True)
 	traits_view=View(Group(
 		Item(name='savefile'),
-		Item(name='samplerate',label='sampling rate (frames in)'),
-		Item(name='framerate',label='framerate (frames out)'),
+		Item(name='samplerate',label='sampling rate (snapshot only)'),
+		Item(name='framerate',label='framerate'),
 		Item(name='bitrate',label='bitrate (kb/s)'),
+		Item(name='type',label='movie making method'),
+		Item(name='anim_style',label='automatically rotate'),
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title="Make me a sandwich",height=250,width=400)
 

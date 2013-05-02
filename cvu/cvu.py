@@ -290,6 +290,7 @@ class Cvu(CvuPlaceholder):
 				self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
 				self.edges[i,0],self.edges[i,1] = r1,r2
 				i+=1
+		self.node_scalars = None
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
@@ -1024,8 +1025,6 @@ class Cvu(CvuPlaceholder):
 			self.make_movie_window.finished=False
 			self.make_movie_window.edit_traits()
 		else:
-			self.animator.timer.Stop()
-			del self.animator
 			self.do_mkmovie_finish()
 
 	@on_trait_change('make_movie_window:notify')
@@ -1035,13 +1034,17 @@ class Cvu(CvuPlaceholder):
 			pass
 		else:
 			def saveit():
-				self.do_mkmovie(mmw.samplerate)
+				self.mk_movie_lbl='Stop movie'
+				if mmw.type=='x11grab':
+					self.do_mkmovie_x11grab()
+				else:
+					self.do_mkmovie_snapshots(mmw.samplerate,mmw.anim_style)
 			if os.path.exists(mmw.savefile):
 				self.set_save_continuation_and_spawn_rofw(saveit)
 			else:
 				saveit()
 
-	def do_mkmovie(self,samplerate):
+	def do_mkmovie_snapshots(self,samplerate,anim_style):
 		import tempfile
 		tmp=tempfile.gettempdir()
 		try:
@@ -1072,25 +1075,49 @@ class Cvu(CvuPlaceholder):
 		animation=anim()
 		fps_in=1000/samplerate #result is in ms, integer division is fine
 		self.animator=Animator(fps_in,animation.next)
-		#self.animator.timer.Stop()
-		#let the user start the animation so he may conveniently position the ui
-		#animator.edit_traits(handler=dialogs.AnimatorHandler(
-		#	self.animator_done_notify))
 
-	def do_mkmovie_finish(self):
-		import tempfile
-		tmp=tempfile.gettempdir()
-		regex=os.path.join(tmp,'cvu','movie%05d.png')
+	def do_mkmovie_x11grab(self):
 		mmw=self.make_movie_window
-		cmd = ('ffmpeg -loglevel panic -f image2 -r %i -b %i -i %s -y -sameq ' 
-			'%s -pass 2' % (mmw.framerate,mmw.bitrate*1024,regex,mmw.savefile))
+		xwincmd = ('xwininfo -name \'Connectome Visualization Utility\'')
+		grep = 'Absolute' # "Absolute upper-left X: xcor"
+		coords = util.sh_cmd_grep(xwincmd,grep)
+		if len(coords) != 2:
+			self.error_dialog("Unexpected output from xwininfo.  Please report "
+				"this error to developer")
+		x,y=[int(i.split()[-1]) for i in coords]
+		x+=1; y+=64
+		cmd = ('ffmpeg -loglevel error -y -f x11grab -s 499x439 -r %i -b %i '
+			'-i :0.0+%i,%i %s'
+			% (mmw.framerate,mmw.bitrate*1024,x,y,mmw.savefile))
 		try:
-			util.sh_cmd(cmd)
+			self.ffmpeg_process=util.sh_cmd_retproc(cmd)
 		except util.CVUError as e:
 			self.error_dialog(str(e))
-		finally:
-			self.mk_movie_lbl='Make movie'
-			print "Done making movie"
+
+	def do_mkmovie_finish(self):
+		mmw=self.make_movie_window
+		self.mk_movie_lbl='Make movie'
+		if mmw.type=='x11grab':
+		#x11grab method
+			self.ffmpeg_process.communicate('q')
+			if self.ffmpeg_process.returncode:
+				self.error_dialog('ffmpeg failed with error code %s' %
+					self.ffmpeg_process.returncode)
+			del self.ffmpeg_process
+		else:
+			import tempfile
+			tmp=tempfile.gettempdir()
+			regex=os.path.join(tmp,'cvu','movie%05d.png')
+			cmd=('ffmpeg -loglevel error -y -f image2 -r %i -b %i -i %s -y '
+				'-sameq %s -pass 2' % 
+				(mmw.framerate,mmw.bitrate*1024,regex,mmw.savefile))
+			try:
+				util.sh_cmd(cmd)
+			except util.CVUError as e:
+				self.error_dialog(str(e))
+			finally:
+				self.animator.timer.Stop()
+				del self.animator
 
 	#@on_trait_change('animator_done_notify:e')
 	#def now_mkmovie(self):

@@ -260,6 +260,57 @@ def sh_cmd(cmd):
 	except subprocess.CalledProcessError as e:
 		raise CVUError(str(e))	
 
+def sh_cmd_grep(cmd,grep):
+	#this function is inspired by a similar function from connectomemapper
+	import subprocess; import os; import random; import time; import tempfile
+	t=random.randint(1,10000000)
+	try: os.mkdir(os.path.join(tempfile.gettempdir(),'cvu'))
+	except OSError: pass
+	fname=os.path.join(tempfile.gettempdir(),"out_fifo_%s" % str(t))
+
+	try: os.unlink(fname)
+	except: pass
+
+	retln=[]
+	os.mkfifo(fname)
+	try:
+		fifo=os.fdopen(os.open(fname,os.O_RDONLY|os.O_NONBLOCK))
+		newcmd="( %s ) 1>%s"%(cmd,fname)
+		process=subprocess.Popen( newcmd, shell=True, stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE )
+		
+		while process.returncode == None:
+			time.sleep(.5)
+			process.poll()
+			try:
+				ln=fifo.readline().strip()
+			except: continue
+			if ln and grep in ln:
+				retln.append(ln)
+		rem=fifo.read()
+		if rem:
+			for ln in [ln for ln in rem.split('\n') if ln.strip()]:
+				if grep in ln:
+					retln.append(ln)
+		if process.returncode:
+			raise CVUError('%s failed with error code %s' % 
+				(cmd,process.returncode))	
+	finally:
+		try: os.unlink(fname)
+		except: pass
+		return retln
+
+def sh_cmd_retproc(cmd):
+	import subprocess; import os
+	devnull=open(os.devnull,'wb')
+	process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
+		stdout=devnull)
+	#checks to see if the specified command was bad
+	if process.poll():
+		process.kill()
+		raise CVUError('% failed with error code %s' % (cmd,process.returncode))
+	return process
+
 def usage():
 	print 'Command line arguments are as follows:\n'+\
 		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'+\
