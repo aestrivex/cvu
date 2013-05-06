@@ -38,10 +38,10 @@ class OptionsWindow(InteractiveSubwindow):
 			),
 			HSplit(
 				Item(name='prune_modules',label='prune empty/singleton modules'),
-				Item(name='show_floating_text',label='3D ROI text on'),
+				Item(name='show_floating_text',label='floating 3D text on'),
 			),
 			HSplit(
-				Item(name='intramodule_only',label='show intramodule connections only')
+				Item(name='intramodule_only',label='show intramodule connections only (when viewing modules)')
 			),
 			HSplit(
 				Item(name='interhemi_off',label='interhemispheric conns off'),
