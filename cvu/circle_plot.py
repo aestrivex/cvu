@@ -89,13 +89,12 @@ The figure handle.
 	#TODO for compatibility with nonfreesurfer labels, don't assume that label
 	#names begin with L or R
 
-	start_hemi = node_names[0][:3]
-	end_hemi = node_names[-1][:3]	
 	n_nodes = len(node_names)
-	n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,node_names))
-	n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,node_names))
 
-	print n_starthemi, n_endhemi
+	#start_hemi = node_names[0][:3]
+	#end_hemi = node_names[-1][:3]	
+	#n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,node_names))
+	#n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,node_names))
 
 	if node_angles is not None:
 		if len(node_angles) != n_nodes:
