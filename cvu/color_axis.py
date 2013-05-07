@@ -37,12 +37,12 @@ class ColorfulAxis(PlotAxis):
 		#print self._tick_positions
 		
 		if self.direction=='x':
-			mapper=self.component.x_mapper
+			self.mapper=self.component.x_mapper
 		elif self.direction=='y':
-			mapper=self.component.y_mapper
+			self.mapper=self.component.y_mapper
 
-		min_scr=mapper.range.low
-		max_scr=mapper.range.high
+		min_scr=self.mapper.range.low
+		max_scr=self.mapper.range.high
 
 		#deal with the edge cases
 		if min_scr-int(min_scr)==0:
@@ -71,7 +71,7 @@ class ColorfulAxis(PlotAxis):
 		nr_ticks=len(inds)
 
 		# add .5 to each tick to place them in the center of the grid
-		ticks_axis=mapper.map_screen(np.array(inds)+.5)
+		ticks_axis=self.mapper.map_screen(np.array(inds)+.5)
 		ticks_static=np.tile(48,(nr_ticks,))
 
 		if self.direction=='x':

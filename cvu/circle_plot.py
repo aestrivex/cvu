@@ -86,7 +86,16 @@ The figure handle.
 	# rather than by _div.  Important for compatibility with nonfreesurfer
 	# parcellations in principle.  Punt on it for now.
 
+	#TODO for compatibility with nonfreesurfer labels, don't assume that label
+	#names begin with L or R
+
+	start_hemi = node_names[0][:3]
+	end_hemi = node_names[-1][:3]	
 	n_nodes = len(node_names)
+	n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,node_names))
+	n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,node_names))
+
+	print n_starthemi, n_endhemi
 
 	if node_angles is not None:
 		if len(node_angles) != n_nodes:
@@ -106,8 +115,9 @@ The figure handle.
 	#assign a group to each node, in order already
 	#TODO node_groups should be passed in as a dictionary
 
-	node_groups=map(lambda n:n[3:].replace('div','').strip('1234567890_')
-		,node_names)
+	nodes_numberless=map(lambda n:n.replace('div','').strip('1234567890_'),
+		node_names)
+	node_groups=map(lambda n:n[3:],nodes_numberless)
 	n_groups=len(set(node_groups))
 
 	# remove all duplicates and return in same order
@@ -132,7 +142,7 @@ The figure handle.
 	grp_colors = [hi_contrast(i/float(n_groups)) for i in xrange(n_groups)]
 
 	node_colors=map(lambda n:grp_colors[grp_ids[n]],node_groups)
-
+	#return node and grp colors to cvu
 
 	# handle 1D and 2D connectivity information
 	if con.ndim == 1:
@@ -262,12 +272,6 @@ The figure handle.
 		bar.set_facecolor(color)
 
 	# Draw node labels
-	start_hemi = node_names[0][:3]
-	end_hemi = node_names[-1][:3]	
-	grp_labels=[]
-	grp_labels.extend(map(lambda x:start_hemi+x,n_grp_uniqs))
-	grp_labels.extend(map(lambda x:end_hemi+x,n_grp_uniqs))
-
 
 	#basic idea -- check for "too close" pairs.  too close is pi/50
 	#remove smallest "too close" pairs.  if multiple tied within a segment,
@@ -278,13 +282,13 @@ The figure handle.
 	#a variety of sizes if ever the circle could be panned (or if it were
 	#merely made bigger).  determining the proper value is a matter of 
 	#userspace testing
+	too_close = np.pi/50
 
 	# get angles for text placement
-	#text_angles = np.linspace(0, 2*np.pi, n_groups*2, endpoint=False)
-	text_angles = avgidx(node_groups,n_nodes/2)
+	text_angles = avgidx(nodes_numberless,n_nodes,frac=1)
 
-	too_close = np.pi/50
-	segments=get_tooclose_segments(text_angles,too_close)
+	segments = get_tooclose_segments(text_angles,too_close)
+
 	for segment in segments:
 		prune_segment(text_angles,segment,too_close)
 
@@ -293,23 +297,24 @@ The figure handle.
 	#theta is the extent and n is the number of pairs.
 	#n-1 is used because each segment holds one item by default
 	
-
+	#for angles,hemi in [(text_angles_sh,start_hemi),(text_angles_eh,end_hemi)]:
+	#	for name in angles:
 	for name in text_angles:
-		for hemi in [start_hemi,end_hemi]:
-			angle_rad = text_angles[name]
-			if hemi is end_hemi:
-				angle_rad+=np.pi
-			angle_deg = 180*angle_rad/np.pi
-			if angle_deg >= 270 or angle_deg < 90:
-				ha = 'left'
-			else:
-				# Flip the label, so text is always upright
-				angle_deg += 180
-				ha = 'right'
+		angle_rad = text_angles[name]
+		#if hemi is end_hemi:
+		#	angle_rad+=np.pi
+		angle_deg = 180*angle_rad/np.pi
+		if angle_deg >= 270 or angle_deg < 90:
+			ha = 'left'
+		else:
+			# Flip the label, so text is always upright
+			angle_deg += 180
+			ha = 'right'
 
-			axes.text(angle_rad, 8.2, hemi+name, size=8, rotation=angle_deg,
-				rotation_mode='anchor', horizontalalignment=ha,
-				verticalalignment='center', color=textcolor)
+		hemi=''
+		axes.text(angle_rad, 8.2, hemi+name, size=8, rotation=angle_deg,
+			rotation_mode='anchor', horizontalalignment=ha,
+			verticalalignment='center', color=textcolor)
 
 	if title is not None:
 		pl.subplots_adjust(left=0.2, bottom=0.2, right=0.8, top=0.75)
@@ -328,10 +333,11 @@ The figure handle.
 	
 	return fig,indices,con,node_colors,n_grp_uniqs,grp_colors
 
-def avgidx(lbs,n):
+def avgidx(lbs,n,frac=.5):
 	"""Takes:
 lbs: a list of (type A) with repeats (e.g. 'supramarginal' appears 4 times)
 n: where to stop
+frac: fraction of 2*pi to use.  Defaults to .5 (equal length hemispheres)
 
 returns d: an ordered dictionary with (type A)/avgposition pairs
 this dictionary is scaled to have values between 0 and 2*pi
@@ -341,22 +347,20 @@ returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 
 	d=OrderedDict()
 	curlb=lbs[0]
-	start=0
-	theta=np.pi/n
+	start=0 #2nd hemi needs to start at offset of too_close + end of 1st hemi
+	theta=frac*np.pi/n
 	for i,e in enumerate(lbs):
-		if i>=n:
-			break
 		if e!=curlb:
 			#get the position of the last label halfway between start and i-1
-			ix=(start+i-1)/2*theta
+			ix=(start+i-1)*theta
+			#2 cancels out from 2pi and avg of end+start/2
 			d.update({curlb:ix})
 			#start the new label
 			start=i
 			curlb=e
 	#add the last label
-	ix=(start+i)/2*theta
+	ix=(start+i)*theta
 	d.update({curlb:ix})
-	print d
 	return d
 
 def get_tooclose_segments(angdict, too_close):
@@ -402,6 +406,8 @@ will return [('A','C',2,3)]"""
 	return segments
 
 def prune_segment(angdict,seg,too_close):
+	print seg
+	print angdict
 	keys=angdict.keys()
 
 	#calculate the number of labels to be removed
@@ -421,8 +427,8 @@ def prune_segment(angdict,seg,too_close):
 		#remove node once every "every" nodes
 		every=int(np.ceil( cur_inhabitants/float(n_removals)))
 	else:
-		every=int(np.ceil( cur_inhabitants/cur_inhabitants-float(n_removals)))
-	cap=int(np.ceil( cur_inhabitants/float(every)))
+		every=int(np.ceil( cur_inhabitants/(cur_inhabitants-float(n_removals))))
+	#cap=int(np.ceil( cur_inhabitants/float(every)))
 
 	start_idx=keys.index(start)
 	end_idx=keys.index(end)
@@ -432,22 +438,25 @@ def prune_segment(angdict,seg,too_close):
 
 	counter=0
 	k=0
+	print start_idx,end_idx
 	while counter<n_removals:
+		print "counter %i" % counter
 		for i in xrange(end_idx-counter,start_idx-1,-every+k):
-			del angdict[keys[i+start_idx]]
+			print i
+			del angdict[keys[i]]
 			counter+=1
 			if counter>=n_removals:
 				break
 		k+=1
+		keys=angdict.keys()
 
-	#i tested this code and it does what it is supposed to	
 	#recalculate the angles of the remaining nodes
 
 	angs=np.linspace(start_ang,end_ang,max_inhabitants)
 
-	newkeys=angdict.keys()
 	#after having deleted several things, we now need the updated set of keys
 	#to know the new indices.
+	keys=angdict.keys()
 
 	#in theory all of this nonsense with getting the keys by keys() could be
 	#made faster by passing around lots of lists and offsets.  its not pythonic
@@ -457,7 +466,8 @@ def prune_segment(angdict,seg,too_close):
 
 	print angs
 	for i,theta in enumerate(angs):
-		print start_idx+i
-		angdict[newkeys[start_idx+i]]=theta	
+		angdict[keys[start_idx+i]]=theta	
+
+	print 'finished the segment'
 
 	#this part isnt tested yet
