@@ -19,6 +19,12 @@ class InteractiveSubwindow(HasTraits):
 	finished=Bool(False)
 	notify=Event
 
+def append_proper_buttons(button):
+	#get around list mutability
+	a=[button]
+	a.extend(OKCancelButtons)
+	return a
+
 class OptionsWindow(InteractiveSubwindow):
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,10,mode='spinner')
@@ -57,7 +63,12 @@ class OptionsWindow(InteractiveSubwindow):
 class RequireWindow(InteractiveSubwindow):
 	require_ls=List(Str)
 	traits_view=View(Item(name='require_ls',
-		editor=ListStrEditor(auto_add=True,editable=True)))
+		editor=ListStrEditor(auto_add=True,editable=True),show_label=False),
+		buttons=OKCancelButtons,title='Mango curry')
+
+class AdjmatChooserWindowHandler(SubwindowHandler):
+	def do_rw_show(self,info):
+		info.object.require_window.edit_traits()
 
 class AdjmatChooserWindow(InteractiveSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
@@ -71,8 +82,8 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 	max_edges=Int
 	field_name=Str('adj_matrices')
 	ignore_deletes=Bool
-	require_window=InteractiveSubwindow
-	require_button=Button
+	require_window=Instance(InteractiveSubwindow,())
+	RequireButton=Action(name='force display of ROIs',action='do_rw_show')
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=140,width=250),
 		#HSplit(
@@ -84,16 +95,14 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
-		Item(name='require_button',label='choose ROIs'),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		kind='live',buttons=append_proper_buttons(RequireButton),
+		handler=AdjmatChooserWindowHandler(),
 		title='Report all man-eating vultures to security',)
 
 	def _open_adjmat_fired(self):
 		self.adjmat=open_file()
 	def _require_window_default(self):
 		return RequireWindow()
-	def _require_button_fired(self):
-		self.require_window.edit_traits()
 
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
@@ -180,13 +189,6 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 	intermediate_node_list=List(Str)
 	return_module=List(Int)
 	ClearButton=Action(name='Clear Selections',action='do_clear')
-
-	def append_proper_buttons(button):
-		#get around list mutability
-		a=[button]
-		a.extend(OKCancelButtons)
-		return a
-	
 	traits_view=View(
 		Item(name='intermediate_node_list',editor=CheckListEditor(
 			name='initial_node_list',cols=2),show_label=False,style='custom'),

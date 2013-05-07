@@ -433,7 +433,8 @@ class Cvu(CvuPlaceholder):
 			circ.plot_connectivity_circle2(
 			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
 			indices=self.edges.T,colormap="YlOrRd",fig=figure,
-			n_lines=self.soft_max_edges)
+			n_lines=self.soft_max_edges,
+			rois=self.adjmat_chooser_window.require_window.require_ls)
 		if figure==None or True:
 			self.circ_fig=fig_holdr
 		self.circ_data = self.circ_fig.get_axes()[0].patches
