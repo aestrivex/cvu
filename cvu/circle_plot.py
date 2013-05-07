@@ -25,7 +25,7 @@ from collections import OrderedDict
 def plot_connectivity_circle2(con, node_names, indices=None, n_lines=10000,
 	node_angles=None, node_width=None,node_colors=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
-	vmin=None,vmax=None, colorbar=False, title=None,fig=None):
+	vmin=None,vmax=None, colorbar=False, title=None,fig=None,rois=[]):
 	"""Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
@@ -286,10 +286,12 @@ The figure handle.
 	# get angles for text placement
 	text_angles = avgidx(nodes_numberless,n_nodes,frac=1)
 
-	segments = get_tooclose_segments(text_angles,too_close)
-
+	segments = get_tooclose_segments(text_angles,too_close,rois)
+	
 	for segment in segments:
 		prune_segment(text_angles,segment,too_close)
+	#TODO segments with many guaranteed ROIs are potentially spatially skewed
+	#this is probably not worth fixing
 
 	#now calculate how many pairs must be removed and remove them at equal
 	#spacing.  there should be no more than theta/(n-1) >= pi/50 pairs where
@@ -362,14 +364,15 @@ returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 	d.update({curlb:ix})
 	return d
 
-def get_tooclose_segments(angdict, too_close):
+def get_tooclose_segments(angdict, too_close, required_rois=[]):
 	"""Takes:
 angdict: an ordered dictionary with (type A)/avgposition pairs
 too_close: a float
 
 returns a list of segments, of consecutive pairs that are closer than
 too_close.  a segment contains the start index (in the dictionary), the end 
-index, the extent (theta), and the number of entries.
+index, the extent (theta), and the number of entries.  The last index of the
+segment is for required ROIs that must be displayed.
 
 for instance: get_tooclose_segments({'A':3,'B':4,'C':5,'D':100},10)
 will return [('A','C',2,3)]"""
@@ -378,8 +381,12 @@ will return [('A','C',2,3)]"""
 	keys=angdict.keys()
 	nextlb=None
 	start=None
+	requires_here=[]
 
 	for i,e in enumerate(angdict):
+		if e in required_rois:
+			requires_here.append(e)
+
 		#try to set the next label
 		if i+1<len(angdict):
 			nextlb=keys[i+1]
@@ -398,28 +405,32 @@ will return [('A','C',2,3)]"""
 		#we aren't too close, close off the segment if needed
 		if start is not None:
 			extent=angdict[e]-angdict[keys[start]]
-			segment=(keys[start],keys[i],extent,i-start+1)
+			segment=(keys[start],keys[i],extent,i-start+1,requires_here)
 			segments.append(segment)
 			start=None
+
+		#we are now looking for a new segment, so dump the ROIs collected
+		requires_here=[]
 
 	return segments
 
 def prune_segment(angdict,seg,too_close):
 	print seg
-	print angdict
-	keys=angdict.keys()
 
 	#calculate the number of labels to be removed
 	extent=seg[2]
 	cur_inhabitants=seg[3]
+	requires=seg[4]
 
 	max_inhabitants=1+int(np.floor(extent/too_close))
 	n_removals=cur_inhabitants-max_inhabitants	
 
-	#remove them, starting at the back and using equal spacing
+	if max_inhabitants < len(requires):
+		import cvu_utils
+		raise cvu_utils.CVUError('There is not enough space to display all of'
+			' the ROIs that are guaranteed to be shown.')
 
-	end=seg[1]
-	start=seg[0]
+	#remove the remaining labels, starting at the back and using equal spacing
 
 	if cur_inhabitants/float(n_removals)>=2:
 		#calculate the number of nodes to skip, before removing something
@@ -429,44 +440,69 @@ def prune_segment(angdict,seg,too_close):
 		every=int(np.ceil( cur_inhabitants/(cur_inhabitants-float(n_removals))))
 	#cap=int(np.ceil( cur_inhabitants/float(every)))
 
+	keys=angdict.keys()
+	vals=angdict.values()
+
+	end=seg[1]
+	start=seg[0]
 	start_idx=keys.index(start)
 	end_idx=keys.index(end)
 
-	start_ang=angdict[start]
-	end_ang=angdict[end]
+	seg_dict=OrderedDict(zip(keys[start_idx:end_idx+1],
+		vals[start_idx:end_idx+1]))
+	#delete the entire segment and work with the temporary dict only
+	for i in xrange(start_idx,end_idx+1):
+		del angdict[keys[i]]
+
+	keys=seg_dict.keys()
+
+	start_idx=keys.index(start)#should be 0
+	end_idx=keys.index(end)#should be cur_inhabitants
+
+	start_ang=seg_dict[start]
+	end_ang=seg_dict[end]
+
+	guarantee_dict=OrderedDict()
+	#remove keys not permitted to be removed
+	for r in requires:
+		guarantee_dict.update({r:seg_dict[r]})
+		del seg_dict[r]
+
+	keys=seg_dict.keys()
+	end_idx=keys.index(end)#should be cur_inhabitants-len(requires)
 
 	counter=0
 	k=0
-	print start_idx,end_idx
+	#print start_idx,end_idx,n_removals
+	#print seg_dict
 	while counter<n_removals:
-		print "counter %i" % counter
+		#print "counter %i" % counter
 		for i in xrange(end_idx-counter,start_idx-1,-every+k):
-			print i
-			del angdict[keys[i]]
+			#print i
+			del seg_dict[keys[i]]
 			counter+=1
 			if counter>=n_removals:
 				break
 		k+=1
-		keys=angdict.keys()
+		keys=seg_dict.keys()
 
 	#recalculate the angles of the remaining nodes
 
-	angs=np.linspace(start_ang,end_ang,max_inhabitants)
+	seg_dict.update(guarantee_dict)
 
-	#after having deleted several things, we now need the updated set of keys
-	#to know the new indices.
-	keys=angdict.keys()
+	#sort the remaining items by angle
+	seg_dict=OrderedDict(sorted(seg_dict.iteritems(),
+		key=lambda item:seg_dict[item[0]]))
+
+	angs=np.linspace(start_ang,end_ang,max_inhabitants)
+	keys=seg_dict.keys()
 
 	#in theory all of this nonsense with getting the keys by keys() could be
 	#made faster by passing around lots of lists and offsets.  its not pythonic
 	#and probably not worthwhile (90% of optimize 10% of code etc)
 
-	print start_idx,end_idx,counter,max_inhabitants
-
-	print angs
 	for i,theta in enumerate(angs):
-		angdict[keys[start_idx+i]]=theta	
+		seg_dict[keys[start_idx+i]]=theta	
 
-	print 'finished the segment'
-
-	#this part isnt tested yet
+	#the segment is added to the end.  this is fine
+	angdict.update(seg_dict)

@@ -54,6 +54,11 @@ class OptionsWindow(InteractiveSubwindow):
 		title='Select your desired destiny',
 	)
 
+class RequireWindow(InteractiveSubwindow):
+	require_ls=List(Str)
+	traits_view=View(Item(name='require_ls',
+		editor=ListStrEditor(auto_add=True,editable=True)))
+
 class AdjmatChooserWindow(InteractiveSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
@@ -66,6 +71,8 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 	max_edges=Int
 	field_name=Str('adj_matrices')
 	ignore_deletes=Bool
+	require_window=InteractiveSubwindow
+	require_button=Button
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=140,width=250),
 		#HSplit(
@@ -77,11 +84,16 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
+		Item(name='require_button',label='choose ROIs'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Report all man-eating vultures to security',)
 
 	def _open_adjmat_fired(self):
 		self.adjmat=open_file()
+	def _require_window_default(self):
+		return RequireWindow()
+	def _require_button_fired(self):
+		self.require_window.edit_traits()
 
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Unless you are specifically interested in the'
