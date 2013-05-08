@@ -415,7 +415,7 @@ will return [('A','C',2,3)]"""
 	return segments
 
 def prune_segment(angdict,seg,too_close):
-	print seg
+	#print seg
 
 	#calculate the number of labels to be removed
 	extent=seg[2]
