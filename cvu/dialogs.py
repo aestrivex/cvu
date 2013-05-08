@@ -62,8 +62,12 @@ class OptionsWindow(InteractiveSubwindow):
 
 class RequireWindow(InteractiveSubwindow):
 	require_ls=List(Str)
-	traits_view=View(Item(name='require_ls',
-		editor=ListStrEditor(auto_add=True,editable=True),show_label=False),
+	please_note=Str('Enter the ROIs you would like to force to display on the '
+		'circle plot.  You must spell them precisely, e.g. "lh_frontalpole"')
+	traits_view=View(
+		Item(name='please_note',style='readonly',height=35,width=250),
+		Item(name='require_ls',editor=ListStrEditor(auto_add=True,
+			editable=True),label='List ROIs here'),
 		buttons=OKCancelButtons,title='Mango curry')
 
 class AdjmatChooserWindowHandler(SubwindowHandler):
