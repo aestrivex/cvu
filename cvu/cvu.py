@@ -725,7 +725,9 @@ class Cvu(CvuPlaceholder):
 		# this file was cluttered enough
 		mpledit._process_circ_click(event,self)
 
-	## TRAITS-DRIVEN INTERACTIONS ##
+	def circ_mouseover(self,event,mpledit):
+		mpledit._possibly_show_tooltip(event,self)
+
 	#node selection
 	def _select_node_button_fired(self):
 		self.node_chooser_window.cur_node=-1
