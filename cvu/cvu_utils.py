@@ -304,7 +304,7 @@ def sh_cmd_retproc(cmd):
 	import subprocess; import os
 	devnull=open(os.devnull,'wb')
 	process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
-		stdout=devnull)
+		stdout=devnull,stderr=devnull)
 	#checks to see if the specified command was bad
 	if process.poll():
 		process.kill()

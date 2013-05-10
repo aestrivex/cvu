@@ -1033,6 +1033,8 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('make_movie_window:notify')
 	def make_movie_check(self):
 		mmw=self.make_movie_window
+		self.animator=None
+		self.curdir=None
 		if not mmw.finished:
 			pass
 		else:
@@ -1047,11 +1049,29 @@ class Cvu(CvuPlaceholder):
 			else:
 				saveit()
 
+	def do_mkmovie_animate(self,samplerate,rotate_on,snapshot_folder=None):
+		if not snapshot_folder and not rotate_on:
+			return
+		def anim():
+			i=0
+			while True:
+				if snapshot_folder:
+					fname=os.path.join(snapshot_folder,'/movie%05d.png' % i)
+					mlab.savefig(fname)
+					i+=1
+				if rotate_on:
+					self.scene.camera.azimuth(10)
+					self.scene.render()
+				yield
+		animation=anim()
+		fps_in=1000/samplerate #result is in ms, integer division is fine
+		self.animator=Animator(fps_in,animation.next)
+
 	def do_mkmovie_snapshots(self,samplerate,anim_style):
 		import tempfile
-		tmp=tempfile.gettempdir()
+		tmp=os.path.join(tempfile.gettempdir(),'cvu')
 		try:
-			os.mkdir(os.path.join(tmp,'cvu'))
+			os.mkdir(tmp)
 		except OSError: # directory already exists
 			try:
 				for file in os.listdir(os.path.join(tmp,'cvu')):
@@ -1064,48 +1084,46 @@ class Cvu(CvuPlaceholder):
 		except IOError as e: # no permissions
 			self.error_dialog(str(e))
 			return
-		curdir=os.getcwd()
-		os.chdir('/tmp/cvu')
-		self.mk_movie_lbl='Stop movie'
-
-		def anim():
-			i=0
-			while True:
-				mlab.savefig('/tmp/cvu/movie%05d.png' % i)
-				i+=1
-				yield
-
-		animation=anim()
-		fps_in=1000/samplerate #result is in ms, integer division is fine
-		self.animator=Animator(fps_in,animation.next)
+		self.curdir=os.getcwd()
+		os.chdir(tmp)
+		self.do_mkmovie_animate(samplerate,anim_style,snapshot_folder=tmp)
 
 	def do_mkmovie_x11grab(self):
 		mmw=self.make_movie_window
-		xwincmd = ('xwininfo -name \'Connectome Visualization Utility\'')
-		grep = 'Absolute' # "Absolute upper-left X: xcor"
-		coords = util.sh_cmd_grep(xwincmd,grep)
-		if len(coords) != 2:
-			self.error_dialog("Unexpected output from xwininfo.  Please report "
-				"this error to developer")
-		x,y=[int(i.split()[-1]) for i in coords]
-		x+=1; y+=64
-		cmd = ('ffmpeg -loglevel error -y -f x11grab -s 499x439 -r %i -b %i '
+		#xwincmd = ('xwininfo -name \'Connectome Visualization Utility\'')
+		#grep = 'Absolute' # "Absolute upper-left X: xcor"
+		#coords = util.sh_cmd_grep(xwincmd,grep)
+		#if len(coords) != 2:
+		#	self.error_dialog("Unexpected output from xwininfo.  Please report "
+		#		"this error to developer")
+		#x,y=[int(i.split()[-1]) for i in coords]
+		xs,ys=self.scene.scene_editor.control.GetScreenPositionTuple()
+		xe,ye=tuple(self.scene.scene_editor.get_size())
+		cmd = ('ffmpeg -loglevel error -y -f x11grab -s %ix%i -r %i -b %i '
 			'-i :0.0+%i,%i %s'
-			% (mmw.framerate,mmw.bitrate*1024,x,y,mmw.savefile))
+			% (xe,ye,mmw.framerate,mmw.bitrate*1024,xs,ys,mmw.savefile))
 		try:
 			self.ffmpeg_process=util.sh_cmd_retproc(cmd)
+			self.do_mkmovie_animate(mmw.samplerate,mmw.anim_style)
 		except util.CVUError as e:
 			self.error_dialog(str(e))
 
 	def do_mkmovie_finish(self):
 		mmw=self.make_movie_window
 		self.mk_movie_lbl='Make movie'
+		if self.animator:
+			self.animator.timer.Stop()
+		del self.animator
+		if self.curdir:
+			os.chdir(self.curdir)
+		del self.curdir
 		if mmw.type=='x11grab':
 		#x11grab method
 			self.ffmpeg_process.communicate('q')
 			if self.ffmpeg_process.returncode:
 				self.error_dialog('ffmpeg failed with error code %s' %
 					self.ffmpeg_process.returncode)
+				return
 			del self.ffmpeg_process
 		else:
 			import tempfile
@@ -1118,9 +1136,8 @@ class Cvu(CvuPlaceholder):
 				util.sh_cmd(cmd)
 			except util.CVUError as e:
 				self.error_dialog(str(e))
-			finally:
-				self.animator.timer.Stop()
-				del self.animator
+				return
+		print "Movie saved successfully to %s" % mmw.savefile
 
 	#@on_trait_change('animator_done_notify:e')
 	#def now_mkmovie(self):

@@ -219,20 +219,22 @@ class SaveSnapshotWindow(InteractiveSubwindow):
 
 class MakeMovieWindow(InteractiveSubwindow):
 	savefile=Str(os.environ['HOME']+'/')
-	framerate=Int(10)
-	bitrate=Int(200) 
+	framerate=Int(20)
+	bitrate=Int(4000) 
 	samplerate=Int(8)
-	type=Enum('snapshots','x11grab')
+	#use x11grab exclusively.  remove snapshots altogether eventually
+	type=Enum('x11grab','snapshots')
 	anim_style=Bool(True)
+	animrate=Int(8)
 	traits_view=View(Group(
 		Item(name='savefile'),
-		Item(name='samplerate',label='sampling rate (snapshot only)'),
 		Item(name='framerate',label='framerate'),
 		Item(name='bitrate',label='bitrate (kb/s)'),
-		Item(name='type',label='movie making method'),
+		#Item(name='type',label='movie making method'),
 		Item(name='anim_style',label='automatically rotate'),
+		Item(name='samplerate',label='animation speed'),
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
-		title="Make me a sandwich",height=250,width=400)
+		title="Make me a sandwich",height=250,width=450)
 
 class AnimatorHandler(Handler):
 	finished=Instance(util.EventHolder)
