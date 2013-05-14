@@ -35,15 +35,19 @@ class OptionsWindow(InteractiveSubwindow):
 	intrahemi_off = Bool(False)
 	lh_off = Bool(False)
 	rh_off = Bool(False)
+	render_style=Enum('glass','contours','wireframe','speckled')
 
 	traits_view=View(
 		VSplit(
 			HSplit(
 				Item(name='circ_size'),
-				Item(name='surface_visibility'),
+				Item(name='surface_visibility',label='surface opacity'),
 			),
 			HSplit(
-				Item(name='prune_modules',label='prune empty/singleton modules'),
+				Item(name='render_style',label='surface style'),
+			),
+			HSplit(
+				Item(name='prune_modules',label='prune singleton modules'),
 				Item(name='show_floating_text',label='floating 3D text on'),
 			),
 			HSplit(
@@ -210,10 +214,11 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 class SaveSnapshotWindow(InteractiveSubwindow):
 	savefile=Str(os.environ['HOME']+'/')
 	dpi=Int(300)
-	whichplot=Enum('mayavi','chaco','circ')
+	whichplot=Enum('3D brain','connection matrix','circle plot')
 	traits_view=View(Group(
 		Item(name='savefile'),
-		Item(name='dpi'),
+		Item(name='whichplot',label='view'),
+		Item(name='dpi',label='dots per inch'),
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title="Help I'm a bug",height=250,width=250)
 

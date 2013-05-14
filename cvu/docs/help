@@ -121,8 +121,11 @@ There is an interactive python shell in the program.  It is fantastic for lookin
 =====Circle Size=====
 Changes the size of the circle plot.  Unfortunately due to technical limitations it is extremely difficult to only show a small portion (e.g. zoom) of the circle plot, so this alteration in size is the best that can be done to e.g. help read the labels.
 
-=====Surface Visibility=====
+=====Surface Opacity=====
 Changes the opacity of the 3D brain between 0 and 1.  At 1, the 3D brain is completely opaque, effectively making it impossible to see any connections.  At 0, the brain surface is not present at all.  Low values provide a good balance between anatomical specificity and transparency, while high values provide some amusingly useless images.
+
+=====Surface Style=====
+Offers several visualizations for the surface triangular mesh (in VTK terms, several different connectivities for the mesh surface).  Purely cosmetic differences.
 
 =====Prune empty/singleton modules=====
 This option gets rid of relatively uninteresting singleton modules when using builtin modularity calculations.

@@ -55,7 +55,7 @@ class _MPLFigureEditor(Editor):
 			lambda ev:self.object.circ_click(ev,self))
 		self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
 			lambda ev:self.object.circ_mouseover(ev,self))
-		self.tooltip=wx.ToolTip(tip='no tip')
+		self.tooltip=wx.ToolTip(tip='')
 		self.tooltip.SetDelay(2000)
 		self.canvas.SetToolTip(self.tooltip)
 		return panel

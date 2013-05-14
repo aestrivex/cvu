@@ -8,9 +8,8 @@ if __name__=="__main__":
 	quiet=args['quiet']
 if not quiet:
 	print "Importing libraries"
-import numpy as np
+import numpy as np; import os
 from mayavi import mlab; from mayavi.tools.animator import Animator
-import os; 
 from traits.api import *; from traitsui.api import *
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
 from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
@@ -84,9 +83,7 @@ class Cvu(CvuPlaceholder):
 	color_legend_button = Button('Color legend')
 	load_parc_button=Button('Load a parcellation')
 	options_button=Button('Options')
-	mayavi_snapshot_button=Button('3D snapshot')
-	chaco_snapshot_button=Button('Adjmat snapshot')
-	circ_snapshot_button = Button('Circle snapshot')
+	take_snapshot_button=Button('Take snapshot')
 	make_movie_button = Button
 	mk_movie_lbl = String('Make movie')
 	center_adjmat_button = Button('Center adjmat')
@@ -166,9 +163,7 @@ class Cvu(CvuPlaceholder):
 						show_labels=False,
 					),
 					HSplit(
-						Item(name='mayavi_snapshot_button'),
-						Item(name='chaco_snapshot_button'),
-						Item(name='circ_snapshot_button'),
+						Item(name='take_snapshot_button'),
 						Item(name='make_movie_button',
 							editor=ButtonEditor(label_value='mk_movie_lbl')),
 						show_labels=False,
@@ -331,13 +326,19 @@ class Cvu(CvuPlaceholder):
 			self.nr_edges=len(self.adjdat)
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
+
 	# this one is intended only for displaying individuals other than fsaverage
 	# not necessary for now
 	def surfs_clear(self):
 		try:
 			self.syrf_lh.remove()
 			self.syrf_rh.remove()
+			for child in reversed(self.fig.children):
+				if child.name=='syrfl' or child.name=='syrfr':
+					self.fig.children.remove(child)
 		except ValueError:
+			if not quiet:
+				'failed to remove old surfaces'
 			pass
 
 	def surfs_gen(self):
@@ -875,6 +876,21 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.masked=np.logical_xor(self.masked,self.right)
 
+	@on_trait_change('opts:render_style')
+	def chg_render_style(self):
+		for syrf in [self.syrf_lh,self.syrf_rh]:
+			if self.opts.render_style=='contours':
+				syrf.enable_contours=True
+				syrf.contour.number_of_contours=250	
+			else:
+				syrf.enable_contours=False
+			if self.opts.render_style=='glass':
+				syrf.actor.property.representation='surface'
+			elif self.opts.render_style=='wireframe':
+				syrf.actor.property.representation='wireframe'
+			elif self.opts.render_style=='speckled':
+				syrf.actor.property.representation='points'
+
 	#def load_timecourse_data():
 		#if self.dataloc==None:
 		#	raise Exception('No raw data was specified')
@@ -938,19 +954,8 @@ class Cvu(CvuPlaceholder):
 			self.error_dialog('You must specify a valid matrix file')	
 		
 	#snapshots
-	def _mayavi_snapshot_button_fired(self):
+	def _take_snapshot_button_fired(self):
 		self.save_snapshot_window.finished=False
-		self.save_snapshot_window.whichplot='mayavi'
-		self.save_snapshot_window.edit_traits()
-
-	def _chaco_snapshot_button_fired(self):
-		self.save_snapshot_window.finished=False
-		self.save_snapshot_window.whichplot='chaco'
-		self.save_snapshot_window.edit_traits()
-
-	def _circ_snapshot_button_fired(self):
-		self.save_snapshot_window.finished=False
-		self.save_snapshot_window.whichplot='circ'
 		self.save_snapshot_window.edit_traits()
 
 	@on_trait_change('save_snapshot_window:notify')
@@ -964,13 +969,13 @@ class Cvu(CvuPlaceholder):
 			def saveit():
 				try:
 					# the contents of the continuation depend on the plot type
-					if ssw.whichplot=='circ':
+					if ssw.whichplot=='circle plot':
 						self.circ_fig.savefig(ssw.savefile,dpi=ssw.dpi,
 							facecolor='black')
-					elif ssw.whichplot=='mayavi':
+					elif ssw.whichplot=='3D brain':
 						res=np.ceil(500*ssw.dpi/8000.0*111)
 						self.hack_mlabsavefig(ssw.savefile,size=(res,res))
-					elif ssw.whichplot=='chaco':
+					elif ssw.whichplot=='connection matrix':
 						gc=PlotGraphicsContext(self.conn_mat.outer_bounds,
 							dpi=ssw.dpi)
 						gc.render_component(self.conn_mat)
