@@ -16,11 +16,10 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from traits.api import HasTraits,Bool,Event,File,Int,Str,Directory,Function,Enum
-from traits.api import List,Button,Range,Instance
-from traitsui.api import Handler,View,Item,OKCancelButtons,OKButton,Spring,Group
-from traitsui.api import ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit
-from traitsui.api import Action
+from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
+	Enum,List,Button,Range,Instance)
+from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
+	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action)
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
@@ -46,12 +45,14 @@ class OptionsWindow(InteractiveSubwindow):
 	prune_modules = Bool(True)
 	show_floating_text = Bool(True)
 	intramodule_only = Bool(True)
-	interhemi_off = Bool(False)
-	intrahemi_off = Bool(False)
-	lh_off = Bool(False)
-	rh_off = Bool(False)
 	render_style=Enum('glass','contours','wireframe','speckled')
-
+	interhemi_conns_on = Bool(True)
+	lh_conns_on = Bool(True)
+	rh_conns_on = Bool(True)
+	lh_nodes_on = Bool(True)
+	rh_nodes_on = Bool(True)
+	lh_surfs_on = Bool(True)
+	rh_surfs_on = Bool(True)
 	traits_view=View(
 		VSplit(
 			HSplit(
@@ -69,9 +70,18 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='intramodule_only',label='show intramodule connections only (when viewing modules)')
 			),
 			HSplit(
-				Item(name='interhemi_off',label='interhemispheric conns off'),
-				Item(name='lh_off',label='LH conns off'),
-				Item(name='rh_off',label='RH conns off'),
+				Item(name='interhemi_conns_on',
+					label='interhemispheric conns on'),
+				Item(name='lh_conns_on',label='LH conns on'),
+				Item(name='rh_conns_on',label='RH conns on'),
+			),
+			HSplit(
+				Item(name='lh_nodes_on',label='LH nodes on'),
+				Item(name='rh_nodes_on',label='RH nodes on'),
+			),
+			HSplit(
+				Item(name='lh_surfs_on',label='LH surfaces on'),
+				Item(name='rh_surfs_on',label='RH surfaces on'),
 			),
 			show_labels=False,
 		),

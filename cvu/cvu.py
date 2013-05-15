@@ -25,7 +25,10 @@ if not quiet:
 	print "Importing libraries"
 import numpy as np; import os
 from mayavi import mlab; from mayavi.tools.animator import Animator
-from traits.api import *; from traitsui.api import *
+from traits.api import (HasTraits,Enum,Instance,Range,Float,Method,Str,Dict,
+	on_trait_change,Button)
+from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
+	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
 from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
 from chaco.api import reverse,center
@@ -76,7 +79,7 @@ class Cvu(CvuPlaceholder):
 	scene = Instance(MlabSceneModel, ())
 	circ_fig = Instance(Figure,())
 
-	#stateful traits
+	#stateful traits -- these should be in options
 	pthresh = Range(0.0,1.0,.95)
 	nthresh = Float
 	thresh_type = Enum('prop','num')
@@ -100,7 +103,7 @@ class Cvu(CvuPlaceholder):
 	options_button=Button('Options')
 	take_snapshot_button=Button('Take snapshot')
 	make_movie_button = Button
-	mk_movie_lbl = String('Make movie')
+	mk_movie_lbl = Str('Make movie')
 	center_adjmat_button = Button('Center adjmat')
 
 	#various subwindows
@@ -125,7 +128,6 @@ class Cvu(CvuPlaceholder):
 	cur_display_parc = Str
 	cur_display_mat = Str
 
-	animator_done_notify = Instance(util.EventHolder)
 	python_shell = Dict
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
@@ -208,17 +210,18 @@ class Cvu(CvuPlaceholder):
 		self.labnam=args[2]
 		self.adjlabfile=args[3]
 		self.srf=args[4]
-		self.dataloc=args[5][0]
-		self.modality=args[5][1]
-		self.partitiontype=args[5][2]
-		self.soft_max_edges=args[5][3]
+		self.labv=args[5][0]
+		self.dataloc=args[6][0]
+		self.modality=args[6][1]
+		self.partitiontype=args[6][2]
+		self.soft_max_edges=args[6][3]
 
 		## SET UP ALL THE DATA TO FEED TO MLAB ##
 		self.nr_labels=len(self.lab_pos)
 
-		self.cur_display_brain=args[5][4]
-		self.cur_display_parc=args[5][5]
-		self.cur_display_mat=args[5][6]
+		self.cur_display_brain=args[6][4]
+		self.cur_display_parc=args[6][5]
+		self.cur_display_mat=args[6][6]
 	
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
@@ -237,8 +240,6 @@ class Cvu(CvuPlaceholder):
 
 		self.node_chooser_window.node_list=self.labnam
 		self.module_customizer_window.initial_node_list=self.labnam
-
-		self.animator_done_notify=util.EventHolder()
 
 	#default initializations
 	def _reset_thresh_default(self):
@@ -342,13 +343,12 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
 
-	# this one is intended only for displaying individuals other than fsaverage
-	# not necessary for now
 	def surfs_clear(self):
 		try:
 			self.syrf_lh.remove()
 			self.syrf_rh.remove()
 			for child in reversed(self.fig.children):
+				#reversed, to iterate over a list we remove elements from
 				if child.name=='syrfl' or child.name=='syrfr':
 					self.fig.children.remove(child)
 		except ValueError:
@@ -372,21 +372,88 @@ class Cvu(CvuPlaceholder):
 
 	def nodes_clear(self):
 		try:
-			self.nodesource.remove()
+			self.nodesource_lh.remove()
+			self.nodesource_rh.remove()
 			self.txt.remove()
 		except ValueError:
 			pass
 
 	def nodes_gen(self):
-		self.nodesource = mlab.pipeline.scalar_scatter(self.lab_pos[:,0],
-			self.lab_pos[:,1],self.lab_pos[:,2],name='noddy')
-		self.nodes = mlab.pipeline.glyph(self.nodesource,scale_mode='none',
-			scale_factor=3.0,name='noddynod',mode='sphere',colormap='cool')
-		self.nodes.glyph.color_mode='color_by_scalar'
+		#assumes that all LH nodes start with L.  This is not ideal.
+		#passing this information thru preprocessing is annoying but better 
+		node_hemis=np.array(map(lambda r:r[0],self.labnam))
+		lhn=np.where(node_hemis=='l')[0]; self.lhnodes=lhn
+		rhn=np.where(node_hemis=='r')[0]; self.rhnodes=rhn
+
+		self.nodesource_lh = mlab.pipeline.scalar_scatter(self.lab_pos[lhn,0],
+			self.lab_pos[lhn,1],self.lab_pos[lhn,2],name='nodepos_lh')
+		self.nodes_lh=mlab.pipeline.glyph(self.nodesource_lh,scale_mode='none',
+			scale_factor=3.0,name='nodes_lh',mode='sphere',colormap='cool')
+		self.nodes_lh.glyph.color_mode='color_by_scalar'
+
+		self.nodesource_rh=mlab.pipeline.scalar_scatter(self.lab_pos[rhn,0],
+			self.lab_pos[rhn,1],self.lab_pos[rhn,2],name='nodepos_rh')
+		self.nodes_rh=mlab.pipeline.glyph(self.nodesource_rh,scale_mode='none',
+			scale_factor=3.0,name='nodes_rh',mode='sphere',colormap='cool')
+		self.nodes_rh.glyph.color_mode='color_by_scalar'
+
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
 		self.txt.position=(0,0,83)
 		self.txt.actor.actor.pickable=0
+		self.nodes_on_surf_lh,self.nodes_on_surf_rh=[],[]
+	
 		self.reset_node_color_mayavi()
+
+	def replace_nodes_with_surface_nodes(self,hemi=None):
+	#optionally takes a hemisphere to only display that hemisphere
+		self.opts.lh_nodes_on=False
+		self.opts.rh_nodes_on=False
+		self.opts.lh_surfs_on=False
+		self.opts.rh_surfs_on=False
+
+		#calculating the surface nodes is costly, so we cache them
+		if (not self.nodes_on_surf_lh) or (not self.nodes_on_surf_rh):
+			self.nodes_on_surf_lh,self.nodes_on_surf_rh=[],[]
+			for l in self.labv:
+				if l.hemi=='lh':
+					p=self.srf[0][l.vertices]
+					tris=self.srf[1]
+				elif l.hemi=='rh':
+					p=self.srf[2][l.vertices]
+					tris=self.srf[3]
+				v_as_set=set(l.vertices)
+
+				#get the triangles entirely contained in this set of vertices
+				tri_inds=np.where([v_as_set.issuperset(tri) for tri in tris])[0]
+
+				#triangles need to have indices concordant with the number of 
+				#vertices on the present surface.  map the indices to be smaller
+				tris_here=map(lambda t:[np.where(i==l.vertices)[0][0] 
+					for i in t], tris[tri_inds])
+
+				mesh=mlab.triangular_mesh(p[:,0],p[:,1],p[:,2],tris_here,
+					color=(.82,.82,.82),name='surf_'+l.name,
+					opacity=self.opts.surface_visibility)
+				if l.hemi=='lh':
+					self.nodes_on_surf_lh.append(mesh)
+				elif l.hemi=='rh':
+					self.nodes_on_surf_rh.append(mesh)
+			#even if asked to display just one hemisphere, we will cache both
+			#just make the other hemi invisible.  this is costly!
+			if hemi=='lh':
+				self.visibilize_surf_chunks(False,hemi='rh')
+			elif hemi=='rh':
+				self.visibilize_surf_chunks(False,hemi='lh')
+
+		else:	
+			self.visibilize_surf_chunks(True,hemi=hemi)
+
+	def replace_surface_nodes_with_abstract_nodes(self):
+		self.visibilize_surf_chunks(False)	
+		self.opts.lh_surfs_on=True
+		self.opts.rh_surfs_on=True
+		self.opts.lh_nodes_on=True
+		self.opts.rh_nodes_on=True
 
 	def vectors_clear(self):
 		try:
@@ -534,12 +601,12 @@ class Cvu(CvuPlaceholder):
 		self.txt.set(text='')
 		self.vectors_clear()
 		self.vectors_gen()
+		self.reset_node_color_mayavi()
+		self.chaco_gen()
+		self.color_legend_gen()	
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
 		self.redraw_circ()
-		self.chaco_gen()
-		self.color_legend_gen()	
-		self.reset_node_color_mayavi()
 		self.reset_node_color_circ()
 
 	def load_standalone_matrix(self):
@@ -573,7 +640,7 @@ class Cvu(CvuPlaceholder):
 			#normalize scalars to 0-1 range
 			self.node_scalars=(ci-np.min(ci))/np.max(ci)
 
-	## USER-DRIVEN INTERACTIONS ##
+	## BASIC VISUALIZATION INTERACTIONS ##
 	def error_dialog(self,message):
 		self.error_dialog_window.error=message
 		self.error_dialog_window.edit_traits()
@@ -599,8 +666,10 @@ class Cvu(CvuPlaceholder):
 		self.txt.set(text='')
 		self.reset_thresh()
 		self.edge_color_on()
-		self.nodes.glyph.scale_mode='data_scaling_off'
-		self.nodes.glyph.glyph.scale_factor=3
+		self.nodes_lh.glyph.scale_mode='data_scaling_off'
+		self.nodes_lh.glyph.glyph.scale_factor=3
+		self.nodes_rh.glyph.scale_mode='data_scaling_off'
+		self.nodes_rh.glyph.glyph.scale_factor=3
 		
 		#change data in chaco plot
 		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
@@ -674,10 +743,14 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.property.opacity=.75
 		self.vectorsrc.outputs[0].update()
 		
-		self.nodesource.children[0].scalar_lut_manager.lut_mode='cool'
+		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='cool'
+		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='cool'
 		new_colors = np.tile(.3,self.nr_labels)
 		new_colors[module]=.8
-		self.nodes.mlab_source.dataset.point_data.scalars=new_colors
+		self.nodes_lh.mlab_source.dataset.point_data.scalars=new_colors[
+			self.lhnodes]
+		self.nodes_rh.mlab_source.dataset.point_data.scalars=new_colors[
+			self.rhnodes]
 		self.txt.set(text='')
 		mlab.draw()
 		
@@ -699,10 +772,15 @@ class Cvu(CvuPlaceholder):
 		if self.node_scalars is None:
 			self.error_dialog('Load some scalars first')
 			return
-		self.nodesource.children[0].scalar_lut_manager.lut_mode='BuGn'
-		self.nodes.mlab_source.dataset.point_data.scalars=self.node_scalars
-		self.nodes.glyph.scale_mode='scale_by_scalar'
-		self.nodes.glyph.glyph.scale_factor=8
+		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='BuGn'
+		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='BuGn'
+		self.nodes_lh.mlab_source.dataset.point_data.scalars=self.node_scalars[
+			self.lhnodes]
+		self.nodes_rh.mlab_source.dataset.point_data.scalars=self.node_scalars[
+			self.rhnodes]
+		for nodes in [self.nodes_lh,self.nodes_rh]:
+			nodes.glyph.scale_mode='scale_by_scalar'
+			nodes.glyph.glyph.scale_factor=8
 		mlab.draw()
 		
 		new_color_arr=self.bluegreen_map(self.node_scalars)
@@ -714,35 +792,6 @@ class Cvu(CvuPlaceholder):
 		self.xa.colors=list(new_color_arr)
 		self.ya.colors=list(new_color_arr)
 		self.conn_mat.request_redraw()
-
-	## CALLBACK FUNCTIONS ##
-	#chaco callbacks are in ConnmatPointSelector class out of necessity
-	#where they override the _select method
-	def leftpick_callback(self,picker):
-		#for actor in picker.actors
-			#if actor in self.nodes.actor.actors:
-			#	correct_actor=actor
-			#ptid
-		if picker.actor in self.nodes.actor.actors:
-			ptid = picker.point_id/self.nodes.glyph.glyph_source.glyph_source.\
-				output.points.to_array().shape[0]
-			if (ptid != -1):
-				self.display_node(int(ptid))
-		self.pick=picker
-
-	def rightpick_callback(self,picker):
-		self.display_all()
-
-	def circ_click(self,event,mpledit):
-		if not quiet:
-			print 'button=%d,x=%d,y=%d,xdata=%s,ydata=%s'%(event.button,event.x,
-				event.y,str(event.xdata),str(event.ydata))
-		# in principle all the clicking logic would be done here, but i felt
-		# this file was cluttered enough
-		mpledit._process_circ_click(event,self)
-
-	def circ_mouseover(self,event,mpledit):
-		mpledit._possibly_show_tooltip(event,self)
 
 	#node selection
 	def _select_node_button_fired(self):
@@ -759,6 +808,7 @@ class Cvu(CvuPlaceholder):
 
 	#module selection
 	def _calc_mod_button_fired(self):
+		#TODO remove metis
 		import modularity
 		if self.partitiontype=="metis":
 			self.modules=modularity.use_metis(self.adj_nulldiag)
@@ -812,7 +862,39 @@ class Cvu(CvuPlaceholder):
 			#self.cur_module='custom'
 			self.display_module('custom',module=self.custom_module)
 
-	#misc trait changes
+	## CALLBACKS ##
+	#chaco callbacks are in ConnmatPointSelector class out of necessity
+	#where they override the _select method
+	def leftpick_callback(self,picker):
+		#for actor in picker.actors
+			#if actor in self.nodes.actor.actors:
+			#	correct_actor=actor
+			#ptid
+		for nodes in [self.nodes_lh,self.nodes_rh]:
+			if picker.actor in nodes.actor.actors:
+				ptid=(picker.point_id/nodes.glyph.glyph_source.glyph_source.
+					output.points.to_array().shape[0])
+				if ptid != -1 and nodes is self.nodes_lh:
+					self.display_node(self.lhnodes[int(ptid)])
+				elif ptid != -1 and nodes is self.nodes_rh:
+					self.display_node(self.rhnodes[int(ptid)])
+		self.pick=picker
+
+	def rightpick_callback(self,picker):
+		self.display_all()
+
+	def circ_click(self,event,mpledit):
+		if not quiet:
+			print 'button=%d,x=%d,y=%d,xdata=%s,ydata=%s'%(event.button,event.x,
+				event.y,str(event.xdata),str(event.ydata))
+		# in principle all the clicking logic would be done here, but i felt
+		# this file was cluttered enough
+		mpledit._process_circ_click(event,self)
+
+	def circ_mouseover(self,event,mpledit):
+		mpledit._possibly_show_tooltip(event,self)
+
+	## MISCELLANEOUS OPTIONS ##
 	@on_trait_change('pthresh')
 	def prop_thresh(self):	
 		if self.thresh_type!='prop':
@@ -870,26 +952,42 @@ class Cvu(CvuPlaceholder):
 	# beware.  currently masking only comes from one of these three types
 	# which are mutually exclusive.  if this changes, xor wont work anymore
 	# one thing that would work would be using addition of binary flags as types
-	@on_trait_change('opts:interhemi_off')
+	@on_trait_change('opts:interhemi_conns_on')
 	def chg_intermodule_mask(self):
-		if self.opts.interhemi_off:
-			self.masked=np.logical_or(self.masked,self.interhemi)
-		else:
+		if self.opts.interhemi_conns_on:
 			self.masked=np.logical_xor(self.masked,self.interhemi)
+		else:
+			self.masked=np.logical_or(self.masked,self.interhemi)
 		
-	@on_trait_change('opts:lh_off')
-	def chg_lh_mask(self):
-		if self.opts.lh_off:
-			self.masked=np.logical_or(self.masked,self.left)
-		else:
+	@on_trait_change('opts:lh_conns_on')
+	def chg_lh_connmask(self):
+		if self.opts.lh_conns_on:
 			self.masked=np.logical_xor(self.masked,self.left)
-	
-	@on_trait_change('opts:rh_off')
-	def chg_rh_mask(self):
-		if self.opts.rh_off:
-			self.masked=np.logical_or(self.masked,self.right)
 		else:
+			self.masked=np.logical_or(self.masked,self.left)
+	
+	@on_trait_change('opts:rh_conns_on')
+	def chg_rh_connmask(self):
+		if self.opts.rh_conns_on:
 			self.masked=np.logical_xor(self.masked,self.right)
+		else:
+			self.masked=np.logical_or(self.masked,self.right)
+
+	@on_trait_change('opts:lh_nodes_on')
+	def chg_lh_nodemask(self):
+		self.nodes_lh.visible=self.opts.lh_nodes_on
+
+	@on_trait_change('opts:rh_nodes_on')
+	def chg_rh_nodemask(self):
+		self.nodes_rh.visible=self.opts.rh_nodes_on
+
+	@on_trait_change('opts:lh_surfs_on')
+	def chg_lh_surfmask(self):
+		self.syrf_lh.visible=self.opts.lh_surfs_on
+
+	@on_trait_change('opts:rh_surfs_on')
+	def chg_rh_surfmask(self):
+		self.syrf_rh.visible=self.opts.rh_surfs_on
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
@@ -906,15 +1004,7 @@ class Cvu(CvuPlaceholder):
 			elif self.opts.render_style=='speckled':
 				syrf.actor.property.representation='points'
 
-	#def load_timecourse_data():
-		#if self.dataloc==None:
-		#	raise Exception('No raw data was specified')
-		#elif self.modality==None:
-		#	raise Exception('Which modality is this data?  Specify with'
-		#		' --modality')
-		#raise Exception("I like exceptions")
-
-	#load adjmat/parc
+	## LOAD DATA HELPER FUNCTIONS ##
 	def _load_adjmat_button_fired(self):
 		self.adjmat_chooser_window.finished=False
 		self.adjmat_chooser_window.edit_traits()
@@ -968,7 +1058,7 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.error_dialog('You must specify a valid matrix file')	
 		
-	#snapshots
+	## MAKE SNAPSHOTS AND MOVIES ##
 	def _take_snapshot_button_fired(self):
 		self.save_snapshot_window.finished=False
 		self.save_snapshot_window.edit_traits()
@@ -1024,7 +1114,7 @@ class Cvu(CvuPlaceholder):
 		# otherwise, don't do anything
 
 	def hack_mlabsavefig(self,fname,size):
-		#TODO hacky fix pull request etc
+		#TODO remove: this bug is fixed in mayavi 4.3
 		self.txt.visible=False
 		curx,cury=tuple(self.scene.scene_editor.get_size())
 		magnif_desired = max(size[0]//curx,size[1]//cury)+1
@@ -1110,13 +1200,6 @@ class Cvu(CvuPlaceholder):
 
 	def do_mkmovie_x11grab(self):
 		mmw=self.make_movie_window
-		#xwincmd = ('xwininfo -name \'Connectome Visualization Utility\'')
-		#grep = 'Absolute' # "Absolute upper-left X: xcor"
-		#coords = util.sh_cmd_grep(xwincmd,grep)
-		#if len(coords) != 2:
-		#	self.error_dialog("Unexpected output from xwininfo.  Please report "
-		#		"this error to developer")
-		#x,y=[int(i.split()[-1]) for i in coords]
 		xs,ys=self.scene.scene_editor.control.GetScreenPositionTuple()
 		xe,ye=tuple(self.scene.scene_editor.get_size())
 		cmd = ('ffmpeg -loglevel error -y -f x11grab -s %ix%i -r %i -b %i '
@@ -1159,17 +1242,11 @@ class Cvu(CvuPlaceholder):
 				return
 		print "Movie saved successfully to %s" % mmw.savefile
 
-	#@on_trait_change('animator_done_notify:e')
-	#def now_mkmovie(self):
-	#	print "make the movie now!"
-
-	#misc button presses
+	## MISC GUI BUTTONS ##
 	def _options_button_fired(self):
 		self.opts.edit_traits()
 
 	def _color_legend_button_fired(self):
-		#set up the color legend
-		#spawn the legend window
 		self.color_legend_window.edit_traits()
 
 	def _draw_stuff_button_fired(self):
@@ -1205,9 +1282,12 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.mapper.scalar_visibility=False
 
 	def reset_node_color_mayavi(self):
-		self.nodesource.children[0].scalar_lut_manager.lut_mode='cool'
-		self.nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,
-			self.nr_labels)
+		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='cool'
+		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='cool'
+		self.nodes_lh.mlab_source.dataset.point_data.scalars=np.tile(.3,
+			len(self.lhnodes))
+		self.nodes_rh.mlab_source.dataset.point_data.scalars=np.tile(.3,
+			len(self.rhnodes))
 		mlab.draw()
 
 	def reset_node_color_circ(self):
@@ -1216,8 +1296,6 @@ class Cvu(CvuPlaceholder):
 		circ_path_offset=len(self.sorted_adjdat)
 		for n in xrange(0,self.nr_labels,1):
 			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
-			#self.circ_data[circ_path_offset+n].set_fc((0,0,0))
-			#self.circ_data[circ_path_offset+n].set_ec(self.node_colors[n])
 
 	def reset_node_color_chaco(self):
 		self.xa.colors = self.node_colors
@@ -1248,6 +1326,16 @@ class Cvu(CvuPlaceholder):
 				self.circ_data[e].set_visible(False)
 		self.circ_fig.canvas.draw()
 
+	def visibilize_surf_chunks(self,on_or_off,hemi=None):
+		if hemi==None or hemi=='lh':
+			for node in self.nodes_on_surf_lh:
+				node.visible=on_or_off
+		if hemi==None or hemi=='rh':
+			for node in self.nodes_on_surf_rh:
+				node.visible=on_or_off
+
+	
+
 def preproc():
 	#load label names from specified text file for ordering
 	labnam,ign=util.read_parcellation_textfile(args['parcorder'])
@@ -1272,7 +1360,7 @@ def preproc():
 		args['maxedges'],args['subject'],args['parc'],args['adjmat'])
 
 	# Return tuple with summary required data
-	return lab_pos,adj,labnam,adjlabs,surf_struct,datainfo
+	return lab_pos,adj,labnam,adjlabs,surf_struct,labv,datainfo
 
 if __name__ == "__main__":
 	#gc.set_debug(gc.DEBUG_LEAK)

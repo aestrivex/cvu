@@ -337,7 +337,7 @@ amusingly useless images.
 
 =====Surface Style=====
 Offers several visualizations for the surface triangular mesh (in VTK terms, 
-several different connectivities for the mesh surface).  Purely cosmetic 
+several different visualizations of the connectivity).  Purely cosmetic 
 differences.
 
 =====Prune empty/singleton modules=====

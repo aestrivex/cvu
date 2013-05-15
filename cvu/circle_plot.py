@@ -325,8 +325,9 @@ The figure handle.
 			angle_deg += 180
 			ha = 'right'
 
+		name_nonum=name.strip('1234567890')
 		hemi=''
-		axes.text(angle_rad, 8.2, hemi+name, size=8, rotation=angle_deg,
+		axes.text(angle_rad, 8.2, hemi+name_nonum, size=8, rotation=angle_deg,
 			rotation_mode='anchor', horizontalalignment=ha,
 			verticalalignment='center', color=textcolor)
 
@@ -361,6 +362,7 @@ returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 
 	d=OrderedDict()
 	curlb=lbs[0]
+	already=set()
 	start=0 #2nd hemi needs to start at offset of too_close + end of 1st hemi
 	theta=frac*np.pi/n
 	for i,e in enumerate(lbs):
@@ -368,12 +370,20 @@ returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 			#get the position of the last label halfway between start and i-1
 			ix=(start+i-1)*theta
 			#2 cancels out from 2pi and avg of end+start/2
+			while already.issuperset((curlb,)):
+				#if the label is a duplicate, add meaningless numbers
+				#to give it a unique spot on the circle.  We delete these
+				#numbers later for display
+				curlb+=str(np.random.randint(10))
 			d.update({curlb:ix})
+			already.add(curlb)
 			#start the new label
 			start=i
 			curlb=e
 	#add the last label
 	ix=(start+i)*theta
+	while already.issuperset((curlb,)):
+		curlb+=str(np.random.randint(10))
 	d.update({curlb:ix})
 	return d
 
@@ -417,7 +427,7 @@ will return [('A','C',2,3)]"""
 		
 		#we aren't too close, close off the segment if needed
 		if start is not None:
-			extent=angdict[e]-angdict[keys[start]]
+			extent=np.abs(angdict[e]-angdict[keys[start]])
 			segment=(keys[start],keys[i],extent,i-start+1,requires_here)
 			segments.append(segment)
 			start=None
@@ -441,7 +451,9 @@ def prune_segment(angdict,seg,too_close):
 	if max_inhabitants < len(requires):
 		import cvu_utils
 		raise cvu_utils.CVUError('There is not enough space to display all of'
-			' the ROIs that are guaranteed to be shown.')
+			' the ROIs that are guaranteed to be shown.  There is enough space'
+			' for %i ROIs and you required %i ROIs' % (max_inhabitants,
+			len(requires)))
 
 	#remove the remaining labels, starting at the back and using equal spacing
 
