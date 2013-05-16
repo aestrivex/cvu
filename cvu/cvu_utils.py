@@ -100,17 +100,19 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 	lab_pos=np.zeros((len(labnam),3))
 	#an nlogn sorting algorithm is theoretically possible here but rather hard
 	labs_used=[]
+	labv_ret=[] # for returning only the used labels
 	for lab in labv[0]:
 		try:
 			i=labnam.index(mangle_hemi(lab.name))
 			labs_used.append(mangle_hemi(lab.name))
+			labv_ret.append(lab)
 		except ValueError:
 			if not quiet:
 				print ("Label %s deleted as requested" % 
 					lab.name)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
-	#the data seems to be incorrectly scaled by a factor of 1000
+	#the data seems to be incorrectly scaled by a factor of roughly 1000
 	lab_pos*=1000
 	#let the user know if parc order file has unrecongized entries
 	if not quiet:
@@ -118,7 +120,7 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 			if lab not in labs_used:
 				print ("Warning: Label %s not found in parcellation %s" % 
 					(lab,parcname))
-	return lab_pos
+	return lab_pos,labv_ret
 
 class CVUError(Exception):
 	pass

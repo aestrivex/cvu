@@ -26,7 +26,7 @@ if not quiet:
 import numpy as np; import os
 from mayavi import mlab; from mayavi.tools.animator import Animator
 from traits.api import (HasTraits,Enum,Instance,Range,Float,Method,Str,Dict,
-	on_trait_change,Button)
+	on_trait_change,Button,Trait,TraitTuple)
 from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
 	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
@@ -129,6 +129,8 @@ class Cvu(CvuPlaceholder):
 	cur_display_mat = Str
 
 	python_shell = Dict
+	default_glass_brain_color=Trait((.82,.82,.82),
+		TraitTuple(Range(0.,1.),Range(0.,1.),Range(0.,1.)))
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
 	traits_view = View(
@@ -210,7 +212,7 @@ class Cvu(CvuPlaceholder):
 		self.labnam=args[2]
 		self.adjlabfile=args[3]
 		self.srf=args[4]
-		self.labv=args[5][0]
+		self.labv=args[5]
 		self.dataloc=args[6][0]
 		self.modality=args[6][1]
 		self.partitiontype=args[6][2]
@@ -349,7 +351,8 @@ class Cvu(CvuPlaceholder):
 			self.syrf_rh.remove()
 			for child in reversed(self.fig.children):
 				#reversed, to iterate over a list we remove elements from
-				if child.name=='syrfl' or child.name=='syrfr':
+				if (child.name=='syrfl' or child.name=='syrfr' or
+						child.name=='syrfl_nodal' or child.name=='syrfr_nodal'):
 					self.fig.children.remove(child)
 		except ValueError:
 			if not quiet:
@@ -359,10 +362,10 @@ class Cvu(CvuPlaceholder):
 	def surfs_gen(self):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
-			color=(.82,.82,.82),name='syrfl')
+			color=self.default_glass_brain_color,name='syrfl',colormap='BuGn')
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
-			color=(.82,.82,.82),name='syrfr')
+			color=self.default_glass_brain_color,name='syrfr',colormap='BuGn')
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
 		#some colors
@@ -404,56 +407,45 @@ class Cvu(CvuPlaceholder):
 	
 		self.reset_node_color_mayavi()
 
-	def replace_nodes_with_surface_nodes(self,hemi=None):
-	#optionally takes a hemisphere to only display that hemisphere
-		self.opts.lh_nodes_on=False
-		self.opts.rh_nodes_on=False
-		self.opts.lh_surfs_on=False
-		self.opts.rh_surfs_on=False
+	def nodal_surfs_gen(self):
+		tri_inds_l=[]
+		tri_inds_r=[]
+		for l in self.labv:
+			if l.hemi=='lh':
+				tris=self.srf[1]
+				tri_inds=tri_inds_l
+			elif l.hemi=='rh':
+				tris=self.srf[3]
+				tri_inds=tri_inds_r
+			v_as_set=set(l.vertices)
 
-		#calculating the surface nodes is costly, so we cache them
-		if (not self.nodes_on_surf_lh) or (not self.nodes_on_surf_rh):
-			self.nodes_on_surf_lh,self.nodes_on_surf_rh=[],[]
-			for l in self.labv:
-				if l.hemi=='lh':
-					p=self.srf[0][l.vertices]
-					tris=self.srf[1]
-				elif l.hemi=='rh':
-					p=self.srf[2][l.vertices]
-					tris=self.srf[3]
-				v_as_set=set(l.vertices)
+			#get the triangles entirely contained in this set of vertices
+			ts=np.where([v_as_set.issuperset(tri) for tri in tris])[0]
+			tri_inds.extend(ts)
 
-				#get the triangles entirely contained in this set of vertices
-				tri_inds=np.where([v_as_set.issuperset(tri) for tri in tris])[0]
+		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
+			self.srf[0][:,2],self.srf[1][tri_inds_l],
+			opacity=self.opts.surface_visibility,colormap='BuGn',
+			color=self.default_glass_brain_color,name='syrfl_nodal',)
+		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
+			self.srf[2][:,2],self.srf[3][tri_inds_r],
+			opacity=self.opts.surface_visibility,colormap='BuGn',
+			color=self.default_glass_brain_color,name='syrfr_nodal')
 
-				#triangles need to have indices concordant with the number of 
-				#vertices on the present surface.  map the indices to be smaller
-				tris_here=map(lambda t:[np.where(i==l.vertices)[0][0] 
-					for i in t], tris[tri_inds])
+	def proj_scalars_to_surf(self):
+		if self.node_scalars is None:
+			return
 
-				mesh=mlab.triangular_mesh(p[:,0],p[:,1],p[:,2],tris_here,
-					color=(.82,.82,.82),name='surf_'+l.name,
-					opacity=self.opts.surface_visibility)
-				if l.hemi=='lh':
-					self.nodes_on_surf_lh.append(mesh)
-				elif l.hemi=='rh':
-					self.nodes_on_surf_rh.append(mesh)
-			#even if asked to display just one hemisphere, we will cache both
-			#just make the other hemi invisible.  this is costly!
-			if hemi=='lh':
-				self.visibilize_surf_chunks(False,hemi='rh')
-			elif hemi=='rh':
-				self.visibilize_surf_chunks(False,hemi='lh')
+		colors_lh=np.zeros((len(self.srf[0])))
+		colors_rh=np.zeros((len(self.srf[0])))
+		for i,l in enumerate(self.labv):
+			if l.hemi=='lh':
+				colors_lh[l.vertices]=self.node_scalars[i]
+			elif l.hemi=='rh':
+				colors_rh[l.vertices]=self.node_scalars[i]
 
-		else:	
-			self.visibilize_surf_chunks(True,hemi=hemi)
-
-	def replace_surface_nodes_with_abstract_nodes(self):
-		self.visibilize_surf_chunks(False)	
-		self.opts.lh_surfs_on=True
-		self.opts.rh_surfs_on=True
-		self.opts.lh_nodes_on=True
-		self.opts.rh_nodes_on=True
+		self.syrf_lh.mlab_source.scalars=colors_lh
+		self.syrf_rh.mlab_source.scalars=colors_rh
 
 	def vectors_clear(self):
 		try:
@@ -692,7 +684,6 @@ class Cvu(CvuPlaceholder):
 		count_edges = 0
 		for e,(a,b) in enumerate(zip(self.edges[:,0],self.edges[:,1])):
 			if n in [a,b] and not self.masked[e]:
-				new_edges[e]=np.array(self.edges)[e]
 				if self.adjdat[e] >= self.thres.lower_threshold and \
 						self.adjdat[e] <= self.thres.upper_threshold:
 					count_edges+=1
@@ -772,15 +763,24 @@ class Cvu(CvuPlaceholder):
 		if self.node_scalars is None:
 			self.error_dialog('Load some scalars first')
 			return
-		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='BuGn'
-		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='BuGn'
-		self.nodes_lh.mlab_source.dataset.point_data.scalars=self.node_scalars[
-			self.lhnodes]
-		self.nodes_rh.mlab_source.dataset.point_data.scalars=self.node_scalars[
-			self.rhnodes]
-		for nodes in [self.nodes_lh,self.nodes_rh]:
-			nodes.glyph.scale_mode='scale_by_scalar'
-			nodes.glyph.glyph.scale_factor=8
+		if self.opts.project_scalars:
+			#project the scalars onto the surface
+			self.proj_scalars_to_surf()
+			self.opts.lh_nodes_on=False
+			self.opts.rh_nodes_on=False
+			self.syrf_lh.actor.mapper.scalar_visibility=True
+			self.syrf_rh.actor.mapper.scalar_visibility=True
+		else:
+			#show the scalars as enlarged colored abstract nodes	
+			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='BuGn'
+			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='BuGn'
+			self.nodes_lh.mlab_source.dataset.point_data.scalars=(
+				self.node_scalars[self.lhnodes])
+			self.nodes_rh.mlab_source.dataset.point_data.scalars=(
+				self.node_scalars[self.rhnodes])
+			for nodes in [self.nodes_lh,self.nodes_rh]:
+				nodes.glyph.scale_mode='scale_by_scalar'
+				nodes.glyph.glyph.scale_factor=8
 		mlab.draw()
 		
 		new_color_arr=self.bluegreen_map(self.node_scalars)
@@ -1327,16 +1327,6 @@ class Cvu(CvuPlaceholder):
 				self.circ_data[e].set_visible(False)
 		self.circ_fig.canvas.draw()
 
-	def visibilize_surf_chunks(self,on_or_off,hemi=None):
-		if hemi==None or hemi=='lh':
-			for node in self.nodes_on_surf_lh:
-				node.visible=on_or_off
-		if hemi==None or hemi=='rh':
-			for node in self.nodes_on_surf_rh:
-				node.visible=on_or_off
-
-	
-
 def preproc():
 	#load label names from specified text file for ordering
 	labnam,ign=util.read_parcellation_textfile(args['parcorder'])
@@ -1354,7 +1344,7 @@ def preproc():
 	labv=util.loadannot(args['parc'],args['subject'],args['subjdir'])
 
 	#calculate label positions from vertex positions
-	lab_pos=util.calcparc(labv,labnam,quiet=quiet,parcname=args['parc'])
+	lab_pos,labv=util.calcparc(labv,labnam,quiet=quiet,parcname=args['parc'])
 
 	# Package dataloc and modality into tuple for passing
 	datainfo =(args['dataloc'],args['modality'],args['partitiontype'],

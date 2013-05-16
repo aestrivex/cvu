@@ -45,8 +45,9 @@ class OptionsWindow(InteractiveSubwindow):
 	prune_modules = Bool(True)
 	show_floating_text = Bool(True)
 	intramodule_only = Bool(True)
-	render_style=Enum('glass','contours','wireframe','speckled')
+	render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
 	interhemi_conns_on = Bool(True)
+	project_scalars = Bool(False)
 	lh_conns_on = Bool(True)
 	rh_conns_on = Bool(True)
 	lh_nodes_on = Bool(True)
@@ -57,17 +58,20 @@ class OptionsWindow(InteractiveSubwindow):
 		VSplit(
 			HSplit(
 				Item(name='circ_size'),
-				Item(name='surface_visibility',label='surface opacity'),
-			),
-			HSplit(
-				Item(name='render_style',label='surface style'),
-			),
-			HSplit(
-				Item(name='prune_modules',label='prune singleton modules'),
 				Item(name='show_floating_text',label='floating 3D text on'),
 			),
 			HSplit(
+				Item(name='render_style',label='surface style'),
+				Item(name='surface_visibility',label='surface opacity'),
+			),
+			HSplit(
+				Item(name='prune_modules',label='prune singleton modules'),
+			),
+			HSplit(
 				Item(name='intramodule_only',label='show intramodule connections only (when viewing modules)')
+			),
+			HSplit(
+				Item(name='project_scalars',label='scalars project to surface'),
 			),
 			HSplit(
 				Item(name='interhemi_conns_on',
