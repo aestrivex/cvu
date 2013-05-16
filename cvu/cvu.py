@@ -1201,6 +1201,7 @@ class Cvu(CvuPlaceholder):
 	def do_mkmovie_x11grab(self):
 		mmw=self.make_movie_window
 		xs,ys=self.scene.scene_editor.control.GetScreenPositionTuple()
+		ys+=32 #size of mayavi toolbar.  constant.  can't be removed.
 		xe,ye=tuple(self.scene.scene_editor.get_size())
 		cmd = ('ffmpeg -loglevel error -y -f x11grab -s %ix%i -r %i -b %i '
 			'-i :0.0+%i,%i %s'
