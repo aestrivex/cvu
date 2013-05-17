@@ -89,7 +89,7 @@ class Cvu(CvuPlaceholder):
 
 	#buttons
 	select_node_button = Button('Choose node')
-	all_node_button = Button('Show all')
+	display_all_button = Button('Reset Display')
 	calc_mod_button = Button('Calc modules')
 	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
@@ -154,7 +154,7 @@ class Cvu(CvuPlaceholder):
 					editor=ComponentEditor(),
 					show_label=False,height=450,width=450,resizable=True),
 				Group(	Item(name='select_node_button'),
-						Item(name='all_node_button'),
+						Item(name='display_all_button'),
 						Item(name='color_legend_button'),
 						Item(name='center_adjmat_button'),
 						Spring(),
@@ -352,7 +352,8 @@ class Cvu(CvuPlaceholder):
 			for child in reversed(self.fig.children):
 				#reversed, to iterate over a list we remove elements from
 				if (child.name=='syrfl' or child.name=='syrfr' or
-						child.name=='syrfl_nodal' or child.name=='syrfr_nodal'):
+						child.name=='syrfl_cracked' or 
+						child.name=='syrfr_cracked'):
 					self.fig.children.remove(child)
 		except ValueError:
 			if not quiet:
@@ -372,6 +373,8 @@ class Cvu(CvuPlaceholder):
 		#(.4,.75,0) #DARKISH GREEN
 		#(.82,1,.82) #LIGHTER GREEN
 		#(.82,.82,.82) #GRAY
+
+		self.surfs_cracked=False
 
 	def nodes_clear(self):
 		try:
@@ -407,7 +410,7 @@ class Cvu(CvuPlaceholder):
 	
 		self.reset_node_color_mayavi()
 
-	def nodal_surfs_gen(self):
+	def cracked_surfs_gen(self):
 		tri_inds_l=[]
 		tri_inds_r=[]
 		for l in self.labv:
@@ -426,11 +429,13 @@ class Cvu(CvuPlaceholder):
 		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1][tri_inds_l],
 			opacity=self.opts.surface_visibility,colormap='BuGn',
-			color=self.default_glass_brain_color,name='syrfl_nodal',)
+			color=self.default_glass_brain_color,name='syrfl_cracked',)
 		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3][tri_inds_r],
 			opacity=self.opts.surface_visibility,colormap='BuGn',
-			color=self.default_glass_brain_color,name='syrfr_nodal')
+			color=self.default_glass_brain_color,name='syrfr_cracked')
+
+		self.surfs_cracked=True
 
 	def proj_scalars_to_surf(self):
 		if self.node_scalars is None:
@@ -529,7 +534,7 @@ class Cvu(CvuPlaceholder):
 			labnam,ign = util.read_parcellation_textfile(pcw.labelnames_f)
 			labv = util.loadannot(pcw.parcellation_name,pcw.SUBJECT,
 				pcw.SUBJECTS_DIR)
-			self.lab_pos = util.calcparc(labv,labnam,quiet=quiet,
+			self.lab_pos,self.labv = util.calcparc(labv,labnam,quiet=quiet,
 				parcname=pcw.parcellation_name)
 			self.cur_display_brain=pcw.SUBJECT
 			self.cur_display_parc=pcw.parcellation_name
@@ -598,6 +603,10 @@ class Cvu(CvuPlaceholder):
 		self.color_legend_gen()	
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
+		#TODO chaco plot has to be generated after circ_fig_gen because the 
+		#colors depend on output from circle fig.  this is not the ideal way of
+		#generating these colors, better to generate them here and send them
+		self.reset_node_color_chaco()
 		self.redraw_circ()
 		self.reset_node_color_circ()
 
@@ -637,7 +646,7 @@ class Cvu(CvuPlaceholder):
 		self.error_dialog_window.error=message
 		self.error_dialog_window.edit_traits()
 
-	@on_trait_change('all_node_button')
+	@on_trait_change('display_all_button')
 	def display_all(self):
 		self.curr_node=None
 		self.cur_module=None
@@ -991,18 +1000,32 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
-		for syrf in [self.syrf_lh,self.syrf_rh]:
-			if self.opts.render_style=='contours':
-				syrf.enable_contours=True
-				syrf.contour.number_of_contours=250	
+		if self.surfs_cracked:
+			if self.opts.render_style=='cracked glass':
+				return
 			else:
-				syrf.enable_contours=False
-			if self.opts.render_style=='glass':
-				syrf.actor.property.representation='surface'
-			elif self.opts.render_style=='wireframe':
-				syrf.actor.property.representation='wireframe'
-			elif self.opts.render_style=='speckled':
-				syrf.actor.property.representation='points'
+				self.surfs_clear()
+				self.surfs_gen()
+				#display logic: surf colors
+		else:
+			if self.opts.render_style=='cracked_glass':
+				self.surfs_clear()
+				self.cracked_surfs_gen()
+				#display logic: surf colors
+			else:
+				for syrf in [self.syrf_lh,self.syrf_rh]:
+					if self.opts.render_style=='contours':
+						syrf.actor.property.representation='surface'
+						syrf.enable_contours=True
+						syrf.contour.number_of_contours=250	
+					else:
+						syrf.enable_contours=False
+					if self.opts.render_style=='glass':
+						syrf.actor.property.representation='surface'
+					elif self.opts.render_style=='wireframe':
+						syrf.actor.property.representation='wireframe'
+					elif self.opts.render_style=='speckled':
+						syrf.actor.property.representation='points'
 
 	## LOAD DATA HELPER FUNCTIONS ##
 	def _load_adjmat_button_fired(self):

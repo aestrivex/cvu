@@ -141,6 +141,11 @@ The figure handle.
 	# node_ids maps from strings to group id
 	grp_ids = dict(zip(n_grp_uniqs,xrange(n_groups)))	
 
+
+	#TODO put this "such a hack" in the main file.  pass in the preformatted
+	#strings and color tables rather than passing them back.
+	#this is low priority for a low-work rainy day
+
 	#special=['#b016d8','#26ed1a','#0e89ee','#eaf60b','#ed7fe5','#6372f2',
  	#	'#05d5d5','#e726f4','#bbb27e','#641197','#068c40']
 	special=['#26ed1a','#eaf60b','#e726f4','#002aff',
