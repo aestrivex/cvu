@@ -35,17 +35,18 @@ from collections import OrderedDict
 
 #credit largely goes to martin luessi who adapted this function to mne from
 #whoever wrote it originally which is listed in the docstring
-def plot_connectivity_circle2(con, node_names, indices=None, n_lines=10000,
-	node_angles=None, node_width=None,node_colors=None, facecolor='black',
-	textcolor='white', node_edgecolor='black',linewidth=1.5, colormap='YlOrRd',
-	vmin=None,vmax=None, colorbar=False, title=None,fig=None,rois=[]):
+def plot_connectivity_circle2(con, nodes_numberless, indices=None, 
+	n_lines=10000, node_colors=None, colormap='YlOrRd', fig=None, reqrois=[],
+
+	node_angles=None, node_width=None, facecolor='black',
+	textcolor='white', node_edgecolor='black',linewidth=1.5,
+	vmin=None,vmax=None, colorbar=False, title=None):
 	"""Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
 http://www.loria.fr/~rougier/coding/recipes.html
 
-The code was adapted from MNE python, credit to Martin Luessi for writing it in
-MNE python and all the other MNE python devs
+Note note: This code was adapted from MNE python
 
 Parameters
 ----------
@@ -53,7 +54,7 @@ con : array
 Connectivity scores. Can be a square matrix, or a 1D array. If a 1D
 array is provided, "indices" has to be used to define the connection
 indices.
-node_names : list of str
+nodes_numberless : list of str
 Node names. The order corresponds to the order in con.
 indices : tuple of arrays | None
 Two arrays with indices of connections for which the connections
@@ -61,11 +62,11 @@ strenghts are defined in con. Only needed if con is a 1D array.
 n_lines : int | None
 If not None, only the n_lines strongest connections (strenght=abs(con))
 are drawn.
-node_angles : array, shape=(len(node_names,)) | None
+node_angles : array, shape=(len(nodes_numberless,)) | None
 Array with node positions in degrees. If None, the nodes are equally
 spaced on the circle. See mne.viz.circular_layout.
 node_width : float | None
-Width of each node in degrees. If None, "360. / len(node_names)" is
+Width of each node in degrees. If None, "360. / len(nodes_numberless)" is
 used.
 node_colors : list of tuples | list of str
 List with the color to use for each node. If fewer colors than nodes
@@ -95,24 +96,17 @@ Returns
 fig : instance of pyplot.Figure
 The figure handle.
 """
-	#TODO	in principle, color code via a list of allowed regions
-	# rather than by _div.  Important for compatibility with nonfreesurfer
-	# parcellations in principle.  Punt on it for now.
+	n_nodes = len(nodes_numberless)
 
-	#TODO for compatibility with nonfreesurfer labels, don't assume that label
-	#names begin with L or R
-
-	n_nodes = len(node_names)
-
-	#start_hemi = node_names[0][:3]
-	#end_hemi = node_names[-1][:3]	
-	#n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,node_names))
-	#n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,node_names))
+	#start_hemi = nodes_numberless[0][:3]
+	#end_hemi = nodes_numberless[-1][:3]	
+	#n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,nodes_numberless))
+	#n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,nodes_numberless))
 
 	if node_angles is not None:
 		if len(node_angles) != n_nodes:
 			raise ValueError('node_angles has to be the same length '
-							 'as node_names')
+							 'as nodes_numberless')
 		# convert it to radians
 		node_angles = node_angles * np.pi / 180
 	else:
@@ -124,47 +118,11 @@ The figure handle.
 	else:
 		node_width = node_width * np.pi / 180
 
-	#assign a group to each node, in order already
-	#TODO node_groups should be passed in as a dictionary
-
-	nodes_numberless=map(lambda n:n.replace('div','').strip('1234567890_'),
-		node_names)
-	node_groups=map(lambda n:n[3:],nodes_numberless)
-	n_groups=len(set(node_groups))
-
-	# remove all duplicates and return in same order
-	# set() is inherently unordered in py, it returns in order of hash values
-	n_set=set()
-	n_grp_uniqs=[i for i in node_groups if i not in n_set and not n_set.add(i)]
-
-	# currently node_groups is a list of strings, we need unique ID #s
-	# node_ids maps from strings to group id
-	grp_ids = dict(zip(n_grp_uniqs,xrange(n_groups)))	
-
-
-	#TODO put this "such a hack" in the main file.  pass in the preformatted
-	#strings and color tables rather than passing them back.
-	#this is low priority for a low-work rainy day
-
-	#special=['#b016d8','#26ed1a','#0e89ee','#eaf60b','#ed7fe5','#6372f2',
- 	#	'#05d5d5','#e726f4','#bbb27e','#641197','#068c40']
-	special=['#26ed1a','#eaf60b','#e726f4','#002aff',
-        '#05d5d5','#f4a5e0','#bbb27e','#641179','#068c40']
-
-	hi_contrast=m_col.LinearSegmentedColormap.from_list('hi_contrast',special)
-
-	# assign colors using colormap
-	# group assignments and color assignments both refer to index in range
-	#grp_colors = [pl.cm.Set3(i / float(n_groups)) for i in xrange(n_groups)]
-	grp_colors = [hi_contrast(i/float(n_groups)) for i in xrange(n_groups)]
-
-	node_colors=map(lambda n:grp_colors[grp_ids[n]],node_groups)
-	#return node and grp colors to cvu
-
 	# handle 1D and 2D connectivity information
 	if con.ndim == 1:
 		if indices is None:
 			raise ValueError('indices has to be provided if con.ndim == 1')
+				#we use 1D indices
 	elif con.ndim == 2:
 		if con.shape[0] != n_nodes or con.shape[1] != n_nodes:
 			raise ValueError('con has to be 1D or a square matrix')
@@ -211,11 +169,11 @@ The figure handle.
 	con_abs = con_abs[con_draw_idx]
 	indices = [ind[con_draw_idx] for ind in indices]
 
-	# now sort them
-	sort_idx = np.argsort(con_abs)
-	con_abs = con_abs[sort_idx]
-	con = con[sort_idx]
-	indices = [ind[sort_idx] for ind in indices]
+	# input is already sorted
+	#sort_idx = np.argsort(con_abs)
+	#con_abs = con_abs[sort_idx]
+	#con = con[sort_idx]
+	#indices = [ind[sort_idx] for ind in indices]
 
 	# Get vmin vmax for color scaling
 	if vmin is None:
@@ -304,7 +262,7 @@ The figure handle.
 	# get angles for text placement
 	text_angles = avgidx(nodes_numberless,n_nodes,frac=1)
 
-	segments = get_tooclose_segments(text_angles,too_close,rois)
+	segments = get_tooclose_segments(text_angles,too_close,reqrois)
 	
 	for segment in segments:
 		prune_segment(text_angles,segment,too_close)
@@ -351,7 +309,7 @@ The figure handle.
 		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
 		pl.setp(cb_yticks, color=textcolor)
 	
-	return fig,indices,con,node_colors,n_grp_uniqs,grp_colors
+	return fig
 
 def avgidx(lbs,n,frac=.5):
 	"""Takes:

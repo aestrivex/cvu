@@ -36,6 +36,7 @@ from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
 from matplotlib.figure import Figure; from pylab import get_cmap
+from matplotlib.colors import LinearSegmentedColormap
 import circle_plot as circ; import mpleditor; import dialogs;
 import color_legend; import color_axis
 if __name__=="__main__":
@@ -84,6 +85,7 @@ class Cvu(CvuPlaceholder):
 	nthresh = Float
 	thresh_type = Enum('prop','num')
 	reset_thresh = Method
+	display_mode = Enum('normal','scalar','module_single')
 
 #	node_scalars=Instance(np.ndarray)
 
@@ -128,9 +130,14 @@ class Cvu(CvuPlaceholder):
 	cur_display_parc = Str
 	cur_display_mat = Str
 
-	python_shell = Dict
 	default_glass_brain_color=Trait((.82,.82,.82),
 		TraitTuple(Range(0.,1.),Range(0.,1.),Range(0.,1.)))
+	cmap_default = Str('cool')
+	cmap_scalar = Str('BuGn')
+	cmap_activation = Str('YlOrRd')
+
+	python_shell = Dict
+	
 
 	## HAVE TRAITSUI ORGANIZE THE GUI ##
 	traits_view = View(
@@ -255,13 +262,16 @@ class Cvu(CvuPlaceholder):
 			self.labnam)
 		self.adj_helper_gen()
 
+		self.node_colors_gen()
+
+		self.curr_node=None
 		self.modules=None
 		self.cur_module=None
 
 		## SET UP COLORS AND COLORMAPS ##
-		self.yellow_map=get_cmap('YlOrRd')
-		self.cool_map=get_cmap('cool')
-		self.bluegreen_map=get_cmap('BuGn')
+		self.yellow_map=get_cmap(self.cmap_activation)
+		self.cool_map=get_cmap(self.cmap_default)
+		self.bluegreen_map=get_cmap(self.cmap_scalar)
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -308,11 +318,11 @@ class Cvu(CvuPlaceholder):
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
-		self.adjdat = np.zeros((self.nr_edges,1),dtype=float)
-		self.interhemi = np.zeros((self.nr_edges,1),dtype=bool)
-		self.left = np.zeros((self.nr_edges,1),dtype=bool)
-		self.right = np.zeros((self.nr_edges,1),dtype=bool)
-		self.masked = np.zeros((self.nr_edges,1),dtype=bool)
+		self.adjdat = np.zeros((self.nr_edges),dtype=float)
+		self.interhemi = np.zeros((self.nr_edges),dtype=bool)
+		self.left = np.zeros((self.nr_edges),dtype=bool)
+		self.right = np.zeros((self.nr_edges),dtype=bool)
+		self.masked = np.zeros((self.nr_edges),dtype=bool)
 		i=0
 		for r2 in xrange(0,self.nr_labels,1):
 			self.adj_nulldiag[r2][r2]=0
@@ -345,6 +355,15 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print str(self.nr_edges)+" total connections"
 
+		#sort the adjdat
+		sort_idx=np.argsort(self.adjdat,axis=0)
+		self.adjdat=self.adjdat[sort_idx].squeeze()
+		self.edges=self.edges[sort_idx].squeeze()
+
+		self.left=self.interhemi[sort_idx].squeeze()
+		self.right=self.interhemi[sort_idx].squeeze()
+		self.interhemi=self.interhemi[sort_idx].squeeze()
+
 	def surfs_clear(self):
 		try:
 			self.syrf_lh.remove()
@@ -363,10 +382,12 @@ class Cvu(CvuPlaceholder):
 	def surfs_gen(self):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
-			color=self.default_glass_brain_color,name='syrfl',colormap='BuGn')
+			color=self.default_glass_brain_color,name='syrfl',
+			colormap=self.cmap_scalar)
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
-			color=self.default_glass_brain_color,name='syrfr',colormap='BuGn')
+			color=self.default_glass_brain_color,name='syrfr',
+			colormap=self.cmap_scalar)
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
 		#some colors
@@ -394,13 +415,15 @@ class Cvu(CvuPlaceholder):
 		self.nodesource_lh = mlab.pipeline.scalar_scatter(self.lab_pos[lhn,0],
 			self.lab_pos[lhn,1],self.lab_pos[lhn,2],name='nodepos_lh')
 		self.nodes_lh=mlab.pipeline.glyph(self.nodesource_lh,scale_mode='none',
-			scale_factor=3.0,name='nodes_lh',mode='sphere',colormap='cool')
+			scale_factor=3.0,name='nodes_lh',mode='sphere',
+			colormap=self.cmap_default)
 		self.nodes_lh.glyph.color_mode='color_by_scalar'
 
 		self.nodesource_rh=mlab.pipeline.scalar_scatter(self.lab_pos[rhn,0],
 			self.lab_pos[rhn,1],self.lab_pos[rhn,2],name='nodepos_rh')
 		self.nodes_rh=mlab.pipeline.glyph(self.nodesource_rh,scale_mode='none',
-			scale_factor=3.0,name='nodes_rh',mode='sphere',colormap='cool')
+			scale_factor=3.0,name='nodes_rh',mode='sphere',
+			colormap=self.cmap_default)
 		self.nodes_rh.glyph.color_mode='color_by_scalar'
 
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
@@ -408,7 +431,7 @@ class Cvu(CvuPlaceholder):
 		self.txt.actor.actor.pickable=0
 		self.nodes_on_surf_lh,self.nodes_on_surf_rh=[],[]
 	
-		self.reset_node_color_mayavi()
+		self.set_node_color_mayavi()
 
 	def cracked_surfs_gen(self):
 		tri_inds_l=[]
@@ -428,29 +451,14 @@ class Cvu(CvuPlaceholder):
 
 		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1][tri_inds_l],
-			opacity=self.opts.surface_visibility,colormap='BuGn',
+			opacity=self.opts.surface_visibility,colormap=self.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfl_cracked',)
 		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3][tri_inds_r],
-			opacity=self.opts.surface_visibility,colormap='BuGn',
+			opacity=self.opts.surface_visibility,colormap=self.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
-
-	def proj_scalars_to_surf(self):
-		if self.node_scalars is None:
-			return
-
-		colors_lh=np.zeros((len(self.srf[0])))
-		colors_rh=np.zeros((len(self.srf[0])))
-		for i,l in enumerate(self.labv):
-			if l.hemi=='lh':
-				colors_lh[l.vertices]=self.node_scalars[i]
-			elif l.hemi=='rh':
-				colors_rh[l.vertices]=self.node_scalars[i]
-
-		self.syrf_lh.mlab_source.scalars=colors_lh
-		self.syrf_rh.mlab_source.scalars=colors_rh
 
 	def vectors_clear(self):
 		try:
@@ -470,7 +478,8 @@ class Cvu(CvuPlaceholder):
 			low=self.thresval)
 		self.thres.auto_reset_lower=False
 		self.thres.auto_reset_upper=False
-		self.myvectors = mlab.pipeline.vectors(self.thres,colormap='YlOrRd',
+		self.myvectors = mlab.pipeline.vectors(self.thres,
+			colormap=self.cmap_activation,
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
 		self.myvectors.glyph.glyph.clamping=False
@@ -508,17 +517,48 @@ class Cvu(CvuPlaceholder):
 	# The figure parameter allows figure reuse. At startup, it should be None,
 	# but if the user changes the data the existing figure should be preserved
 	def circ_fig_gen(self,figure=None):
-		fig_holdr,self.sorted_edges,self.sorted_adjdat,\
-			self.node_colors,self.group_labels,self.group_colors=\
+		self.circ_fig=(
 			circ.plot_connectivity_circle2(
-			np.reshape(self.adjdat,(self.nr_edges,)),self.labnam,
-			indices=self.edges.T,colormap="YlOrRd",fig=figure,
+			np.reshape(self.adjdat,(self.nr_edges,)),
+			self.nodes_numberless,
+			indices=self.edges.T,
+			colormap=self.cmap_activation,
+			fig=figure,
 			n_lines=self.soft_max_edges,
-			rois=self.adjmat_chooser_window.require_window.require_ls)
-		if figure==None or True:
-			self.circ_fig=fig_holdr
+			node_colors=self.node_colors,
+			reqrois=self.adjmat_chooser_window.require_window.require_ls))
 		self.circ_data = self.circ_fig.get_axes()[0].patches
-		self.reset_node_color_circ()
+		self.set_node_color_circ()
+
+	def node_colors_gen(self):
+		#node groups may change upon loading a new parcellation.
+		#they often won't, but we have to call it at every new parcload
+		hi_contrast_clist=['#26ed1a','#eaf60b','#e726f4','#002aff',
+			'#05d5d5','#f4a5e0','#bbb27e','#641179','#068c40']
+		hi_contrast_cmap=LinearSegmentedColormap.from_list('hi_contrast',
+			hi_contrast_clist)
+
+		#TODO don't assume that the labels have to be fs starting with 'lh_'
+		self.nodes_numberless=map(
+			lambda n:n.replace('div','').strip('1234567890_'),self.labnam)
+		node_groups=map(lambda n:n[3:],self.nodes_numberless)
+
+		#put group names in ordered set
+		n_set=set()
+		self.group_labels=[i for i in node_groups if i not in n_set 
+			and not n_set.add(i)]
+		self.nr_groups=len(self.group_labels)
+
+		#get map from {node name -> node group}
+		grp_ids=dict(zip(self.group_labels,xrange(self.nr_groups)))
+
+		#group colors does not change ever
+		self.group_colors=[hi_contrast_cmap(i/float(self.nr_groups))
+			for i in xrange(self.nr_groups)]
+
+		#node colors changes constantly, copy and stash the result
+		self.node_colors=map(lambda n:self.group_colors[grp_ids[n]],node_groups)
+		self.node_colors_default=list(self.node_colors)
 
 	def color_legend_gen(self):
 		def create_entry(zipped):
@@ -526,6 +566,187 @@ class Cvu(CvuPlaceholder):
 			return color_legend.LegendEntry(metaregion=label,col=color)
 		self.color_legend_window.legend=\
 			map(create_entry,zip(self.group_labels,self.group_colors))
+
+	## DISPLAY LOGIC ##
+
+	#def edge_color_on(self):
+	#	self.myvectors.actor.mapper.scalar_visibility=True
+	#def edge_color_off(self):
+	#	self.myvectors.actor.mapper.scalar_visibility=False
+
+	def draw_surfs(self):
+		self.set_surf_color()
+
+	def set_surf_color(self):
+		#applies only to 3D brain
+		if self.display_mode=='scalar' and self.opts.project_scalars:
+			colors_lh=np.zeros((len(self.srf[0])))
+			colors_rh=np.zeros((len(self.srf[0])))
+			for i,l in enumerate(self.labv):
+				if l.hemi=='lh':
+					colors_lh[l.vertices]=self.node_scalars[i]
+				elif l.hemi=='rh':
+					colors_rh[l.vertices]=self.node_scalars[i]
+			self.syrf_lh.mlab_source.scalars=colors_lh
+			self.syrf_rh.mlab_source.scalars=colors_rh
+			self.opts.lh_nodes_on=False
+			self.opts.rh_nodes_on=False
+			for syrf in [self.syrf_lh,self.syrf_rh]:
+				syrf.actor.mapper.scalar_visibility=True
+		else:
+			for syrf in [self.syrf_lh,self.syrf_rh]:
+				syrf.actor.mapper.scalar_visibility=False
+				
+	def draw_nodes(self):
+		self.set_node_color()
+		self.set_node_size()
+
+	def set_node_size(self):
+		#applies only to 3D brain
+		for nodes in [self.nodes_lh,self.nodes_rh]:
+			if self.display_mode=='scalar' and not self.opts.project_scalars:
+				nodes.glyph.scale_mode='scale_by_scalar'
+				nodes.glyph.glyph.scale_factor=8
+			else:
+				nodes.glyph.scale_mode='data_scaling_off'
+				nodes.glyph.glyph.scale_factor=3
+
+	def set_node_color(self):
+		if self.display_mode=='normal':
+			self.node_colors=list(self.node_colors_default)
+		elif self.display_mode=='scalar':
+			#contract: when in scalar mode, there must always be scalars.
+			#anything that resets scalars (e.g. new parc) must set normal mode
+			self.node_colors=list(self.bluegreen_map(self.node_scalars))
+		elif self.display_mode=='module_single':
+			#contract: when in module mode, there must be a current module.
+			pass
+
+		#these routines expect self.node_colors to be set
+		self.set_node_color_mayavi()
+		self.set_node_color_chaco()
+		self.set_node_color_circ()
+
+	def set_node_color_mayavi(self):
+		if self.display_mode=='normal':	
+			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
+				self.cmap_default)
+			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
+				self.cmap_default)
+			self.nodes_lh.mlab_source.dataset.point_data.scalars=np.tile(.3,
+				len(self.lhnodes))
+			self.nodes_rh.mlab_source.dataset.point_data.scalars=np.tile(.3,
+				len(self.rhnodes))
+		elif self.display_mode=='scalar':
+			if self.opts.project_scalars:
+				pass
+			else:
+				self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
+					self.cmap_scalar)
+				self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
+					self.cmap_scalar)
+				self.nodes_lh.mlab_source.dataset.point_data.scalars=(
+					self.node_scalars[self.lhnodes])
+				self.nodes_rh.mlab_source.dataset.point_data.scalars=(
+					self.node_scalars[self.rhnodes])
+		elif self.display_mode=='module_single':
+			pass
+		mlab.draw()
+
+	def set_node_color_circ(self):
+		#the circle only plots the ~max_edges highest edges.  the exact number 
+		#varies with the data, but we can inspect a variable to find it
+		circ_path_offset=len(self.adjdat)
+		for n in xrange(0,self.nr_labels,1):
+			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
+		self.circ_fig.canvas.draw()
+
+	def set_node_color_chaco(self):
+		self.xa.colors = self.node_colors
+		self.ya.colors = self.node_colors
+		self.conn_mat.request_redraw()
+
+	def draw_conns(self):
+		self.set_conns_active()
+
+	def set_conns_active(self):
+		lo=self.thres.lower_threshold
+		hi=self.thres.upper_threshold
+
+		#deal with unsorted edges for 3D brain
+		new_edges = np.zeros([self.nr_edges,2],dtype=int)
+		count_edges = 0
+
+		if self.display_mode=='normal' or self.display_mode=='scalar':
+			for e,(a,b) in enumerate(zip(self.edges[:,0],
+					self.edges[:,1])):
+				if not self.masked[e] and (self.curr_node is None or
+						self.curr_node in [a,b]):
+					new_edges[e]=(a,b)
+
+					#do operations requiring threshold checking
+					if (self.adjdat[e] <= hi and
+							self.adjdat[e] >= lo):
+						self.circ_data[e].set_visible(True)
+						col=self.yellow_map((self.adjdat[e]-lo)/(hi-lo))
+						self.circ_data[e].set_ec(col)
+						count_edges+=1
+					else:
+						self.circ_data[e].set_visible(False)
+				else:
+					new_edges[e]=(0,0)
+					self.circ_data[e].set_visible(False)
+		if self.display_mode=='module_single':
+			pass
+		
+		new_starts=self.lab_pos[new_edges[:,0]]
+		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
+		
+		self.vectorsrc.mlab_source.reset(
+			x=new_starts[:,0],y=new_starts[:,1],z=new_starts[:,2],
+			u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
+	
+		if self.curr_node is not None:
+			self.myvectors.actor.property.opacity=.75
+			self.txt.set(text='  '+self.labnam[self.curr_node])
+		else:
+			self.myvectors.actor.property.opacity=.3
+			self.txt.set(text='')
+
+		if not quiet and self.curr_node is not None:
+			print ("node %i: %s, expecting %i edges" % 
+				(self.curr_node, self.labnam[self.curr_node], count_edges))
+
+		#TODO CHACO
+
+		mlab.draw()
+		self.circ_fig.canvas.draw()
+
+	def redraw_circ(self):
+		raise ValueError("called redraw_circ")
+		vrange=self.thres.upper_threshold-self.thres.lower_threshold
+		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
+				self.sorted_edges[1])):
+			if ((self.sorted_adjdat[e] <= self.thres.upper_threshold) and
+				(self.sorted_adjdat[e] >= self.thres.lower_threshold) and
+				(self.curr_node==None or self.curr_node in [a,b]) and
+		#logic for module display
+				(self.cur_module is None or
+		#check for a custom module first to avoid null pointer
+					(self.cur_module=='custom' and (a in self.
+					custom_module and b in self.custom_module)) or
+		#check for the current module
+					(self.modules is not None and a in self.modules[self.
+					cur_module] and b in self.modules[self.cur_module]))):
+				self.circ_data[e].set_visible(True)
+				if self.myvectors.actor.mapper.scalar_visibility:
+					self.circ_data[e].set_ec(self.yellow_map((self.
+						sorted_adjdat[e]-self.thres.lower_threshold)/vrange))
+				else:
+					self.circ_data[e].set_ec((1,1,1))
+			else:
+				self.circ_data[e].set_visible(False)
+		self.circ_fig.canvas.draw()
 
 	## FUNCTIONS FOR LOADING NEW DATA ##
 	def load_new_parcellation(self):
@@ -555,6 +776,7 @@ class Cvu(CvuPlaceholder):
 		self.circ_clear()
 		self.nodes_gen()
 		self.surfs_gen()
+		self.node_colors_gen()
 	
 	def load_new_surfaces(self):
 		pass
@@ -585,30 +807,25 @@ class Cvu(CvuPlaceholder):
 				'parcellation size is %i' %(len(adj),self.nr_labels))
 			return
 		self.adj_nulldiag = adj
+		print "Adjacency matrix %s loaded successfully" % acw.adjmat
 		#it is necessary to rerun pos_helper_gen() because the number of edges
 		#is not constant from one adjmat to another.  thus the positions of
 		#the edges cannot be assumed to be the same
 		self.pos_helper_gen()
 		self.adj_helper_gen()
-		print "Adjacency matrix %s loaded successfully" % acw.adjmat
-
 		self.curr_node=None
 		self.cur_module=None
 		self.thresh_type='prop'
 		self.txt.set(text='')
 		self.vectors_clear()
 		self.vectors_gen()
-		self.reset_node_color_mayavi()
 		self.chaco_gen()
-		self.color_legend_gen()	
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
-		#TODO chaco plot has to be generated after circ_fig_gen because the 
-		#colors depend on output from circle fig.  this is not the ideal way of
-		#generating these colors, better to generate them here and send them
-		self.reset_node_color_chaco()
-		self.redraw_circ()
-		self.reset_node_color_circ()
+		self.color_legend_gen()	
+		self.set_node_color_mayavi()
+		self.set_node_color_chaco()
+		self.set_node_color_circ()
 
 	def load_standalone_matrix(self):
 		lsmw=self.load_standalone_matrix_window
@@ -648,77 +865,19 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('display_all_button')
 	def display_all(self):
+		self.display_mode='normal' #no?  user needs some other way to reset this
 		self.curr_node=None
-		self.cur_module=None
-		#change mlab source data in main scene
-		new_edges = np.zeros([self.nr_edges,2],dtype=int)
-		count_edges = 0
-		for e,(a,b) in enumerate(zip(self.edges[:,0],self.edges[:,1])):
-			if not self.masked[e]:
-				new_edges[e]=np.array(self.edges)[e]
-			else:
-				new_edges[e]=[0,0]
-		new_starts=self.lab_pos[new_edges[:,0]]
-		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
-		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
-			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
-		self.myvectors.actor.property.opacity=.3
-		self.vectorsrc.outputs[0].update()
-		self.txt.set(text='')
-		self.reset_thresh()
-		self.edge_color_on()
-		self.nodes_lh.glyph.scale_mode='data_scaling_off'
-		self.nodes_lh.glyph.glyph.scale_factor=3
-		self.nodes_rh.glyph.scale_mode='data_scaling_off'
-		self.nodes_rh.glyph.glyph.scale_factor=3
-		
-		#change data in chaco plot
-		self.conn_mat.data.set_data("imagedata",self.adj_thresdiag)
+		self.cur_module=None #no?
 
-		#change data in circle plot
-		self.reset_node_color_mayavi()
-		self.reset_node_color_circ()
-		self.reset_node_color_chaco()
-		self.redraw_circ()
+		self.draw_surfs()
+		self.draw_nodes()
+		self.draw_conns()
 
 	def display_node(self,n):
 		if n<0 or n>=self.nr_labels:
-			#raise Exception("Internal error: node index not recognized")
-			#throwing an exception here causes chacoplot misclicks to throw 
-			#odd-looking errors, best to just return quietly and do nothing
 			return
 		self.curr_node=n
-		#change mlab source data in main scene
-		new_edges = np.zeros([self.nr_edges,2],dtype=int)
-		count_edges = 0
-		for e,(a,b) in enumerate(zip(self.edges[:,0],self.edges[:,1])):
-			if n in [a,b] and not self.masked[e]:
-				if self.adjdat[e] >= self.thres.lower_threshold and \
-						self.adjdat[e] <= self.thres.upper_threshold:
-					count_edges+=1
-			else:
-				new_edges[e]=[0,0]
-		if not quiet:
-			print "node #%s: %s" % (str(n), self.labnam[n])
-			print "expecting "+str(int(count_edges))+" edges"
-		new_starts=self.lab_pos[new_edges[:,0]]
-		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
-		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
-			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
-		self.myvectors.actor.property.opacity=.75
-		self.vectorsrc.outputs[0].update()
-		self.txt.set(text='  '+self.labnam[n]) #position=self.lab_pos[n]
-
-		#change data in chaco plot
-		dat=np.tile(np.min(self.adj_thresdiag),(self.nr_labels,self.nr_labels))
-		dat[n,:]=self.adj_thresdiag[n,:]
-		self.conn_mat.data.set_data("imagedata",dat)
-
-		#change data in circle plot
-		#self.reset_node_color_circ()
-		self.redraw_circ()
-
-		#how much resetting is desirable?  e.g. colors
+		self.draw_conns()
 
 	def display_module(self,modnum,module=None):
 		self.cur_module=modnum
@@ -772,35 +931,9 @@ class Cvu(CvuPlaceholder):
 		if self.node_scalars is None:
 			self.error_dialog('Load some scalars first')
 			return
-		if self.opts.project_scalars:
-			#project the scalars onto the surface
-			self.proj_scalars_to_surf()
-			self.opts.lh_nodes_on=False
-			self.opts.rh_nodes_on=False
-			self.syrf_lh.actor.mapper.scalar_visibility=True
-			self.syrf_rh.actor.mapper.scalar_visibility=True
-		else:
-			#show the scalars as enlarged colored abstract nodes	
-			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='BuGn'
-			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='BuGn'
-			self.nodes_lh.mlab_source.dataset.point_data.scalars=(
-				self.node_scalars[self.lhnodes])
-			self.nodes_rh.mlab_source.dataset.point_data.scalars=(
-				self.node_scalars[self.rhnodes])
-			for nodes in [self.nodes_lh,self.nodes_rh]:
-				nodes.glyph.scale_mode='scale_by_scalar'
-				nodes.glyph.glyph.scale_factor=8
-		mlab.draw()
-		
-		new_color_arr=self.bluegreen_map(self.node_scalars)
-		circ_path_offset=len(self.sorted_adjdat)
-		for n in xrange(0,self.nr_labels,1):
-			self.circ_data[circ_path_offset+n].set_fc(new_color_arr[n,:])
-		self.redraw_circ()
-
-		self.xa.colors=list(new_color_arr)
-		self.ya.colors=list(new_color_arr)
-		self.conn_mat.request_redraw()
+		self.display_mode='scalar'
+		self.draw_surfs()
+		self.draw_nodes()
 
 	#node selection
 	def _select_node_button_fired(self):
@@ -913,7 +1046,6 @@ class Cvu(CvuPlaceholder):
 			*self.nr_edges))-1])
 		dmax=sort_adjdat[self.nr_edges-1]
 		self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
-		self.vectorsrc.outputs[0].update()	
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
@@ -1006,26 +1138,25 @@ class Cvu(CvuPlaceholder):
 			else:
 				self.surfs_clear()
 				self.surfs_gen()
-				#display logic: surf colors
+				self.set_surf_color()
+		if self.opts.render_style=='cracked_glass':
+			self.surfs_clear()
+			self.cracked_surfs_gen()
+			self.set_surf_color()
 		else:
-			if self.opts.render_style=='cracked_glass':
-				self.surfs_clear()
-				self.cracked_surfs_gen()
-				#display logic: surf colors
-			else:
-				for syrf in [self.syrf_lh,self.syrf_rh]:
-					if self.opts.render_style=='contours':
-						syrf.actor.property.representation='surface'
-						syrf.enable_contours=True
-						syrf.contour.number_of_contours=250	
-					else:
-						syrf.enable_contours=False
-					if self.opts.render_style=='glass':
-						syrf.actor.property.representation='surface'
-					elif self.opts.render_style=='wireframe':
-						syrf.actor.property.representation='wireframe'
-					elif self.opts.render_style=='speckled':
-						syrf.actor.property.representation='points'
+			for syrf in [self.syrf_lh,self.syrf_rh]:
+				if self.opts.render_style=='contours':
+					syrf.actor.property.representation='surface'
+					syrf.enable_contours=True
+					syrf.contour.number_of_contours=250	
+				else:
+					syrf.enable_contours=False
+				if self.opts.render_style=='glass':
+					syrf.actor.property.representation='surface'
+				elif self.opts.render_style=='wireframe':
+					syrf.actor.property.representation='wireframe'
+				elif self.opts.render_style=='speckled':
+					syrf.actor.property.representation='points'
 
 	## LOAD DATA HELPER FUNCTIONS ##
 	def _load_adjmat_button_fired(self):
@@ -1274,6 +1405,7 @@ class Cvu(CvuPlaceholder):
 		self.color_legend_window.edit_traits()
 
 	def _draw_stuff_button_fired(self):
+		mlab.draw()
 		self.redraw_circ()
 		self.conn_mat.request_redraw()
 
@@ -1298,58 +1430,6 @@ class Cvu(CvuPlaceholder):
 			ax.mapper.range.high_setting=self.nr_labels
 			ax.mapper.range.low_setting=0
 	
-	## DRAWING FUNCTIONS ##
-	def edge_color_on(self):
-		self.myvectors.actor.mapper.scalar_visibility=True
-
-	def edge_color_off(self):
-		self.myvectors.actor.mapper.scalar_visibility=False
-
-	def reset_node_color_mayavi(self):
-		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='cool'
-		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='cool'
-		self.nodes_lh.mlab_source.dataset.point_data.scalars=np.tile(.3,
-			len(self.lhnodes))
-		self.nodes_rh.mlab_source.dataset.point_data.scalars=np.tile(.3,
-			len(self.rhnodes))
-		mlab.draw()
-
-	def reset_node_color_circ(self):
-		#the circle only plots the ~max_edges highest edges.  the exact number 
-		#varies with the data, but we can inspect a variable to find it
-		circ_path_offset=len(self.sorted_adjdat)
-		for n in xrange(0,self.nr_labels,1):
-			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
-
-	def reset_node_color_chaco(self):
-		self.xa.colors = self.node_colors
-		self.ya.colors = self.node_colors
-	
-	def redraw_circ(self):
-		vrange=self.thres.upper_threshold-self.thres.lower_threshold
-		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
-				self.sorted_edges[1])):
-			if ((self.sorted_adjdat[e] <= self.thres.upper_threshold) and
-				(self.sorted_adjdat[e] >= self.thres.lower_threshold) and
-				(self.curr_node==None or self.curr_node in [a,b]) and
-		#logic for module display
-				(self.cur_module is None or
-		#check for a custom module first to avoid null pointer
-					(self.cur_module=='custom' and (a in self.
-					custom_module and b in self.custom_module)) or
-		#check for the current module
-					(self.modules is not None and a in self.modules[self.
-					cur_module] and b in self.modules[self.cur_module]))):
-				self.circ_data[e].set_visible(True)
-				if self.myvectors.actor.mapper.scalar_visibility:
-					self.circ_data[e].set_ec(self.yellow_map((self.
-						sorted_adjdat[e]-self.thres.lower_threshold)/vrange))
-				else:
-					self.circ_data[e].set_ec((1,1,1))
-			else:
-				self.circ_data[e].set_visible(False)
-		self.circ_fig.canvas.draw()
-
 def preproc():
 	#load label names from specified text file for ordering
 	labnam,ign=util.read_parcellation_textfile(args['parcorder'])
