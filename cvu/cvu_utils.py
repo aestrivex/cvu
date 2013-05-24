@@ -329,22 +329,22 @@ def sh_cmd_retproc(cmd):
 	return process
 
 def usage():
-	print 'Command line arguments are as follows:\n'+\
-		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'+\
-		'-a greg.mat --adjmat=greg.mat: location of adjacency matrix\n'+\
-		'-d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'+\
-		'-s greg --surf=greg: loads the surface *h.greg\n'+\
-		'-o greg.txt --order=greg.txt: location of text file with label order\n'+\
-		'--surf-type=pial: specifies type of surface.  pial is used by '+\
-		'default\n'+\
-		'-q: specifies quiet flag\n'+\
-		'-v: specifies verbose flag (currently does nothing)\n'+\
-		'--use-greg: uses the "greg" method for graph partitioning.  valid '+\
-		'choices are: --use-spectral, --use-metis\n'+\
-		'--max-edges 46000: discards all but the strongest ~46000 connections\n'+\
-		'-f greg --field greg: uses the "greg" field of a .mat matrix for the '+\
-		'initial adjmat\n'+\
-		'-h --help: display this help'
+	print ('Command line arguments are as follows:\n'
+		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'
+		'-a greg.mat --adjmat=greg.mat: location of adjacency matrix\n'
+		'-d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'
+		'-s greg --surf=greg: loads the surface *h.greg\n'
+		'-o greg.txt --order=greg.txt: location of text file with label order\n'
+		'--surf-type=pial: specifies type of surface.  pial is used by '
+		'default\n'
+		'-q: specifies quiet flag\n'
+		'-v: specifies verbose flag (currently does nothing)\n'
+		'--use-greg: uses the "greg" method for graph partitioning.  this is '
+		'pointless currently; the only choice is use-spectral'
+		'--max-edges 46000: discards all but the strongest ~46000 connections\n'
+		'-f greg --field greg: uses the "greg" field of a .mat matrix for the '
+		'initial adjmat\n'
+		'-h --help: display this help')
 	exit(78)
 
 def cli_args(argv,):
@@ -355,7 +355,7 @@ def cli_args(argv,):
 	try:
 		opts,args=getopt.getopt(argv,'p:a:s:o:qd:hvf:',
 			["parc=","adjmat=","adj=","modality=","data=","datadir="\
-			"surf=","order=","surf-type=","parcdir=","use-metis",
+			"surf=","order=","surf-type=","parcdir=",
 			"use-spectral","help","field=","subjects-dir=","subject=",
 			"max-edges=","adj-order="])
 	except getopt.GetoptError as e:
@@ -382,8 +382,6 @@ def cli_args(argv,):
 			pass
 		elif opt in ["--modality"]:
 			modality=arg.lower()
-		elif opt in ["--use-metis"]:
-			partitiontype="metis"
 		elif opt in ["--use-spectral"]:
 			partitiontype="spectral"
 		elif opt in ["-h","--help"]:

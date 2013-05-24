@@ -930,11 +930,8 @@ class Cvu(CvuPlaceholder):
 
 	#module selection
 	def _calc_mod_button_fired(self):
-		#TODO remove metis
 		import modularity
-		if self.partitiontype=="metis":
-			self.modules=modularity.use_metis(self.adj_nulldiag)
-		elif self.partitiontype=="spectral":
+		if self.partitiontype=="spectral":
 			self.modules=modularity.spectral_partition(self.adj_nulldiag,
 				delete_extras=self.opts.prune_modules)
 		else:

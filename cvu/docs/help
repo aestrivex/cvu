@@ -36,12 +36,15 @@ development, run with --help to see the full list.  As of 13:22, 5 February 2013
  -a greg.mat --adjmat=greg.mat: location of adjacency matrix
  -d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR
  -s greg --surf=greg: loads the surface *h.greg
- -o greg.txt --order=greg.txt: location of text file with label order for parcellation and optionally adjmat
+ -o greg.txt --order=greg.txt: location of text file with label order for 
+parcellation and optionally adjmat
  --adj-order greg.txt: location of text file with label order for adjmat
- --surf-type=pial: specifies type of surface.  pial is used by default.  white and inflated are also good choices.
+ --surf-type=pial: specifies type of surface.  pial is used by default.  white 
+	is also a possible choice.
  -q: specifies quiet flag
  -v: specifies verbose flag (currently does nothing)
- --use-greg: uses the "greg" method for graph partitioning.  valid choices are: --use-spectral, --use-metis
+ --use-greg: uses the "greg" method for graph partitioning.  sort of pointless, 
+	the only valid choice is --use-spectral
  --max-edges 46000: discards all but the strongest ~46000 connections
  -h --help: display this help
 
