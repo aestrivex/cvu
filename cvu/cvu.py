@@ -26,7 +26,7 @@ if not quiet:
 import numpy as np; import os
 from mayavi import mlab; from mayavi.tools.animator import Animator
 from traits.api import (HasTraits,Enum,Instance,Range,Float,Method,Str,Dict,
-	on_trait_change,Button,Trait,TraitTuple)
+	on_trait_change,Button,Trait,TraitTuple,TraitError)
 from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
 	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
@@ -81,9 +81,6 @@ class Cvu(CvuPlaceholder):
 	circ_fig = Instance(Figure,())
 
 	#stateful traits -- these should be in options
-	pthresh = Range(0.0,1.0,.95)
-	nthresh = Float
-	thresh_type = Enum('prop','num')
 	reset_thresh = Method
 	display_mode = Enum('normal','scalar','module_single')
 
@@ -195,12 +192,6 @@ class Cvu(CvuPlaceholder):
 						show_labels=False,
 					),
 					HSplit(
-					Item(name='pthresh'),
-						Item(name='nthresh',editor=DefaultOverride(
-							auto_set=False,enter_set=True)),
-						Item(name='thresh_type')
-					),
-					HSplit(
 						Item(name='python_shell',editor=ShellEditor(),
 						show_label=False),
 					),
@@ -296,10 +287,10 @@ class Cvu(CvuPlaceholder):
 
 	## VISUALIZATION GENERATOR FUNCTIONS ##
 	def init_thres_gen(self):
-		self.thresval = float(sorted(self.adjdat)\
-			[int(round(self.pthresh*self.nr_edges))-1])
+		self.thresval = float(
+			self.adjdat[int(round(self.opts.pthresh*self.nr_edges))-1])
 		if not quiet:
-			print "Initial threshold: "+str(self.pthresh)
+			print "Initial threshold: "+str(self.opts.pthresh)
 
 	def pos_helper_gen(self):
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
@@ -314,6 +305,7 @@ class Cvu(CvuPlaceholder):
 				self.edges[i,0],self.edges[i,1] = r1,r2
 				i+=1
 		self.node_scalars = None
+		self.display_mode='normal'
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
@@ -360,9 +352,15 @@ class Cvu(CvuPlaceholder):
 		self.adjdat=self.adjdat[sort_idx].squeeze()
 		self.edges=self.edges[sort_idx].squeeze()
 
-		self.left=self.interhemi[sort_idx].squeeze()
-		self.right=self.interhemi[sort_idx].squeeze()
+		self.starts=self.starts[sort_idx].squeeze() #purely cosmetic
+		self.vecs=self.vecs[sort_idx].squeeze()     #purely cosmetic
+
+		self.left=self.left[sort_idx].squeeze()
+		self.right=self.right[sort_idx].squeeze()
 		self.interhemi=self.interhemi[sort_idx].squeeze()
+		self.masked=self.masked[sort_idx].squeeze()	#just to prune
+
+		self.display_mode='normal'
 
 	def surfs_clear(self):
 		try:
@@ -524,7 +522,7 @@ class Cvu(CvuPlaceholder):
 			indices=self.edges.T,
 			colormap=self.cmap_activation,
 			fig=figure,
-			n_lines=self.soft_max_edges,
+			n_lines=self.nr_edges, #bounded by soft_max_edges
 			node_colors=self.node_colors,
 			reqrois=self.adjmat_chooser_window.require_window.require_ls))
 		self.circ_data = self.circ_fig.get_axes()[0].patches
@@ -589,7 +587,7 @@ class Cvu(CvuPlaceholder):
 					colors_rh[l.vertices]=self.node_scalars[i]
 			self.syrf_lh.mlab_source.scalars=colors_lh
 			self.syrf_rh.mlab_source.scalars=colors_rh
-			self.opts.lh_nodes_on=False
+			#self.opts.lh_nodes_on=False
 			self.opts.rh_nodes_on=False
 			for syrf in [self.syrf_lh,self.syrf_rh]:
 				syrf.actor.mapper.scalar_visibility=True
@@ -620,7 +618,10 @@ class Cvu(CvuPlaceholder):
 			self.node_colors=list(self.bluegreen_map(self.node_scalars))
 		elif self.display_mode=='module_single':
 			#contract: when in module mode, there must be a current module.
-			pass
+			module=self.get_module()
+			new_colors=np.tile(.3,self.nr_labels)
+			new_colors[module]=.8
+			self.node_colors=list(self.cool_map(new_colors))
 
 		#these routines expect self.node_colors to be set
 		self.set_node_color_mayavi()
@@ -650,7 +651,17 @@ class Cvu(CvuPlaceholder):
 				self.nodes_rh.mlab_source.dataset.point_data.scalars=(
 					self.node_scalars[self.rhnodes])
 		elif self.display_mode=='module_single':
-			pass
+			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
+				self.cmap_default)
+			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
+				self.cmap_default)
+			new_colors=np.tile(	.3,self.nr_labels)
+			new_colors[self.get_module()]=.8
+			self.nodes_lh.mlab_source.dataset.point_data.scalars=(
+				new_colors[self.lhnodes])
+			self.nodes_rh.mlab_source.dataset.point_data.scalars=(
+				new_colors[self.rhnodes])
+			
 		mlab.draw()
 
 	def set_node_color_circ(self):
@@ -670,21 +681,23 @@ class Cvu(CvuPlaceholder):
 		self.set_conns_active()
 
 	def set_conns_active(self):
+		self.reset_thresh()
 		lo=self.thres.lower_threshold
 		hi=self.thres.upper_threshold
 
-		#deal with unsorted edges for 3D brain
-		new_edges = np.zeros([self.nr_edges,2],dtype=int)
-		count_edges = 0
-
-		if self.display_mode=='normal' or self.display_mode=='scalar':
+		def select_connections(conditions):
+			new_edges = np.zeros([self.nr_edges,2],dtype=int)
+			count_edges = 0
 			for e,(a,b) in enumerate(zip(self.edges[:,0],
 					self.edges[:,1])):
-				if not self.masked[e] and (self.curr_node is None or
-						self.curr_node in [a,b]):
+				#if not self.masked[e] and (self.curr_node is None or
+				#		self.curr_node in [a,b]):
+				if conditions(e,a,b):
 					new_edges[e]=(a,b)
 
 					#do operations requiring threshold checking
+					#done here for efficiency.
+					#this is the high usage bit of code to optimize
 					if (self.adjdat[e] <= hi and
 							self.adjdat[e] >= lo):
 						self.circ_data[e].set_visible(True)
@@ -696,8 +709,28 @@ class Cvu(CvuPlaceholder):
 				else:
 					new_edges[e]=(0,0)
 					self.circ_data[e].set_visible(False)
-		if self.display_mode=='module_single':
-			pass
+			return new_edges,count_edges
+
+		basic_conds = lambda e,a,b:(not self.masked[e] and
+			(self.curr_node is None or self.curr_node in [a,b]))
+
+		if self.display_mode=='normal' or self.display_mode=='scalar':
+			conds=basic_conds
+		elif self.display_mode=='module_single':
+			#find the right module
+			module=self.get_module()
+			#attach the right conditions
+			if self.opts.module_view_style=='intramodular':
+				conds = lambda e,a,b:(basic_conds(e,a,b) and
+					(a in module and b in module))
+			elif self.opts.module_view_style=='intermodular':
+				conds = lambda e,a,b:(basic_conds(e,a,b) and
+					((a in module) != (b in module))) #xor
+			elif self.opts.module_view_style=='both':
+				conds = lambda e,a,b:(basic_conds(e,a,b) and
+					(a in module or b in module))
+
+		new_edges,count_edges=select_connections(conds)
 		
 		new_starts=self.lab_pos[new_edges[:,0]]
 		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
@@ -722,31 +755,13 @@ class Cvu(CvuPlaceholder):
 		mlab.draw()
 		self.circ_fig.canvas.draw()
 
-	def redraw_circ(self):
-		raise ValueError("called redraw_circ")
-		vrange=self.thres.upper_threshold-self.thres.lower_threshold
-		for e,(a,b) in enumerate(zip(self.sorted_edges[0],
-				self.sorted_edges[1])):
-			if ((self.sorted_adjdat[e] <= self.thres.upper_threshold) and
-				(self.sorted_adjdat[e] >= self.thres.lower_threshold) and
-				(self.curr_node==None or self.curr_node in [a,b]) and
-		#logic for module display
-				(self.cur_module is None or
-		#check for a custom module first to avoid null pointer
-					(self.cur_module=='custom' and (a in self.
-					custom_module and b in self.custom_module)) or
-		#check for the current module
-					(self.modules is not None and a in self.modules[self.
-					cur_module] and b in self.modules[self.cur_module]))):
-				self.circ_data[e].set_visible(True)
-				if self.myvectors.actor.mapper.scalar_visibility:
-					self.circ_data[e].set_ec(self.yellow_map((self.
-						sorted_adjdat[e]-self.thres.lower_threshold)/vrange))
-				else:
-					self.circ_data[e].set_ec((1,1,1))
-			else:
-				self.circ_data[e].set_visible(False)
-		self.circ_fig.canvas.draw()
+	def get_module(self):
+		if self.cur_module=='custom':
+			return self.custom_module
+		if type(self.cur_module)==int:
+			return self.modules[self.cur_module]
+		else:
+			self.error_dialog('Internal error: Current module not recognized')
 
 	## FUNCTIONS FOR LOADING NEW DATA ##
 	def load_new_parcellation(self):
@@ -815,17 +830,17 @@ class Cvu(CvuPlaceholder):
 		self.adj_helper_gen()
 		self.curr_node=None
 		self.cur_module=None
-		self.thresh_type='prop'
 		self.txt.set(text='')
+		self.init_thres_gen()
 		self.vectors_clear()
 		self.vectors_gen()
 		self.chaco_gen()
 		self.circ_clear()
 		self.circ_fig_gen(figure=self.circ_fig)
 		self.color_legend_gen()	
-		self.set_node_color_mayavi()
-		self.set_node_color_chaco()
-		self.set_node_color_circ()
+		self.draw_surfs() #for surf color
+		self.draw_nodes()
+		self.draw_conns()
 
 	def load_standalone_matrix(self):
 		lsmw=self.load_standalone_matrix_window
@@ -879,52 +894,17 @@ class Cvu(CvuPlaceholder):
 		self.curr_node=n
 		self.draw_conns()
 
-	def display_module(self,modnum,module=None):
-		self.cur_module=modnum
-		if module is None:
-			module=self.modules[self.cur_module]
-		if not quiet:
-			print str(np.size(module))+" nodes in module"
-		new_edges = np.zeros([self.nr_edges,2],dtype=int)
-		for e in xrange(0,self.nr_edges,1):
-			if self.opts.intramodule_only and not self.masked[e] and (
-				(self.edges[e,0] in module) and (self.edges[e,1] in module)):
-					new_edges[e]=self.edges[e]
-			elif not self.opts.intramodule_only and not self.masked[e] and (
-				(self.edges[e,0] in module) or (self.edges[e,1] in module)):
-					new_edges[e]=self.edges[e]
-			else:
-				new_edges[e]=[0,0]
-		new_starts=self.lab_pos[new_edges[:,0]]
-		new_vecs=self.lab_pos[new_edges[:,1]] - new_starts
-		self.vectorsrc.mlab_source.reset(x=new_starts[:,0],y=new_starts[:,1],
-			z=new_starts[:,2],u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
-		self.myvectors.actor.property.opacity=.75
-		self.vectorsrc.outputs[0].update()
-		
-		self.nodesource_lh.children[0].scalar_lut_manager.lut_mode='cool'
-		self.nodesource_rh.children[0].scalar_lut_manager.lut_mode='cool'
-		new_colors = np.tile(.3,self.nr_labels)
-		new_colors[module]=.8
-		self.nodes_lh.mlab_source.dataset.point_data.scalars=new_colors[
-			self.lhnodes]
-		self.nodes_rh.mlab_source.dataset.point_data.scalars=new_colors[
-			self.rhnodes]
-		self.txt.set(text='')
-		mlab.draw()
-		
-		#display on circle plot
-		new_color_arr=self.cool_map(new_colors)
-		circ_path_offset=len(self.sorted_adjdat)
-		for n in xrange(0,self.nr_labels,1):
-			self.circ_data[circ_path_offset+n].set_fc(new_color_arr[n,:])
-			#self.circ_data[circ_path_offset+n].set_ec(new_color_arr[n,:])
-		self.redraw_circ()
+	def display_module(self,module):
+		self.display_mode='module_single'
+		self.curr_node=None
+		self.cur_module=module
 
-		#display on chaco plot
-		self.xa.colors=list(new_color_arr)
-		self.ya.colors=list(new_color_arr)
-		self.conn_mat.request_redraw()
+		self.draw_surfs() #needed to unset surf color in edge case
+		self.draw_nodes()
+		self.draw_conns()
+
+		if not quiet:
+			print "%i nodes in module" % len(self.get_module())
 
 	@on_trait_change('display_scalars_button')
 	def display_scalars(self):
@@ -962,6 +942,7 @@ class Cvu(CvuPlaceholder):
 		self.update_modules_metadata()
 
 	def update_modules_metadata(self):
+		#separated out because this code is called in two separate instances
 		if self.modules is None:
 			self.error_dialog('Modules were not loaded properly')
 			return
@@ -1002,7 +983,7 @@ class Cvu(CvuPlaceholder):
 				self.error_dialog('Something went wrong! Blame the programmer')
 			self.custom_module=mcw.return_module
 			#self.cur_module='custom'
-			self.display_module('custom',module=self.custom_module)
+			self.display_module('custom')
 
 	## CALLBACKS ##
 	#chaco callbacks are in ConnmatPointSelector class out of necessity
@@ -1037,27 +1018,21 @@ class Cvu(CvuPlaceholder):
 		mpledit._possibly_show_tooltip(event,self)
 
 	## MISCELLANEOUS OPTIONS ##
-	@on_trait_change('pthresh')
 	def prop_thresh(self):	
-		if self.thresh_type!='prop':
-			return
-		sort_adjdat=sorted(self.adjdat)
-		self.thresval=float(sort_adjdat[int(round(self.pthresh\
-			*self.nr_edges))-1])
-		dmax=sort_adjdat[self.nr_edges-1]
+		self.thresval=float(
+			self.adjdat[int(round(self.opts.pthresh*self.nr_edges))-1])
+		dmax=self.adjdat[self.nr_edges-1]
 		self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
-		self.redraw_circ()
 
-	@on_trait_change('nthresh')
 	def num_thresh(self):
-		if self.thresh_type!='num':
+		if self.opts.thresh_type!='num':
 			return
 		try:
-			self.thresval=self.nthresh
-			dmax=float(sorted(self.adjdat)[self.nr_edges-1])
+			self.thresval=self.opts.nthresh
+			dmax=float(self.adjdat[self.nr_edges-1])
 			self.thres.set(upper_threshold=dmax,lower_threshold=self.thresval)
 		except TraitError as e:
 			self.error_dialog(str(e))
@@ -1066,15 +1041,28 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
-		self.redraw_circ()
-	
-	@on_trait_change('thresh_type')
+
+	#keep separated the drawing logic from the threshold logic, so that we can
+	#just call draw on changing and always reset the threshold on drawing	
+	@on_trait_change('opts:pthresh')
+	def chg_pthresh_val(self):
+		if self.opts.thresh_type != 'prop':
+			return
+		self.draw_conns()
+
+	@on_trait_change('opts:nthresh')
+	def chg_nthresh_val(self):
+		if self.opts.thresh_type != 'num':
+			return
+		self.draw_conns()
+
+	@on_trait_change('opts:thresh_type')
 	def chg_thresh_type(self):
-		if self.thresh_type=='prop':
+		if self.opts.thresh_type=='prop':
 			self.reset_thresh=self.prop_thresh
-		elif self.thresh_type=='num':
+		elif self.opts.thresh_type=='num':
 			self.reset_thresh=self.num_thresh
-		self.reset_thresh()
+		self.draw_conns() #will call reset_thresh()
 
 	@on_trait_change('opts:surface_visibility')
 	def chg_syrf_vis(self):
@@ -1132,6 +1120,10 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
+		#doesnt make sense to change the visualization if the surfaces are off
+		self.opts.lh_surfs_on=True
+		self.opts.rh_surfs_on=True
+
 		if self.surfs_cracked:
 			if self.opts.render_style=='cracked glass':
 				return
@@ -1406,7 +1398,7 @@ class Cvu(CvuPlaceholder):
 
 	def _draw_stuff_button_fired(self):
 		mlab.draw()
-		self.redraw_circ()
+		self.circ_fig.canvas.draw()
 		self.conn_mat.request_redraw()
 
 	def _up_node_button_fired(self):

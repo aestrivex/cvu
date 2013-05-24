@@ -17,7 +17,7 @@
 
 
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
-	Enum,List,Button,Range,Instance)
+	Enum,List,Button,Range,Instance,Float)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action)
 from traitsui.file_dialog import open_file
@@ -42,9 +42,12 @@ def append_proper_buttons(button):
 class OptionsWindow(InteractiveSubwindow):
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,10,mode='spinner')
+	pthresh = Range(0.0,1.0,.95)
+	nthresh = Float
+	thresh_type = Enum('prop','num')
 	prune_modules = Bool(True)
 	show_floating_text = Bool(True)
-	intramodule_only = Bool(True)
+	module_view_style = Enum('intramodular','intermodular','both')
 	render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
 	interhemi_conns_on = Bool(True)
 	project_scalars = Bool(False)
@@ -61,14 +64,17 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='show_floating_text',label='floating 3D text on'),
 			),
 			HSplit(
+				Item(name='pthresh'),
+				Item(name='nthresh'),
+				Item(name='thresh_type'),
+			),
+			HSplit(
 				Item(name='render_style',label='surface style'),
 				Item(name='surface_visibility',label='surface opacity'),
 			),
 			HSplit(
+				Item(name='module_view_style',label='module connection style'),
 				Item(name='prune_modules',label='prune singleton modules'),
-			),
-			HSplit(
-				Item(name='intramodule_only',label='show intramodule connections only (when viewing modules)')
 			),
 			HSplit(
 				Item(name='project_scalars',label='scalars project to surface'),
