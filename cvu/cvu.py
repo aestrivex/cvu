@@ -457,6 +457,8 @@ class Cvu(CvuPlaceholder):
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
+		self.syrf_lh.actor.actor.pickable=0
+		self.syrf_rh.actor.actor.pickable=0
 
 	def vectors_clear(self):
 		try:
