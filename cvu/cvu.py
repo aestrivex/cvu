@@ -588,7 +588,7 @@ class Cvu(CvuPlaceholder):
 			self.syrf_lh.mlab_source.scalars=colors_lh
 			self.syrf_rh.mlab_source.scalars=colors_rh
 			#self.opts.lh_nodes_on=False
-			self.opts.rh_nodes_on=False
+			#self.opts.rh_nodes_on=False
 			for syrf in [self.syrf_lh,self.syrf_rh]:
 				syrf.actor.mapper.scalar_visibility=True
 		else:
