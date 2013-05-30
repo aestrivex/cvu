@@ -19,7 +19,7 @@
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
-	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action)
+	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup)
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
@@ -50,7 +50,6 @@ class OptionsWindow(InteractiveSubwindow):
 	module_view_style = Enum('intramodular','intermodular','both')
 	render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
 	interhemi_conns_on = Bool(True)
-	project_scalars = Bool(False)
 	lh_conns_on = Bool(True)
 	rh_conns_on = Bool(True)
 	lh_nodes_on = Bool(True)
@@ -75,9 +74,6 @@ class OptionsWindow(InteractiveSubwindow):
 			HSplit(
 				Item(name='module_view_style',label='module connection style'),
 				Item(name='prune_modules',label='prune singleton modules'),
-			),
-			HSplit(
-				Item(name='project_scalars',label='scalars project to surface'),
 			),
 			HSplit(
 				Item(name='interhemi_conns_on',
@@ -182,6 +178,8 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	field_name=Str
 	ignore_deletes=Bool
 	whichkind=Enum('modules','scalars')
+	dataset_nr=Int(1)
+	dataset_name=Str('dataset1')
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=50,width=250),
 		Item(name='mat',label='Filename'),
@@ -191,8 +189,9 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 		#),
 		#Item(name='mat',label='Filename',editor=FileEditor(entries=10),style='simple'),
 		Item(name='mat_order',label='Ordering file'),
-		Item(name='field_name',label='Data field name'),
+		Item(name='field_name',label='Field (.mat files only)'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
+		Item(name='dataset_name',label='Name this dataset'),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Behold the awesome power of zombies')
 
@@ -202,6 +201,59 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 			title='Roentgenium is very useful')
 		if len(res)>0:
 			self.mat=res
+
+	def dataset_plusplus(self):
+		self.dataset_nr+=1
+		self.dataset_name='dataset%i' % self.dataset_nr
+
+class ConfigureScalarsWindow(InteractiveSubwindow):
+	#idea:
+	#node_scalars needs to be DICTIONARY.
+	#add field to dictionary upon load scalars.  can replace.
+	#three ListStr editors, one for each display method, across the field names
+	#the selections can be the same for multiple scalars
+	scalar_sets=List(Str)
+	nod_col=Str
+	nc_str=Str('Node color')
+	srf_col=Str
+	sc_str=Str('Surface color')
+	nod_siz=Str
+	ns_str=Str('Node size')
+	circle=Str
+	circ_str=Str('Circle plot')
+	conmat=Str
+	cmat_str=Str('Connection Matrix')
+	traits_view=View(
+		HGroup(
+			Group(
+				Item('nc_str',style='readonly'),
+				Item('scalar_sets',editor=ListStrEditor(selected='nod_col')),
+				show_labels=False
+			),
+			Group(
+				Item('sc_str',style='readonly'),
+				Item('scalar_sets',editor=ListStrEditor(selected='srf_col')),
+				show_labels=False
+			),
+			Group(
+				Item('ns_str',style='readonly'),
+				Item('scalar_sets',editor=ListStrEditor(selected='nod_siz')),
+				show_labels=False
+			),
+			Group(
+				Item('circ_str',style='readonly'),
+				Item('scalar_sets',editor=ListStrEditor(selected='circle')),
+				show_labels=False
+			),
+			Group(
+				Item('cmat_str',style='readonly'),
+				Item('scalar_sets',editor=ListStrEditor(selected='conmat')),
+				show_labels=False
+			),
+		),
+		height=200,width=800,buttons=OKCancelButtons,handler=SubwindowHandler(),
+		title='Your data is probably just spurious artifacts anyway',
+	)
 	
 class NodeChooserWindow(InteractiveSubwindow):
 	node_list=List(Str)
@@ -217,8 +269,9 @@ class ModuleChooserWindow(InteractiveSubwindow):
 	module_list=List(Str)
 	cur_mod=Int(-1)
 	traits_view=View(
-		Item(name='module_list',editor=
-			ListStrEditor(editable=True,selected_index='cur_mod'),show_label=False),
+		Item(name='module_list',
+			editor=ListStrEditor(editable=True,selected_index='cur_mod'),
+			show_label=False),
 		kind='live',height=350,width=350,buttons=OKCancelButtons,
 		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
@@ -270,7 +323,6 @@ class MakeMovieWindow(InteractiveSubwindow):
 		Item(name='savefile'),
 		Item(name='framerate',label='framerate'),
 		Item(name='bitrate',label='bitrate (kb/s)'),
-		#Item(name='type',label='movie making method'),
 		Item(name='anim_style',label='automatically rotate'),
 		Item(name='samplerate',label='animation speed'),
 	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
@@ -301,3 +353,16 @@ class ErrorDialogWindow(HasTraits):
 	traits_view=View(Item(name='error',style='readonly'),
 		buttons=[OKButton],kind='nonmodal',height=150,width=300,
 		title='Evil mutant zebras did this',)
+
+class AboutWindow(HasTraits):
+	message=Str('cvu version 0.2\n'
+		'cvu is copyright (C) Roan LaPlante 2013\n'
+		'cvu is distributed without warranty unless otherwise prohibited by\n'
+		'law.  cvu is licensed under the GNU GPL v3.  a license is contained\n'
+		'with the distribution of this program.  you may convey this program\n'
+		'to others in accordance with the terms of the GNU GPLv3 or\n'
+		'optionally any subsequent version of the GNU GPL.'
+	)
+	traits_view=View(Item(name='message',style='readonly',show_label=False),
+		buttons=[OKButton],kind='nonmodal',height=300,width=300,
+		title='Greetings, corporeal being',)

@@ -104,6 +104,7 @@ class Cvu(CvuPlaceholder):
 	make_movie_button = Button
 	mk_movie_lbl = Str('Make movie')
 	center_adjmat_button = Button('Center adjmat')
+	about_button = Button('About')
 
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
@@ -113,9 +114,11 @@ class Cvu(CvuPlaceholder):
 	module_chooser_window = Instance(HasTraits)
 	module_customizer_window = Instance(HasTraits)
 	save_snapshot_window = Instance(HasTraits)
+	configure_scalars_window = Instance(HasTraits)
 	make_movie_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
+	about_window = Instance(HasTraits)
 	color_legend_window = Instance(HasTraits)
 	opts = Instance(HasTraits)
 	#Must declare each of the subwindows specifically as a trait so its 
@@ -189,6 +192,7 @@ class Cvu(CvuPlaceholder):
 						Item(name='take_snapshot_button'),
 						Item(name='make_movie_button',
 							editor=ButtonEditor(label_value='mk_movie_lbl')),
+						Item(name='about_button'),
 						show_labels=False,
 					),
 					HSplit(
@@ -232,10 +236,12 @@ class Cvu(CvuPlaceholder):
 		self.node_chooser_window=dialogs.NodeChooserWindow()
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
 		self.module_customizer_window=dialogs.ModuleCustomizerWindow()
+		self.configure_scalars_window=dialogs.ConfigureScalarsWindow()
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow()
 		self.make_movie_window=dialogs.MakeMovieWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 		self.error_dialog_window=dialogs.ErrorDialogWindow()
+		self.about_window=dialogs.AboutWindow()
 		self.color_legend_window=color_legend.ColorLegendWindow()
 
 		self.node_chooser_window.node_list=self.labnam
@@ -304,7 +310,7 @@ class Cvu(CvuPlaceholder):
 				self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
 				self.edges[i,0],self.edges[i,1] = r1,r2
 				i+=1
-		self.node_scalars = None
+		self.node_scalars = {}
 		self.display_mode='normal'
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
@@ -579,14 +585,15 @@ class Cvu(CvuPlaceholder):
 
 	def set_surf_color(self):
 		#applies only to 3D brain
-		if self.display_mode=='scalar' and self.opts.project_scalars:
+		csw=self.configure_scalars_window
+		if self.display_mode=='scalar' and csw.srf_col:
 			colors_lh=np.zeros((len(self.srf[0])))
 			colors_rh=np.zeros((len(self.srf[0])))
 			for i,l in enumerate(self.labv):
 				if l.hemi=='lh':
-					colors_lh[l.vertices]=self.node_scalars[i]
+					colors_lh[l.vertices]=self.node_scalars[csw.srf_col][i]
 				elif l.hemi=='rh':
-					colors_rh[l.vertices]=self.node_scalars[i]
+					colors_rh[l.vertices]=self.node_scalars[csw.srf_col][i]
 			self.syrf_lh.mlab_source.scalars=colors_lh
 			self.syrf_rh.mlab_source.scalars=colors_rh
 			#self.opts.lh_nodes_on=False
@@ -603,10 +610,14 @@ class Cvu(CvuPlaceholder):
 
 	def set_node_size(self):
 		#applies only to 3D brain
+		csw=self.configure_scalars_window
 		for nodes in [self.nodes_lh,self.nodes_rh]:
-			if self.display_mode=='scalar' and not self.opts.project_scalars:
-				nodes.glyph.scale_mode='scale_by_scalar'
+			if self.display_mode=='scalar' and csw.nod_siz:
+				nodes.glyph.scale_mode='scale_by_vector' #vector
 				nodes.glyph.glyph.scale_factor=8
+				sizes=self.node_scalars[csw.nod_siz]
+				sizes=np.tile(sizes,(3,1)).T
+				nodes.mlab_source.dataset.point_data.vectors=sizes
 			else:
 				nodes.glyph.scale_mode='data_scaling_off'
 				nodes.glyph.glyph.scale_factor=3
@@ -616,8 +627,10 @@ class Cvu(CvuPlaceholder):
 			self.node_colors=list(self.node_colors_default)
 		elif self.display_mode=='scalar':
 			#contract: when in scalar mode, there must always be scalars.
-			#anything that resets scalars (e.g. new parc) must set normal mode
-			self.node_colors=list(self.bluegreen_map(self.node_scalars))
+			self.node_colors=list(self.node_colors_default)
+
+			#different plots might handle the scalars differently,
+			#correctly we set colors as the default value and switch out
 		elif self.display_mode=='module_single':
 			#contract: when in module mode, there must be a current module.
 			module=self.get_module()
@@ -641,7 +654,8 @@ class Cvu(CvuPlaceholder):
 			self.nodes_rh.mlab_source.dataset.point_data.scalars=np.tile(.3,
 				len(self.rhnodes))
 		elif self.display_mode=='scalar':
-			if self.opts.project_scalars:
+			csw=self.configure_scalars_window
+			if not csw.nod_col:
 				pass
 			else:
 				self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
@@ -649,9 +663,9 @@ class Cvu(CvuPlaceholder):
 				self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
 					self.cmap_scalar)
 				self.nodes_lh.mlab_source.dataset.point_data.scalars=(
-					self.node_scalars[self.lhnodes])
+					self.node_scalars[csw.nod_col][self.lhnodes])
 				self.nodes_rh.mlab_source.dataset.point_data.scalars=(
-					self.node_scalars[self.rhnodes])
+					self.node_scalars[csw.nod_col][self.rhnodes])
 		elif self.display_mode=='module_single':
 			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
 				self.cmap_default)
@@ -667,16 +681,28 @@ class Cvu(CvuPlaceholder):
 		mlab.draw()
 
 	def set_node_color_circ(self):
+		csw=self.configure_scalars_window
+		if self.display_mode=='scalar' and csw.circle:
+			cols=list(self.bluegreen_map(self.node_scalars[csw.circle]))
+		else:
+			cols=self.node_colors
+
 		#the circle only plots the ~max_edges highest edges.  the exact number 
 		#varies with the data, but we can inspect a variable to find it
 		circ_path_offset=len(self.adjdat)
 		for n in xrange(0,self.nr_labels,1):
-			self.circ_data[circ_path_offset+n].set_fc(self.node_colors[n])
+			self.circ_data[circ_path_offset+n].set_fc(cols[n])
 		self.circ_fig.canvas.draw()
 
 	def set_node_color_chaco(self):
-		self.xa.colors = self.node_colors
-		self.ya.colors = self.node_colors
+		csw=self.configure_scalars_window
+		if self.display_mode=='scalar' and csw.conmat:
+			cols=list(self.bluegreen_map(self.node_scalars[csw.conmat]))
+		else:
+			cols=self.node_colors
+
+		self.xa.colors = cols
+		self.ya.colors = cols
 		self.conn_mat.request_redraw()
 
 	def draw_conns(self):
@@ -846,6 +872,10 @@ class Cvu(CvuPlaceholder):
 
 	def load_standalone_matrix(self):
 		lsmw=self.load_standalone_matrix_window
+		if not lsmw.dataset_name:
+			self.error_dialog("Cannot leave dataset name blank.  cvu uses "
+				"this value to keep track of the data.")
+			return
 		try:
 			ci=util.loadmat(lsmw.mat,field=lsmw.field_name)
 			if lsmw.mat_order:
@@ -872,8 +902,11 @@ class Cvu(CvuPlaceholder):
 		elif lsmw.whichkind=='scalars':
 			#convert data to float to avoid potential integer division
 			ci=np.array(ci,dtype=float)
+			ci=(ci-np.min(ci))/np.max(ci)
 			#normalize scalars to 0-1 range
-			self.node_scalars=(ci-np.min(ci))/np.max(ci)
+			self.node_scalars.update({lsmw.dataset_name:ci})
+
+		lsmw.dataset_plusplus()
 
 	## BASIC VISUALIZATION INTERACTIONS ##
 	def error_dialog(self,message):
@@ -908,11 +941,7 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "%i nodes in module" % len(self.get_module())
 
-	@on_trait_change('display_scalars_button')
 	def display_scalars(self):
-		if self.node_scalars is None:
-			self.error_dialog('Load some scalars first')
-			return
 		self.display_mode='scalar'
 		self.draw_surfs()
 		self.draw_nodes()
@@ -929,6 +958,26 @@ class Cvu(CvuPlaceholder):
 			pass
 		else:
 			self.display_node(ncw.cur_node)
+
+	#scalar selection
+	def _display_scalars_button_fired(self):
+		if not self.node_scalars:
+			self.error_dialog('Load some scalars first')
+			return
+		csw=self.configure_scalars_window
+		csw.finished=False
+		csw.scalar_sets=self.node_scalars.keys()
+		csw.nod_col='';csw.srf_col='';csw.nod_siz='';csw.circle='';csw.conmat=''
+		csw.edit_traits()
+
+	@on_trait_change('configure_scalars_window:notify')
+	def scalar_select_check(self):
+		csw=self.configure_scalars_window
+		if (not csw.finished) or (not any([csw.nod_col,csw.srf_col,csw.nod_siz,
+				csw.circle,csw.conmat])):
+			pass
+		else:
+			self.display_scalars()
 
 	#module selection
 	def _calc_mod_button_fired(self):
@@ -1017,6 +1066,7 @@ class Cvu(CvuPlaceholder):
 		mpledit._possibly_show_tooltip(event,self)
 
 	## MISCELLANEOUS OPTIONS ##
+	#one possible value of self.reset_thresh()
 	def prop_thresh(self):	
 		self.thresval=float(
 			self.adjdat[int(round(self.opts.pthresh*self.nr_edges))-1])
@@ -1026,6 +1076,7 @@ class Cvu(CvuPlaceholder):
 			print "upper threshold "+("%.4f" % self.thres.upper_threshold)
 			print "lower threshold "+("%.4f" % self.thres.lower_threshold)
 
+	#another possible method for self.reset_thresh()
 	def num_thresh(self):
 		if self.opts.thresh_type!='num':
 			return
@@ -1420,7 +1471,10 @@ class Cvu(CvuPlaceholder):
 		for ax in [self.xa,self.ya]:
 			ax.mapper.range.high_setting=self.nr_labels
 			ax.mapper.range.low_setting=0
-	
+
+	def _about_button_fired(self):
+		self.about_window.edit_traits()
+
 def preproc():
 	#load label names from specified text file for ordering
 	labnam,ign=util.read_parcellation_textfile(args['parcorder'])

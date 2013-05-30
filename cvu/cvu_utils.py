@@ -122,6 +122,14 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 					(lab,parcname))
 	return lab_pos,labv_ret
 
+def seg_subcortical():
+	#DEV
+	#assumes fsavg5, only imports brainstem (aseg #16)
+
+	import nibabel
+	aseg=nibabel.load('fsavg5/mri/aseg.mgz')
+	asegd=aseg.get_data()
+
 class CVUError(Exception):
 	pass
 
