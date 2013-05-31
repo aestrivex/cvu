@@ -356,7 +356,16 @@ class ErrorDialogWindow(HasTraits):
 
 class AboutWindow(HasTraits):
 	message=Str('cvu version 0.2\n'
-		'cvu is copyright (C) Roan LaPlante 2013\n'
+		'cvu is copyright (C) Roan LaPlante 2013\n\n'
+		'cvu strictly observes the tenets of fundamentalist Theravada Mahasi\n'
+		'style Buddhism.  Any use of cvu in violation of the tenets of\n'
+		'fundamentalist Theravada Mahasi style Buddhism or in violation of\n'
+		'the theosophical or teleological principles as described\n'
+		'in the Vishuddhimagga Sutta is strictly prohibited and punishable by\n'
+		'extensive Mahayana style practice.  By not being mindful of the\n'
+		'immediate present moment sensations involved in the use of cvu,\n'
+		'you confer your acceptance of these terms and conditions.\n\n'
+
 		'cvu is distributed without warranty unless otherwise prohibited by\n'
 		'law.  cvu is licensed under the GNU GPL v3.  a license is contained\n'
 		'with the distribution of this program.  you may convey this program\n'

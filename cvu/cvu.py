@@ -82,7 +82,7 @@ class Cvu(CvuPlaceholder):
 
 	#stateful traits -- these should be in options
 	reset_thresh = Method
-	display_mode = Enum('normal','scalar','module_single')
+	display_mode = Enum('normal','scalar','module_single','module_multi')
 
 #	node_scalars=Instance(np.ndarray)
 
@@ -93,6 +93,7 @@ class Cvu(CvuPlaceholder):
 	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
 	custom_mod_button = Button('Custom module')
+	all_mod_button = Button('View all')
 	display_scalars_button = Button('Show scalars')
 	load_scalars_button = Button('Load scalars')
 	load_adjmat_button = Button('Load an adjacency matrix')
@@ -169,6 +170,7 @@ class Cvu(CvuPlaceholder):
 						Item(name='load_mod_button'),
 						Item(name='select_mod_button'),
 						Item(name='custom_mod_button'),
+						Item(name='all_mod_button'),
 						Spring(),
 						Item(name='load_scalars_button'),
 						Item(name='display_scalars_button'),
@@ -566,6 +568,15 @@ class Cvu(CvuPlaceholder):
 		self.node_colors=map(lambda n:self.group_colors[grp_ids[n]],node_groups)
 		self.node_colors_default=list(self.node_colors)
 
+		#set up some colors that are acceptably high contrast for modules
+		#not related to circle plot
+		self.module_colors=(
+			[[255,255,255,255],[204,0,0,255],[51,204,51,255],[66,0,204,255],
+			 [80,230,230,255],[51,153,255,255],[255,181,255,255],
+			 [255,163,71,255],[221,221,149,255],[183,230,46,255],
+			 [77,219,184,255],[255,255,204,255],[0,0,204,255],[204,69,153,255],
+			 [255,255,0,255],[0,128,0,255],[163,117,25,255],[255,25,117,255]])
+
 	def color_legend_gen(self):
 		def create_entry(zipped):
 			label,color=zipped
@@ -637,6 +648,24 @@ class Cvu(CvuPlaceholder):
 			new_colors=np.tile(.3,self.nr_labels)
 			new_colors[module]=.8
 			self.node_colors=list(self.cool_map(new_colors))
+		elif self.display_mode=='module_multi':
+			while self.nr_modules > len(self.module_colors):
+				i,j=np.random.randint(18,size=(2,))
+				col=(np.array(self.module_colors[i])+self.module_colors[j])/2
+				#integer division is fine
+				self.module_colors.append(col.tolist())
+				#self.error_dialog("+18 modules not supported yet")
+				#return
+
+			#randomly permute the module colors
+			perm=np.random.permutation(len(self.module_colors))
+			self.module_colors=np.array(self.module_colors)[perm].tolist()
+			#module colors must be saved, mayavi scalars depend on it
+			
+			cols=self.module_colors[:self.nr_modules]
+			import modularity
+			ci=modularity.list2comm(self.modules,zeroindexed=True)
+			self.node_colors=((np.array(self.module_colors)[ci])/255.0).tolist()
 
 		#these routines expect self.node_colors to be set
 		self.set_node_color_mayavi()
@@ -645,38 +674,52 @@ class Cvu(CvuPlaceholder):
 
 	def set_node_color_mayavi(self):
 		if self.display_mode=='normal':	
-			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
-				self.cmap_default)
-			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
-				self.cmap_default)
-			self.nodes_lh.mlab_source.dataset.point_data.scalars=np.tile(.3,
-				len(self.lhnodes))
-			self.nodes_rh.mlab_source.dataset.point_data.scalars=np.tile(.3,
-				len(self.rhnodes))
+			for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
+					(self.nodes_rh,len(self.rhnodes))]:
+				nod.module_manager.scalar_lut_manager.lut_mode=self.cmap_default
+				nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 		elif self.display_mode=='scalar':
 			csw=self.configure_scalars_window
 			if not csw.nod_col:
-				pass
+				for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
+						(self.nodes_rh,len(self.rhnodes))]:
+					nod.module_manager.scalar_lut_manager.lut_mode=(
+						self.cmap_default)
+					nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 			else:
-				self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
-					self.cmap_scalar)
-				self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
-					self.cmap_scalar)
-				self.nodes_lh.mlab_source.dataset.point_data.scalars=(
-					self.node_scalars[csw.nod_col][self.lhnodes])
-				self.nodes_rh.mlab_source.dataset.point_data.scalars=(
-					self.node_scalars[csw.nod_col][self.rhnodes])
+				for nod,idxs in [(self.nodes_lh,self.lhnodes),
+						(self.nodes_rh,self.rhnodes)]:
+					nod.module_manager.scalar_lut_manager.lut_mode=(
+						self.cmap_scalar)
+					nod.mlab_source.dataset.point_data.scalars=(	
+						self.node_scalars[csw.nod_col][idxs])
 		elif self.display_mode=='module_single':
-			self.nodesource_lh.children[0].scalar_lut_manager.lut_mode=(
-				self.cmap_default)
-			self.nodesource_rh.children[0].scalar_lut_manager.lut_mode=(
-				self.cmap_default)
-			new_colors=np.tile(	.3,self.nr_labels)
-			new_colors[self.get_module()]=.8
-			self.nodes_lh.mlab_source.dataset.point_data.scalars=(
-				new_colors[self.lhnodes])
-			self.nodes_rh.mlab_source.dataset.point_data.scalars=(
-				new_colors[self.rhnodes])
+			for nod,idxs in [(self.nodes_lh,self.lhnodes),
+					(self.nodes_rh,self.rhnodes)]:
+				nod.module_manager.scalar_lut_manager.lut_mode=self.cmap_default
+				new_colors=np.tile(	.3,self.nr_labels)
+				new_colors[self.get_module()]=.8
+				nod.mlab_source.dataset.point_data.scalars=new_colors[idxs]
+		elif self.display_mode=='module_multi':
+			cols=np.array(self.module_colors)[:self.nr_modules]
+			
+			#set the cmap to be relatively discrete colors
+			for nod in [self.nodes_lh,self.nodes_rh]:
+				#file sets the LUT to read from a trait file.  if the
+				#trait isn't set, it ignores this.  later, when it changes
+				#back to cool (or whatever), it triggers a change event
+				nod.module_manager.scalar_lut_manager.lut_mode='file'
+				nod.module_manager.scalar_lut_manager.number_of_colors=(
+					self.nr_modules)
+				nod.module_manager.scalar_lut_manager.lut.table=cols
+
+			#set the mlab scalars to be fractions between 0 and 1 for the cmap
+			import modularity
+			for nodes,idxs in [(self.nodes_lh,self.lhnodes),
+					(self.nodes_rh,self.rhnodes)]:
+				nodes.mlab_source.dataset.point_data.scalars=(np.array(
+					modularity.list2comm(self.modules,zeroindexed=True))
+					/ self.nr_modules)[idxs]
 			
 		mlab.draw()
 
@@ -742,9 +785,7 @@ class Cvu(CvuPlaceholder):
 		basic_conds = lambda e,a,b:(not self.masked[e] and
 			(self.curr_node is None or self.curr_node in [a,b]))
 
-		if self.display_mode=='normal' or self.display_mode=='scalar':
-			conds=basic_conds
-		elif self.display_mode=='module_single':
+		if self.display_mode=='module_single':
 			#find the right module
 			module=self.get_module()
 			#attach the right conditions
@@ -757,6 +798,8 @@ class Cvu(CvuPlaceholder):
 			elif self.opts.module_view_style=='both':
 				conds = lambda e,a,b:(basic_conds(e,a,b) and
 					(a in module or b in module))
+		else:
+			conds=basic_conds
 
 		new_edges,count_edges=select_connections(conds)
 		
@@ -929,6 +972,11 @@ class Cvu(CvuPlaceholder):
 		self.curr_node=n
 		self.draw_conns()
 
+	def display_scalars(self):
+		self.display_mode='scalar'
+		self.draw_surfs()
+		self.draw_nodes()
+
 	def display_module(self,module):
 		self.display_mode='module_single'
 		self.curr_node=None
@@ -941,9 +989,9 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "%i nodes in module" % len(self.get_module())
 
-	def display_scalars(self):
-		self.display_mode='scalar'
-		self.draw_surfs()
+	@on_trait_change('all_mod_button')
+	def display_multi_module(self):
+		self.display_mode='module_multi'
 		self.draw_nodes()
 
 	#node selection
