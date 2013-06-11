@@ -1,5 +1,10 @@
 #    (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
 #
+#	 This file is copied and modified from MNE Python.  MNE Python is (C) 
+#	 copyright by the authors of MNE Python 2011.  This file was modified
+#	 03/2013.  For more information, see
+#	 https://github.com/mne-tools/mne-python
+#
 #	 This file is part of cvu, the Connectome Visualization Utility.
 #
 #    cvu is free software: you can redistribute it and/or modify
@@ -46,7 +51,8 @@ def plot_connectivity_circle2(con, nodes_numberless, indices=None,
 Note: This code is based on the circle graph example by Nicolas P. Rougier
 http://www.loria.fr/~rougier/coding/recipes.html
 
-Note note: This code was adapted from MNE python
+This function replicates functionality from MNE python, by Martin Luessi
+and others.
 
 Parameters
 ----------
@@ -356,12 +362,13 @@ angdict: an ordered dictionary with (type A)/avgposition pairs
 too_close: a float
 
 returns a list of segments, of consecutive pairs that are closer than
-too_close.  a segment contains the start index (in the dictionary), the end 
-index, the extent (theta), and the number of entries.  The last index of the
+too_close.  a segment contains the start item (in the dictionary), the end 
+item, the extent (theta), and the number of entries.  The last index of the
 segment is for required ROIs that must be displayed.
 
 for instance: get_tooclose_segments({'A':3,'B':4,'C':5,'D':100},10)
-will return [('A','C',2,3)]"""
+will return [('A','C',2,3)].  There is one segment that has entries too close
+together -- that from A to C.  The extent of this segment is 5-3=2.  In a real example the extent would be some fraction of 2*pi"""
 
 	segments=[]
 	keys=angdict.keys()
@@ -401,6 +408,7 @@ will return [('A','C',2,3)]"""
 	return segments
 
 def prune_segment(angdict,seg,too_close):
+	"""Remove all the labels that are too close together within a segment"""
 	#print seg
 
 	#calculate the number of labels to be removed

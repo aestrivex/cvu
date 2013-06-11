@@ -93,7 +93,7 @@ class Cvu(CvuPlaceholder):
 	load_mod_button = Button('Load premade')
 	select_mod_button = Button('View module')
 	custom_mod_button = Button('Custom module')
-	all_mod_button = Button('View all')
+	all_mod_button = Button('View all modules')
 	display_scalars_button = Button('Show scalars')
 	load_scalars_button = Button('Load scalars')
 	load_adjmat_button = Button('Load an adjacency matrix')
@@ -991,6 +991,9 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('all_mod_button')
 	def display_multi_module(self):
+		if self.modules is None:
+			self.error_dialog('Define some modules first')
+			return
 		self.display_mode='module_multi'
 		self.draw_nodes()
 
