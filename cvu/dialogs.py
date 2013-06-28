@@ -17,9 +17,10 @@
 
 
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
-	Enum,List,Button,Range,Instance,Float)
+	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
-	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup)
+	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
+	TextEditor)
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
@@ -56,6 +57,8 @@ class OptionsWindow(InteractiveSubwindow):
 	rh_nodes_on = Bool(True)
 	lh_surfs_on = Bool(True)
 	rh_surfs_on = Bool(True)
+	conns_width = Float(2.)
+	conns_colors_on = Bool(True)
 	traits_view=View(
 		VSplit(
 			HSplit(
@@ -88,6 +91,10 @@ class OptionsWindow(InteractiveSubwindow):
 			HSplit(
 				Item(name='lh_surfs_on',label='LH surfaces on'),
 				Item(name='rh_surfs_on',label='RH surfaces on'),
+			),
+			HSplit(
+				Item(name='conns_width',label='conn linewidth'),
+				Item(name='conns_colors_on'),
 			),
 			show_labels=False,
 		),

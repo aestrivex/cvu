@@ -487,11 +487,11 @@ class Cvu(CvuPlaceholder):
 		self.thres.auto_reset_lower=False
 		self.thres.auto_reset_upper=False
 		self.myvectors = mlab.pipeline.vectors(self.thres,
-			colormap=self.cmap_activation,
+			colormap=self.cmap_activation,line_width=self.opts.conns_width,
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
 		self.myvectors.glyph.glyph.clamping=False
-		self.myvectors.glyph.color_mode='color_by_scalar'
+		self.chg_conns_colors() #sets to scalar or off
 		self.myvectors.actor.property.opacity=.3
 		self.myvectors.actor.actor.pickable=0
 
@@ -938,6 +938,14 @@ class Cvu(CvuPlaceholder):
 		except KeyError as e:
 			self.error_dialog("Field not found: %s" % str(e))
 			return
+
+		try:
+			#make sure the order is the right size
+			ci=np.reshape(ci,(self.nr_labels,))
+		except ValueError as e:
+			self.error_dialog("Matrix loaded is of wrong size.  Expected "
+				"size (%i,1) and got %s" % (self.nr_labels,str(np.shape(ci))))
+			
 		if lsmw.whichkind=='modules':
 			import modularity
 			self.modules=modularity.comm2list(ci)
@@ -1218,6 +1226,17 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('opts:rh_surfs_on')
 	def chg_rh_surfmask(self):
 		self.syrf_rh.visible=self.opts.rh_surfs_on
+
+	@on_trait_change('opts:conns_width')
+	def chg_conns_width(self):
+		self.myvectors.actor.property.line_width=opts.conns_width
+
+	@on_trait_change('opts:conns_colors_on')
+	def chg_conns_colors(self):
+		if self.opts.conns_colors_on:
+			self.myvectors.glyph.color_mode='color_by_scalar'
+		else:
+			self.myvectors.glyph.color_mode='no_coloring'
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
