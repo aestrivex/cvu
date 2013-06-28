@@ -992,7 +992,7 @@ class Cvu(CvuPlaceholder):
 	@on_trait_change('all_mod_button')
 	def display_multi_module(self):
 		if self.modules is None:
-			self.error_dialog('Define some modules first')
+			self.error_dialog('No modules defined')
 			return
 		self.display_mode='module_multi'
 		self.draw_nodes()
@@ -1013,7 +1013,7 @@ class Cvu(CvuPlaceholder):
 	#scalar selection
 	def _display_scalars_button_fired(self):
 		if not self.node_scalars:
-			self.error_dialog('Load some scalars first')
+			self.error_dialog('No scalars defined')
 			return
 		csw=self.configure_scalars_window
 		csw.finished=False
@@ -1052,7 +1052,7 @@ class Cvu(CvuPlaceholder):
 
 	def _select_mod_button_fired(self):
 		if self.modules is None:
-			self.error_dialog('No modules loaded')
+			self.error_dialog('No modules defined')
 		else:
 			self.module_chooser_window.cur_mod=-1
 			self.module_chooser_window.finished=False

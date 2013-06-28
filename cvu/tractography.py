@@ -23,8 +23,10 @@
 import os
 import struct
 import numpy as np
+import scipy.linalg as lin
 import nibabel as nib
 import random
+from mayavi import mlab
 
 def read_header(track_file):
 	"""Read header values from a .trk (TrackVis) file and store them in a dict.
@@ -33,40 +35,35 @@ def read_header(track_file):
 	header_dict={}
 	f=open(track_file, 'rb') # added 'rb' for Windows reading
 	contents = f.read()
-	dims=(struct.unpack('h',contents[6:8])[0],struct.unpack('h',contents[8:10])
-		[0],struct.unpack('h',contents[10:12])[0])
-	header_dict["dims"]=dims
-	vox_size=(struct.unpack('f',contents[12:16])[0],struct.unpack('f',
-		contents[16:20])[0],struct.unpack('f',contents[20:24])[0])
-	header_dict["vox_size"]=vox_size
-	origin=(struct.unpack('f',contents[24:28])[0],struct.unpack('f',
-		contents[28:32])[0],struct.unpack('f',contents[32:36])[0])
-	header_dict["origin"]=origin
-	n_scalars=(struct.unpack('h',contents[36:38]))[0]
-	header_dict["n_scalars"]=n_scalars
-	n_properties=(struct.unpack('h',contents[238:240]))[0]
-	header_dict["n_properties"]=n_properties
-	vox_order=(struct.unpack('c',contents[948:949])[0],struct.unpack('c',
-		contents[949:950])[0],struct.unpack('c',contents[950:951])[0])
-	header_dict["vox_order"]=vox_order
-	paddings=(struct.unpack('c',contents[952:953])[0],struct.unpack('c',
-		contents[953:954])[0],struct.unpack('c',contents[954:955])[0])
-	header_dict["paddings"]=paddings
-	img_orient_patient=(struct.unpack('f',contents[956:960])[0],
-		struct.unpack('f',contents[960:964])[0],struct.unpack('f',
-		contents[964:968])[0],struct.unpack('f',contents[968:972])[0],
-		struct.unpack('f',contents[972:976])[0],struct.unpack('f',
-		contents[976:980])[0])
-	header_dict["img_orient_patient"]=img_orient_patient
-	inverts=(struct.unpack('B',contents[982:983])[0],struct.unpack('B',
-		contents[983:984])[0],struct.unpack('B',contents[984:985])[0])
-	header_dict["inverts"]=inverts
-	swaps=(struct.unpack('B',contents[985:986])[0],struct.unpack('B',
-		contents[986:987])[0],struct.unpack('B',contents[987:988])[0])
-	header_dict["swaps"]=swaps
-	num_fibers=(struct.unpack('i',contents[988:992])[0])
-	header_dict["num_fibers"]=num_fibers
 	f.close()
+
+	dims=(struct.unpack('3h',contents[6:12])[0])
+	vox_size=(struct.unpack('3f',contents[12:24])[0])
+	origin=(struct.unpack('3f',contents[24:36])[0])
+	n_scalars=(struct.unpack('h',contents[36:38]))[0]
+	n_properties=(struct.unpack('h',contents[238:240]))[0]
+	vox_order=(struct.unpack('3c',contents[948:951])[0])
+	paddings=(struct.unpack('3c',contents[952:955])[0])
+	img_orient_patient=(struct.unpack('6f',contents[956:980])[0])
+	inverts=(struct.unpack('3B',contents[982:985])[0])
+	swaps=(struct.unpack('3B',contents[985:988])[0])
+	num_fibers=(struct.unpack('i',contents[988:992])[0])
+	header_dict["dims"]=dims
+	header_dict["vox_size"]=vox_size
+	header_dict["origin"]=origin
+	header_dict["n_scalars"]=n_scalars
+	header_dict["n_properties"]=n_properties
+	header_dict["vox_order"]=vox_order
+	header_dict["paddings"]=paddings
+	header_dict["img_orient_patient"]=img_orient_patient
+	header_dict["inverts"]=inverts
+	header_dict["swaps"]=swaps
+	header_dict["num_fibers"]=num_fibers
+
+	#print np.array(contents[440:504],dtype=np.float32)
+	#vox2ras=(struct.unpack('f',contents[440:504])[0])
+	#print np.shape(vox2ras)
+	#print vox2ras
 	return header_dict
 
 def read_tracks(track_file,display_nr=1500):
@@ -168,30 +165,35 @@ def rotate(x_like,y_like,angle=np.pi/9):
 
 	return x,y
 	
-def rescale(x,y,z,invert_y=True):
-	#fsavg5 dimensions 	-70 	70
-	#					-105	70
-	#					-50		80 before subcortical structures
-	#								which is ok for tractography anyway
+def rescale(x,y,z,invert_y=True,**surf_properties_kwargs):
+	import volume
+	surf_xmin,surf_ymin,surf_zmin,surf_xmax,surf_ymax,surf_zmax=(
+		volume.surf_properties(**surf_properties_kwargs))
+	pad_nr=2
+	surf_xmin+=pad_nr;	surf_xmax-=pad_nr
+	surf_ymin+=pad_nr;	surf_ymax-=pad_nr
+	surf_zmin+=pad_nr;	surf_zmax-=pad_nr
 
-	xmax=np.ceil(np.max(x))
-	xmin=np.floor(np.min(x))
+	xmax=np.max(x)
+	xmin=np.min(x)
 	xrng=xmax-xmin+1
 
-	ymax=np.ceil(np.max(y))
-	ymin=np.floor(np.min(y))
+	ymax=np.max(y)
+	ymin=np.min(y)
 	yrng=ymax-ymin+1
 
-	zmax=np.ceil(np.max(z))
-	zmin=np.floor(np.min(z))
+	zmax=np.max(z)
+	zmin=np.min(z)
 	zrng=zmax-zmin+1
 
-	xmap=lambda x:(x-xmin)*135/xrng-67
+	xmap=lambda x:(x-xmin)*(surf_xmax-surf_xmin+1)/xrng+surf_xmin
 	if invert_y:
-		ymap=lambda y:(y-ymin)*-170/yrng+67
+		ymap=lambda y:(y-ymin)*(surf_ymin-surf_ymax-1)/yrng+surf_ymax
+		print surf_ymin-surf_ymax-1
+		print yrng
 	else:
-		ymap=lambda y:(y-ymin)*170/yrng-102
-	zmap=lambda z:(z-zmin)*125/zrng-47
+		ymap=lambda y:(y-ymin)*(surf_ymax-surf_ymin+1)/yrng+surf_ymin
+	zmap=lambda z:(z-zmin)*(surf_zmax-surf_zmin+1)/zrng+surf_zmin
 
 	retx=xmap(x)
 	rety=ymap(y)
@@ -199,14 +201,48 @@ def rescale(x,y,z,invert_y=True):
 	
 	return retx,rety,retz
 
-def plot_well(fname,ang=-np.pi/18):
+def affine(affine_trans_file):
+	a=np.loadtxt(affine_trans_file)
+	return a
+
+def reverse_affine(a):
+	#this is equivalent to simply returning lin.inv(a) but has slightly better
+	#performance, albeit on the order of .2 ms better
+	r=a[0:3,0:3]
+	t=a[0:3,3]
+
+	ri=lin.inv(r)
+	api=np.zeros((4,4))
+	api[0:3,0:3]=ri
+	api[0:3,3]=np.dot(ri,t*-1)
+	api[3,3]=1
+	return api
+
+def apply_affine(a,s):
+	tx,ty,tz=s.mlab_source.x,s.mlab_source.y,s.mlab_source.z
+
+	ones=np.ones(len(tx))
+	dat=np.array(zip(tx,ty,tz,ones))
+
+	for i,d in enumerate(dat):
+		dat[i]=np.dot(a,d)
+
+	s.mlab_source.x,s.mlab_source.y,s.mlab_source.z,_ = dat.T
+
+def plot_well(fname,affine_trans_file=None,ang=-np.pi/18):
 	s=plot_naively(fname)
-	tx=s.mlab_source.x; ty=s.mlab_source.y; tz=s.mlab_source.z
-	ry,rz=rotate(ty,tz,angle=ang)
-	qx,qy,qz=rescale(tx,ry,rz)
-	s.mlab_source.x=qx; s.mlab_source.y=qy; s.mlab_source.z=qz	
+
+	#ai=reverse_affine(affine(affine_trans_file))
+	#a=affine(affine_trans_file)
+
+	#ry,rz=rotate(ty,tz,angle=ang)
+	#qx,qy,qz=rescale(tx,ry,rz)
+	#s.mlab_source.x=qx; s.mlab_source.y=qy; s.mlab_source.z=qz	
+
+	#apply_affine(a,s)
 
 	s.actor.property.opacity=.1
 	s.module_manager.scalar_lut_manager.lut_mode='Purples'
 	s.module_manager.scalar_lut_manager.reverse_lut=True
+	mlab.view(focalpoint='auto')
 	return s

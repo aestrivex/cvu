@@ -114,21 +114,22 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
 	#the data seems to be incorrectly scaled by a factor of roughly 1000
 	lab_pos*=1000
-	#let the user know if parc order file has unrecongized entries
-	if not quiet:
-		for lab in labnam:
-			if lab not in labs_used:
+	
+	import volume
+	valid_subcortical_keys=volume.aseg_rois.keys()
+
+	for i,lab in enumerate(labnam):
+		if lab not in labs_used:
+			#TODO get subcortical labels from the volume file
+			if lab in valid_subcortical_keys:
+				lab_pos[i,:] = volume.roi_coords(lab)	
+			#let the user know if parc order file has unrecongized entries
+			elif not quiet:
 				print ("Warning: Label %s not found in parcellation %s" % 
 					(lab,parcname))
+
+
 	return lab_pos,labv_ret
-
-def seg_subcortical():
-	#DEV
-	#assumes fsavg5, only imports brainstem (aseg #16)
-
-	import nibabel
-	aseg=nibabel.load('fsavg5/mri/aseg.mgz')
-	asegd=aseg.get_data()
 
 class CVUError(Exception):
 	pass
