@@ -266,7 +266,7 @@ The figure handle.
 	too_close = np.pi/50
 
 	# get angles for text placement
-	text_angles = avgidx(nodes_numberless,n_nodes,frac=1)
+	text_angles = avgidx(nodes_numberless,n_nodes,frac=1,pad=np.pi/400)
 
 	segments = get_tooclose_segments(text_angles,too_close,reqrois)
 	
@@ -317,11 +317,12 @@ The figure handle.
 	
 	return fig
 
-def avgidx(lbs,n,frac=.5):
+def avgidx(lbs,n,frac=.5,pad=0.):
 	"""Takes:
 lbs: a list of (type A) with repeats (e.g. 'supramarginal' appears 4 times)
 n: where to stop
 frac: fraction of 2*pi to use.  Defaults to .5 (equal length hemispheres)
+pad: space to leave at the end
 
 returns d: an ordered dictionary with (type A)/avgposition pairs
 this dictionary is scaled to have values between 0 and 2*pi
@@ -333,7 +334,7 @@ returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 	curlb=lbs[0]
 	already=set()
 	start=0 #2nd hemi needs to start at offset of too_close + end of 1st hemi
-	theta=frac*np.pi/n
+	theta=frac*(np.pi-pad)/n
 	for i,e in enumerate(lbs):
 		if e!=curlb:
 			#get the position of the last label halfway between start and i-1

@@ -1229,7 +1229,7 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('opts:conns_width')
 	def chg_conns_width(self):
-		self.myvectors.actor.property.line_width=opts.conns_width
+		self.myvectors.actor.property.line_width=self.opts.conns_width
 
 	@on_trait_change('opts:conns_colors_on')
 	def chg_conns_colors(self):
@@ -1380,9 +1380,16 @@ class Cvu(CvuPlaceholder):
 		# otherwise, don't do anything
 
 	def hack_mlabsavefig(self,fname,size):
-		#TODO remove: this bug is fixed in mayavi 4.3
+		oldx,oldy=self.scene.scene_editor.get_size()
+
+		curx,cury=self.scene.scene_editor.control.Parent.Parent.Size
+		cury-=32 #the mayavi toolbar takes up 32 space, which is not what
+				 #we are setting
+
+		self.scene.scene_editor.set_size((curx,cury))
 		self.txt.visible=False
-		curx,cury=tuple(self.scene.scene_editor.get_size())
+
+		#TODO remove: this bug is fixed in mayavi 4.3
 		magnif_desired = max(size[0]//curx,size[1]//cury)+1
 		newsize=(int(size[0]/magnif_desired),int(size[1]/magnif_desired))
 		self.scene.scene_editor.set_size(newsize)
@@ -1395,9 +1402,12 @@ class Cvu(CvuPlaceholder):
 		ex.file_name = fname
 		ex.input = filter.output
 		self.scene.scene_editor._exporter_write(ex)
-		self.scene.scene_editor.set_size((curx,cury))
-		#set the mayavi text to nothing for the snapshot, then restore it
+
+		#reset the old size
+		self.scene.scene_editor.set_size((oldx,oldy))
+		#restore the 3D region text if it was previously enabled
 		self.txt.visible=self.opts.show_floating_text
+
 
 	def _make_movie_button_fired(self):
 		if self.mk_movie_lbl=='Make movie':
