@@ -101,6 +101,7 @@ class Cvu(CvuPlaceholder):
 	color_legend_button = Button('Color legend')
 	load_parc_button=Button('Load a parcellation')
 	options_button=Button('Options')
+	load_track_button=Button('Load tractography')
 	take_snapshot_button=Button('Take snapshot')
 	make_movie_button = Button
 	mk_movie_lbl = Str('Make movie')
@@ -110,6 +111,7 @@ class Cvu(CvuPlaceholder):
 	#various subwindows
 	parc_chooser_window = Instance(HasTraits)
 	adjmat_chooser_window = Instance(HasTraits)
+	track_chooser_window = Instance(HasTraits)
 	load_standalone_matrix_window = Instance(HasTraits)
 	node_chooser_window = Instance(HasTraits)
 	module_chooser_window = Instance(HasTraits)
@@ -119,6 +121,7 @@ class Cvu(CvuPlaceholder):
 	make_movie_window = Instance(HasTraits)
 	really_overwrite_file_window = Instance(HasTraits)
 	error_dialog_window = Instance(HasTraits)
+	warning_dialog_window = Instance(HasTraits)
 	about_window = Instance(HasTraits)
 	color_legend_window = Instance(HasTraits)
 	opts = Instance(HasTraits)
@@ -187,13 +190,14 @@ class Cvu(CvuPlaceholder):
 				HSplit(
 						Item(name='load_parc_button',),
 						Item(name='load_adjmat_button',),
-						Item(name='options_button',),
+						Item(name='load_track_button',),
 						show_labels=False,
 					),
 					HSplit(
 						Item(name='take_snapshot_button'),
 						Item(name='make_movie_button',
 							editor=ButtonEditor(label_value='mk_movie_lbl')),
+						Item(name='options_button',),
 						Item(name='about_button'),
 						show_labels=False,
 					),
@@ -234,6 +238,7 @@ class Cvu(CvuPlaceholder):
 		self.opts=dialogs.OptionsWindow()
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
+		self.track_chooser_window=dialogs.TractographyChooserWindow()
 		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow()
 		self.node_chooser_window=dialogs.NodeChooserWindow()
 		self.module_chooser_window=dialogs.ModuleChooserWindow()
@@ -243,6 +248,7 @@ class Cvu(CvuPlaceholder):
 		self.make_movie_window=dialogs.MakeMovieWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 		self.error_dialog_window=dialogs.ErrorDialogWindow()
+		self.warning_dialog_window=dialogs.WarningDialogWindow()
 		self.about_window=dialogs.AboutWindow()
 		self.color_legend_window=color_legend.ColorLegendWindow()
 
@@ -300,7 +306,7 @@ class Cvu(CvuPlaceholder):
 		if not quiet:
 			print "Initial threshold: "+str(self.opts.pthresh)
 
-	def pos_helper_gen(self):
+	def pos_helper_gen(self,reset_scalars=True):
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
 		self.starts = np.zeros((self.nr_edges,3),dtype=float)
 		self.vecs = np.zeros((self.nr_edges,3),dtype=float)
@@ -312,7 +318,16 @@ class Cvu(CvuPlaceholder):
 				self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
 				self.edges[i,0],self.edges[i,1] = r1,r2
 				i+=1
-		self.node_scalars = {}
+
+		#pos_helper_gen is called from three places -- setup, load_parc and 
+		#load_adj. The reason it is called from load_adj is because of the soft
+		#cap.  The number of edges can differ between adjmats because of the
+		#soft cap and all of the positions need to be recalculated if it does.
+		#Everything else in this pos_helper_gen is appropriate to run at that
+		#point, except for the scalar reset.  So, I added a flag for it, for use
+		#only within load_adj
+		if reset_scalars:
+			self.node_scalars = {}
 		self.display_mode='normal'
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
@@ -843,6 +858,8 @@ class Cvu(CvuPlaceholder):
 				pcw.SUBJECTS_DIR)
 			self.lab_pos,self.labv = util.calcparc(labv,labnam,quiet=quiet,
 				parcname=pcw.parcellation_name)
+			self.srf = util.loadsurf(os.path.join(pcw.SUBJECTS_DIR,pcw.SUBJECT,
+				'surf','lh.%s'%self.srf[4]),self.srf[4])
 			self.cur_display_brain=pcw.SUBJECT
 			self.cur_display_parc=pcw.parcellation_name
 			self.cur_display_mat=''
@@ -864,9 +881,6 @@ class Cvu(CvuPlaceholder):
 		self.surfs_gen()
 		self.node_colors_gen()
 	
-	def load_new_surfaces(self):
-		pass
-
 	def load_new_adjmat(self):
 		acw=self.adjmat_chooser_window
 		try:
@@ -895,9 +909,9 @@ class Cvu(CvuPlaceholder):
 		self.adj_nulldiag = adj
 		print "Adjacency matrix %s loaded successfully" % acw.adjmat
 		#it is necessary to rerun pos_helper_gen() because the number of edges
-		#is not constant from one adjmat to another.  thus the positions of
-		#the edges cannot be assumed to be the same
-		self.pos_helper_gen()
+		#is not constant from one adjmat to another (soft cap). 
+		#see comment in pos_helper_gen
+		self.pos_helper_gen(reset_scalars=False)
 		self.adj_helper_gen()
 		self.curr_node=None
 		self.cur_module=None
@@ -912,6 +926,17 @@ class Cvu(CvuPlaceholder):
 		self.draw_surfs() #for surf color
 		self.draw_nodes()
 		self.draw_conns()
+
+	def load_tractography(self):
+		tcw=self.track_chooser_window
+		try:
+			import tractography
+			self.tractography=tractography.plot_fancily(tcw.track_file)
+			tractography.apply_cmp_affines(self.tractography,tcw.b0_volume,
+				tcw.track_file,tcw.SUBJECT,tcw.SUBJECTS_DIR,
+				fsenvsrc=tcw.fs_setup)
+		except Exception as e:
+			self.error_dialog(str(e))
 
 	def load_standalone_matrix(self):
 		lsmw=self.load_standalone_matrix_window
@@ -963,6 +988,10 @@ class Cvu(CvuPlaceholder):
 	def error_dialog(self,message):
 		self.error_dialog_window.error=message
 		self.error_dialog_window.edit_traits()
+
+	def warning_dialog(self,message):
+		self.warning_dialog_window.warning=message
+		self.warning_dialog_window.edit_traits()
 
 	@on_trait_change('display_all_button')
 	def display_all(self):
@@ -1294,13 +1323,32 @@ class Cvu(CvuPlaceholder):
 		pcw=self.parc_chooser_window
 		if not pcw.finished:
 			pass
-		elif pcw.SUBJECTS_DIR and pcw.SUBJECT and pcw.parcellation_name and\
-				pcw.labelnames_f:
+		elif (pcw.SUBJECTS_DIR and pcw.SUBJECT and pcw.parcellation_name and
+				pcw.labelnames_f):
 			self.load_new_parcellation()
 		else:
 			self.error_dialog('You must specify all of SUBJECT, SUBJECTS_DIR, '
 				'the desired label ordering, and the parcellation name '
 				'(e.g. aparc.2009)')
+
+	def _load_track_button_fired(self):
+		self.track_chooser_window.finished=False
+		self.track_chooser_window.edit_traits()
+
+	@on_trait_change('track_chooser_window:notify')
+	def load_track_check(self):
+		tcw=self.track_chooser_window
+		if not tcw.finished:
+			pass
+		elif (tcw.track_file and tcw.b0_volume and tcw.SUBJECTS_DIR and
+				tcw.SUBJECT):
+			if self.cur_display_brain=='fsavg5':
+				self.warning_dialog('Current surface is fsaverage5. '
+					'Tractography is misaligned without subject morphology') 
+			self.load_tractography()
+		else:
+			self.error_dialog('You must specify all of SUBJECT, SUBJECTS_DIR, '
+				'the .trk file, and the B0 volume')
 
 	def _load_mod_button_fired(self):
 		self.load_standalone_matrix_window.finished=False
@@ -1566,7 +1614,7 @@ def preproc():
 	#load surface for visual display
 	surf_fname=os.path.join(args['subjdir'],args['subject'],'surf',
 		'lh.%s'%args['surftype'])
-	surf_struct=util.loadsurf(surf_fname)
+	surf_struct=util.loadsurf(surf_fname,args['surftype'])
 
 	#load parcellation and vertex positions
 	labv=util.loadannot(args['parc'],args['subject'],args['subjdir'])

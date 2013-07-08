@@ -18,16 +18,10 @@ matplotlib -- plotting library (included in EPD)
 traits/traitsui -- traits object framework (included in EPD)
 chaco -- interactive plotting library (included in EPD)
 mayavi/mlab/tvtk -- interactive 3D visualization library (included in EPD)
-getopt -- module to process command line arguments
 numpy/scipy -- math library for python (included in EPD)
 
 ===optional packages===
-METIS -- graph partitioning library
-METIS (python) -- a python library wrapping METIS
-networkx -- a graph theory module for python (included in EPD)
-graph-tool -- a graph theory module for python.  Not integrated as of now.
-
-(If METIS and networkx are not installed the --use-metis flag will result in
-	errors when attempting to calculate modules.  These errors are not fatal
-	but the --use-metis builtin modularity analysis will not work.
-	--use-spectral will still work.)
+nibabel/nipy -- neuroimaging in python.  used for volumetric measurements.
+	without nibabel subcortical nodes cannot be defined
+freesurfer -- a lot of CVU depends on freesurfer file formats.  However,
+	freesurfer commands are currently run only for tractographic alignment.

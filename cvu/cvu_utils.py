@@ -86,11 +86,11 @@ def loadannot(p,subj,subjdir):
 		subjects_dir=subjdir,verbose=False)
 	return annot
 
-def loadsurf(fname):
+def loadsurf(fname,surftype):
 	import mne
 	surf_lh,sfaces_lh=mne.surface.read_surface(hemineutral(fname)%'lh')
 	surf_rh,sfaces_rh=mne.surface.read_surface(hemineutral(fname)%'rh')
-	return (surf_lh,sfaces_lh,surf_rh,sfaces_rh)
+	return (surf_lh,sfaces_lh,surf_rh,sfaces_rh,surftype)
 
 def mangle_hemi(s):
 	return s[-2:]+'_'+s[0:-3]
@@ -249,6 +249,10 @@ def calcparc_gifti(labnam,labv,surf_struct,quiet=False):
 
 	return lab_pos
 
+# FILE CHOOSER functions are not currently used.  There are some bugs in
+# handling of file viewers in traitsui (and probably also enaml).  Also the
+# default custom file selector in traitsui is really annoying.  At some point
+# it may be convenient to make a wx file editor that works. 
 def file_chooser(**kwargs):
 	# use kwarg initialdir='/some_path'
 	from Tkinter import Tk
@@ -279,12 +283,12 @@ def fancy_file_chooser(main_window):
 
 def sh_cmd(cmd):
 	import subprocess; import os
-	devnull=open(os.devnull,'wb')
-	try:
-		subprocess.check_call(cmd,#stdout=devnull,stderr=subprocess.STDOUT,
-			shell=True)
-	except subprocess.CalledProcessError as e:
-		raise CVUError(str(e))	
+	with open(os.devnull,'wb') as devnull:
+		try:
+			subprocess.check_call(cmd,#stdout=devnull,stderr=subprocess.STDOUT,
+				shell=True)
+		except subprocess.CalledProcessError as e:
+			raise CVUError(str(e))	
 
 def sh_cmd_grep(cmd,grep):
 	#this function is inspired by a similar function from connectomemapper
@@ -328,14 +332,28 @@ def sh_cmd_grep(cmd,grep):
 
 def sh_cmd_retproc(cmd):
 	import subprocess; import os
-	devnull=open(os.devnull,'wb')
-	process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
-		stdout=devnull,stderr=devnull)
-	#checks to see if the specified command was bad
-	if process.poll():
-		process.kill()
-		raise CVUError('% failed with error code %s' % (cmd,process.returncode))
-	return process
+	with open(os.devnull,'wb') as devnull:
+		process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
+			stdout=devnull,stderr=devnull)
+		#checks to see if the specified command was bad
+		if process.poll():
+			process.kill()
+			raise CVUError('% failed with error code %s' % 
+				(cmd,process.returncode))
+		return process
+
+def tcsh_env_interpreter(source_fname):
+	import subprocess; import os
+	
+	cmd=['tcsh','-c','source %s && env' % source_fname]
+
+	proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=False)
+	for ln in proc.stdout:
+		ln=ln.strip()
+		k,_,v=ln.partition("=")
+		os.environ[k]=v
+
+	#proc.communicate()
 
 def usage():
 	print ('Command line arguments are as follows:\n'

@@ -229,20 +229,109 @@ def apply_affine(a,s):
 
 	s.mlab_source.x,s.mlab_source.y,s.mlab_source.z,_ = dat.T
 
-def plot_well(fname,affine_trans_file=None,ang=-np.pi/18):
+def plot_fancily(fname,ang=-np.pi/18):
 	s=plot_naively(fname)
-
-	#ai=reverse_affine(affine(affine_trans_file))
-	#a=affine(affine_trans_file)
-
-	#ry,rz=rotate(ty,tz,angle=ang)
-	#qx,qy,qz=rescale(tx,ry,rz)
-	#s.mlab_source.x=qx; s.mlab_source.y=qy; s.mlab_source.z=qz	
-
-	#apply_affine(a,s)
 
 	s.actor.property.opacity=.1
 	s.module_manager.scalar_lut_manager.lut_mode='Purples'
 	s.module_manager.scalar_lut_manager.reverse_lut=True
 	mlab.view(focalpoint='auto')
 	return s
+
+def apply_cmp_affines(s,b0vol_fname,trk_fname,fs_subj_name,
+		fs_subjs_dir,fsenvsrc=None):
+	'''applies B0-TKR transform and then TKR-RAS transform
+		
+	Include the fsenvsrc parameter if nmrenv has not already been set'''
+
+	if fsenvsrc:
+		import cvu_utils
+		cvu_utils.tcsh_env_interpreter(fsenvsrc)
+
+	a1=fetch_b0_to_tkr(b0vol_fname,trk_fname)
+	a2=fetch_ras_to_tkr(b0vol_fname,fs_subj_name,fs_subjs_dir)
+
+	a2i=reverse_affine(a2)
+
+	co=np.dot(a1,a2) #compose these transformations
+
+	apply_affine(co,s)
+	mlab.view(focalpoint='auto')
+
+def fetch_b0_to_tkr(b0vol_fname,trk_fname,fsenvsrc=None,out_fname=None):
+	'''automated function to generate transformation matrix from B0 volume
+	to volume RAS coordinates.  first of two automated transform generator
+	functions and considerably simpler than the next one.  if out_fname is not 
+	supplied, returns a numpy matrix containing the affine transform.
+
+	Include the fsenvsrc parameter if nmrenv has not already been set.'''
+
+	if fsenvsrc:
+		import cvu_utils
+		cvu_utils.tcsh_env_interpreter(fsenvsrc)
+
+	v=1.0/read_header(trk_fname)['vox_size']
+
+	import subprocess
+	cmd = 'mri_info %s --vox2ras-tkr' % (b0vol_fname)
+
+	proc=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+	crs_to_tkr_arr=np.loadtxt(proc.stdout)
+
+	b0_to_crs_arr=np.diag((v,v,v,1))
+
+	ret = np.dot(b0_to_crs_arr,crs_to_tkr_arr)
+
+	if out_fname:
+		np.savetxt(out_fname,ret)
+	else:
+		return ret
+
+def fetch_ras_to_tkr(b0vol_fname,fs_subj_name,fs_subjects_dir,fsenvsrc=None
+		,out_fname=None):
+	'''automated function to generate transformation from surface RAS to volume
+	RAS coordinates.  bbregister is used to do this.  this function takes a few 	minutes. if out_fname is not supplied, returns a numpy matrix containing the
+	affine transform.
+
+	Include the fsenvsrc if nmrenv has not already been set.''' 
+
+	import subprocess; import tempfile; import glob
+
+	if fsenvsrc:
+		import cvu_utils
+		cvu_utils.tcsh_env_interpreter(fsenvsrc)
+	os.environ['SUBJECTS_DIR']=fs_subjects_dir
+
+	tmpfd,tmpfname=tempfile.mkstemp()
+	cmd = ('bbregister --s %s --mov %s --init-fsl --reg \'%s\' --bold '
+		'--tol1d 1e-3' % (fs_subj_name, b0vol_fname, tmpfname+".reg"))
+
+	#print os.environ['SUBJECTS_DIR']
+	#print cmd
+
+	with open(os.devnull,'wb') as devnull:
+		proc=subprocess.Popen(cmd,shell=True,stdout=devnull)
+
+	if proc.wait() != 0:
+		for i in glob.glob('tmpfname*'):
+			os.unlink(i)
+		raise cvu_utils.CVUError("bbregister crashed with error %i" %
+			proc.returncode)
+
+	with open(tmpfname+'.reg','rwb') as tmpf:
+		for i in xrange(4):
+			tmpf.readline() #ignore first 4 lines
+		with os.tmpfile() as tmpf2:
+			for j in xrange(4):
+				tmpf2.write(tmpf.readline()+'\n')
+			tmpf2.seek(0)
+			ret = np.loadtxt(tmpf2) 
+		
+	for i in glob.glob('tmpfname*'):
+		os.unlink(i)
+	#TODO also unlink all the other things this creates in /tmp
+
+	if out_fname:
+		np.savetxt(out_fname,ret)
+	else:
+		return ret

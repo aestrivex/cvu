@@ -151,9 +151,9 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		return RequireWindow()
 
 class ParcellationChooserWindow(InteractiveSubwindow):
-	Please_note=Str('Unless you are specifically interested in the'
-		' morphology of an individual subject, it is recommended to use'
-		' fsaverage5 and leave the first two fields alone.')
+	Please_note=Str('fsaverage5 is fine unless individual morphology '
+		'is of interest.  Visualizing tractography requires individual '
+		'morphology (at least for now)')
 	SUBJECTS_DIR=Directory('./')
 	SUBJECT=Str('fsavg5')
 	labelnames_f=File
@@ -176,6 +176,28 @@ class ParcellationChooserWindow(InteractiveSubwindow):
 
 	def _open_labelnames_f_fired(self):
 		self.labelnames_f=open_file()
+
+class TractographyChooserWindow(InteractiveSubwindow):
+	Please_note=Str('Tractography will be misaligned with the surface unless '
+		'the surface corresponds to the subject\'s individual morphology.\n'
+		'cvu will source the freesurfer setup script.  You can omit this if '
+		'the environment has already been set prior to running cvu.  All four '
+		'of the other fields are required.')
+	track_file=File
+	b0_volume=File
+	SUBJECTS_DIR=Directory
+	SUBJECT=Str
+	fs_setup=File('/usr/local/freesurfer/nmr-stable53-env')
+	traits_view=View(
+		Group(
+			Item(name='Please_note',style='readonly',height=125,width=325),
+			Item(name='track_file'),
+			Item(name='b0_volume'),
+			Item(name='SUBJECTS_DIR'),
+			Item(name='SUBJECT'),
+			Item(name='fs_setup'),
+		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+			title='Just FYI subject 39108 has an abnormal HRF')
 
 class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	Please_note=Str('Same rules for adjmat ordering files apply')
@@ -356,9 +378,15 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 		title='Your doom awaits you')
 
 class ErrorDialogWindow(HasTraits):
-	message=Str
-	traits_view=View(Item(name='error',style='readonly'),
-		buttons=[OKButton],kind='nonmodal',height=150,width=300,
+	error=Str
+	traits_view=View(Item(name='error',style='readonly',height=75,width=300),
+		buttons=[OKButton],kind='nonmodal',
+		title='Evil mutant zebras did this',)
+
+class WarningDialogWindow(HasTraits):
+	warning=Str
+	traits_view=View(Item(name='warning',style='readonly',height=75,width=300),
+		buttons=[OKButton],kind='nonmodal',
 		title='Evil mutant zebras did this',)
 
 class AboutWindow(HasTraits):
