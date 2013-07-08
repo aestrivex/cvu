@@ -20,10 +20,11 @@ from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
-	TextEditor)
+	TextEditor,ImageEnumEditor)
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
+from mayavi.core import lut_manager
 
 class SubwindowHandler(Handler):
 	def closed(self,info,is_ok):
@@ -59,6 +60,9 @@ class OptionsWindow(InteractiveSubwindow):
 	rh_surfs_on = Bool(True)
 	conns_width = Float(2.)
 	conns_colors_on = Bool(True)
+	cmap_default = Enum('cool',lut_manager.lut_mode_list())
+	cmap_scalar = Enum('BuGn',lut_manager.lut_mode_list())
+	cmap_activation = Enum('YlOrRd',lut_manager.lut_mode_list())
 	traits_view=View(
 		VSplit(
 			HSplit(
@@ -95,6 +99,17 @@ class OptionsWindow(InteractiveSubwindow):
 			HSplit(
 				Item(name='conns_width',label='conn linewidth'),
 				Item(name='conns_colors_on'),
+			),
+			HSplit(
+				Item(name='cmap_default',label='default cmap',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_manager.lut_mode_list(),cols=7)),
+				Item(name='cmap_scalar',label='scalar cmap',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_manager.lut_mode_list(),cols=7)),
+				Item(name='cmap_activation',label='conns cmap',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_manager.lut_mode_list(),cols=7)),
 			),
 			show_labels=False,
 		),

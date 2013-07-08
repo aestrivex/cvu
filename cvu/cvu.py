@@ -30,6 +30,7 @@ from traits.api import (HasTraits,Enum,Instance,Range,Float,Method,Str,Dict,
 from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
 	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
+from mayavi.core import lut,lut_manager
 from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
 from chaco.api import reverse,center
 from enable.component_editor import ComponentEditor
@@ -136,9 +137,6 @@ class Cvu(CvuPlaceholder):
 
 	default_glass_brain_color=Trait((.82,.82,.82),
 		TraitTuple(Range(0.,1.),Range(0.,1.),Range(0.,1.)))
-	cmap_default = Str('cool')
-	cmap_scalar = Str('BuGn')
-	cmap_activation = Str('YlOrRd')
 
 	python_shell = Dict
 	
@@ -274,9 +272,9 @@ class Cvu(CvuPlaceholder):
 		self.cur_module=None
 
 		## SET UP COLORS AND COLORMAPS ##
-		self.yellow_map=get_cmap(self.cmap_activation)
-		self.cool_map=get_cmap(self.cmap_default)
-		self.bluegreen_map=get_cmap(self.cmap_scalar)
+		self.cmap_activation_pl=get_cmap(self.opts.cmap_activation)
+		self.cmap_default_pl=get_cmap(self.opts.cmap_default)
+		self.cmap_scalar_pl=get_cmap(self.opts.cmap_scalar)
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -404,11 +402,11 @@ class Cvu(CvuPlaceholder):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfl',
-			colormap=self.cmap_scalar)
+			colormap=self.opts.cmap_scalar)
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfr',
-			colormap=self.cmap_scalar)
+			colormap=self.opts.cmap_scalar)
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
 		#some colors
@@ -437,14 +435,14 @@ class Cvu(CvuPlaceholder):
 			self.lab_pos[lhn,1],self.lab_pos[lhn,2],name='nodepos_lh')
 		self.nodes_lh=mlab.pipeline.glyph(self.nodesource_lh,scale_mode='none',
 			scale_factor=3.0,name='nodes_lh',mode='sphere',
-			colormap=self.cmap_default)
+			colormap=self.opts.cmap_default)
 		self.nodes_lh.glyph.color_mode='color_by_scalar'
 
 		self.nodesource_rh=mlab.pipeline.scalar_scatter(self.lab_pos[rhn,0],
 			self.lab_pos[rhn,1],self.lab_pos[rhn,2],name='nodepos_rh')
 		self.nodes_rh=mlab.pipeline.glyph(self.nodesource_rh,scale_mode='none',
 			scale_factor=3.0,name='nodes_rh',mode='sphere',
-			colormap=self.cmap_default)
+			colormap=self.opts.cmap_default)
 		self.nodes_rh.glyph.color_mode='color_by_scalar'
 
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
@@ -472,11 +470,11 @@ class Cvu(CvuPlaceholder):
 
 		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1][tri_inds_l],
-			opacity=self.opts.surface_visibility,colormap=self.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=self.opts.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfl_cracked',)
 		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3][tri_inds_r],
-			opacity=self.opts.surface_visibility,colormap=self.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=self.opts.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
@@ -502,7 +500,7 @@ class Cvu(CvuPlaceholder):
 		self.thres.auto_reset_lower=False
 		self.thres.auto_reset_upper=False
 		self.myvectors = mlab.pipeline.vectors(self.thres,
-			colormap=self.cmap_activation,line_width=self.opts.conns_width,
+			colormap=self.opts.cmap_activation,line_width=self.opts.conns_width,
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
 		self.myvectors.glyph.glyph.clamping=False
@@ -545,7 +543,7 @@ class Cvu(CvuPlaceholder):
 			np.reshape(self.adjdat,(self.nr_edges,)),
 			self.nodes_numberless,
 			indices=self.edges.T,
-			colormap=self.cmap_activation,
+			colormap=self.opts.cmap_activation,
 			fig=figure,
 			n_lines=self.nr_edges, #bounded by soft_max_edges
 			node_colors=self.node_colors,
@@ -637,11 +635,12 @@ class Cvu(CvuPlaceholder):
 	def set_node_size(self):
 		#applies only to 3D brain
 		csw=self.configure_scalars_window
-		for nodes in [self.nodes_lh,self.nodes_rh]:
+		for nodes,idxs in [(self.nodes_lh,self.lhnodes),
+				(self.nodes_rh,self.rhnodes)]:
 			if self.display_mode=='scalar' and csw.nod_siz:
 				nodes.glyph.scale_mode='scale_by_vector' #vector
 				nodes.glyph.glyph.scale_factor=8
-				sizes=self.node_scalars[csw.nod_siz]
+				sizes=self.node_scalars[csw.nod_siz][idxs]
 				sizes=np.tile(sizes,(3,1)).T
 				nodes.mlab_source.dataset.point_data.vectors=sizes
 			else:
@@ -662,7 +661,7 @@ class Cvu(CvuPlaceholder):
 			module=self.get_module()
 			new_colors=np.tile(.3,self.nr_labels)
 			new_colors[module]=.8
-			self.node_colors=list(self.cool_map(new_colors))
+			self.node_colors=list(self.cmap_default_pl(new_colors))
 		elif self.display_mode=='module_multi':
 			while self.nr_modules > len(self.module_colors):
 				i,j=np.random.randint(18,size=(2,))
@@ -691,7 +690,8 @@ class Cvu(CvuPlaceholder):
 		if self.display_mode=='normal':	
 			for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 					(self.nodes_rh,len(self.rhnodes))]:
-				nod.module_manager.scalar_lut_manager.lut_mode=self.cmap_default
+				nod.module_manager.scalar_lut_manager.lut_mode=(
+					self.opts.cmap_default)
 				nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 		elif self.display_mode=='scalar':
 			csw=self.configure_scalars_window
@@ -699,19 +699,20 @@ class Cvu(CvuPlaceholder):
 				for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 						(self.nodes_rh,len(self.rhnodes))]:
 					nod.module_manager.scalar_lut_manager.lut_mode=(
-						self.cmap_default)
+						self.opts.cmap_default)
 					nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 			else:
 				for nod,idxs in [(self.nodes_lh,self.lhnodes),
 						(self.nodes_rh,self.rhnodes)]:
 					nod.module_manager.scalar_lut_manager.lut_mode=(
-						self.cmap_scalar)
+						self.opts.cmap_scalar)
 					nod.mlab_source.dataset.point_data.scalars=(	
 						self.node_scalars[csw.nod_col][idxs])
 		elif self.display_mode=='module_single':
 			for nod,idxs in [(self.nodes_lh,self.lhnodes),
 					(self.nodes_rh,self.rhnodes)]:
-				nod.module_manager.scalar_lut_manager.lut_mode=self.cmap_default
+				nod.module_manager.scalar_lut_manager.lut_mode=(
+					self.opts.cmap_default)
 				new_colors=np.tile(	.3,self.nr_labels)
 				new_colors[self.get_module()]=.8
 				nod.mlab_source.dataset.point_data.scalars=new_colors[idxs]
@@ -741,7 +742,7 @@ class Cvu(CvuPlaceholder):
 	def set_node_color_circ(self):
 		csw=self.configure_scalars_window
 		if self.display_mode=='scalar' and csw.circle:
-			cols=list(self.bluegreen_map(self.node_scalars[csw.circle]))
+			cols=list(self.cmap_scalar_pl(self.node_scalars[csw.circle]))
 		else:
 			cols=self.node_colors
 
@@ -755,7 +756,7 @@ class Cvu(CvuPlaceholder):
 	def set_node_color_chaco(self):
 		csw=self.configure_scalars_window
 		if self.display_mode=='scalar' and csw.conmat:
-			cols=list(self.bluegreen_map(self.node_scalars[csw.conmat]))
+			cols=list(self.cmap_scalar_pl(self.node_scalars[csw.conmat]))
 		else:
 			cols=self.node_colors
 
@@ -787,7 +788,7 @@ class Cvu(CvuPlaceholder):
 					if (self.adjdat[e] <= hi and
 							self.adjdat[e] >= lo):
 						self.circ_data[e].set_visible(True)
-						col=self.yellow_map((self.adjdat[e]-lo)/(hi-lo))
+						col=self.cmap_activation_pl((self.adjdat[e]-lo)/(hi-lo))
 						self.circ_data[e].set_ec(col)
 						count_edges+=1
 					else:
@@ -1298,6 +1299,28 @@ class Cvu(CvuPlaceholder):
 					syrf.actor.property.representation='wireframe'
 				elif self.opts.render_style=='speckled':
 					syrf.actor.property.representation='points'
+
+	@on_trait_change('opts:cmap_default')
+	def chg_default_cmap_interactive(self):
+		self.cmap_default_pl=get_cmap(self.opts.cmap_default)
+		self.draw_surfs()
+		self.draw_nodes()
+
+	@on_trait_change('opts:cmap_scalar')
+	def chg_scalar_cmap_interactive(self):
+		self.cmap_scalar_pl=get_cmap(self.opts.cmap_scalar)
+		self.draw_surfs()
+		self.draw_nodes()
+
+	@on_trait_change('opts:cmap_activation')
+	def chg_activation_cmap_interactive(self):
+		self.cmap_activation_pl=get_cmap(self.opts.cmap_activation)
+		self.draw_conns()
+
+		#conn color doesnt change anywhere else so just do this here instead of
+		#in draw
+		self.myvectors.module_manager.scalar_lut_manager.lut_mode=(
+			self.opts.cmap_activation)
 
 	## LOAD DATA HELPER FUNCTIONS ##
 	def _load_adjmat_button_fired(self):
