@@ -102,6 +102,7 @@ class Cvu(CvuPlaceholder):
 	color_legend_button = Button('Color legend')
 	load_parc_button=Button('Load a parcellation')
 	options_button=Button('Options')
+	custom_colormap_button=Button('Custom Colors')
 	load_track_button=Button('Load tractography')
 	take_snapshot_button=Button('Take snapshot')
 	make_movie_button = Button
@@ -125,6 +126,7 @@ class Cvu(CvuPlaceholder):
 	warning_dialog_window = Instance(HasTraits)
 	about_window = Instance(HasTraits)
 	color_legend_window = Instance(HasTraits)
+	custom_colormap_window = Instance(HasTraits)
 	opts = Instance(HasTraits)
 	#Must declare each of the subwindows specifically as a trait so its 
 	#attributes can be listened for as traits with decorators.
@@ -196,6 +198,7 @@ class Cvu(CvuPlaceholder):
 						Item(name='make_movie_button',
 							editor=ButtonEditor(label_value='mk_movie_lbl')),
 						Item(name='options_button',),
+						Item(name='custom_colormap_button',),
 						Item(name='about_button'),
 						show_labels=False,
 					),
@@ -234,6 +237,7 @@ class Cvu(CvuPlaceholder):
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
 		self.opts=dialogs.OptionsWindow()
+		self.custom_colormap_window=dialogs.CustomColormapWindow()
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
 		self.track_chooser_window=dialogs.TractographyChooserWindow()
@@ -272,9 +276,10 @@ class Cvu(CvuPlaceholder):
 		self.cur_module=None
 
 		## SET UP COLORS AND COLORMAPS ##
-		self.cmap_activation_pl=get_cmap(self.opts.cmap_activation)
-		self.cmap_default_pl=get_cmap(self.opts.cmap_default)
-		self.cmap_scalar_pl=get_cmap(self.opts.cmap_scalar)
+		ccw=self.custom_colormap_window	
+		self.cmap_activation_pl=get_cmap(ccw.cmap_activation)
+		self.cmap_default_pl=get_cmap(ccw.cmap_default)
+		self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar)
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -399,14 +404,15 @@ class Cvu(CvuPlaceholder):
 			pass
 
 	def surfs_gen(self):
+		ccw=self.custom_colormap_window
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfl',
-			colormap=self.opts.cmap_scalar)
+			colormap=ccw.cmap_scalar)
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfr',
-			colormap=self.opts.cmap_scalar)
+			colormap=ccw.cmap_scalar)
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
 		#some colors
@@ -425,6 +431,8 @@ class Cvu(CvuPlaceholder):
 			pass
 
 	def nodes_gen(self):
+		ccw=self.custom_colormap_window
+
 		#assumes that all LH nodes start with L.  This is not ideal.
 		#passing this information thru preprocessing is annoying but better 
 		node_hemis=np.array(map(lambda r:r[0],self.labnam))
@@ -435,14 +443,14 @@ class Cvu(CvuPlaceholder):
 			self.lab_pos[lhn,1],self.lab_pos[lhn,2],name='nodepos_lh')
 		self.nodes_lh=mlab.pipeline.glyph(self.nodesource_lh,scale_mode='none',
 			scale_factor=3.0,name='nodes_lh',mode='sphere',
-			colormap=self.opts.cmap_default)
+			colormap=ccw.cmap_default)
 		self.nodes_lh.glyph.color_mode='color_by_scalar'
 
 		self.nodesource_rh=mlab.pipeline.scalar_scatter(self.lab_pos[rhn,0],
 			self.lab_pos[rhn,1],self.lab_pos[rhn,2],name='nodepos_rh')
 		self.nodes_rh=mlab.pipeline.glyph(self.nodesource_rh,scale_mode='none',
 			scale_factor=3.0,name='nodes_rh',mode='sphere',
-			colormap=self.opts.cmap_default)
+			colormap=ccw.cmap_default)
 		self.nodes_rh.glyph.color_mode='color_by_scalar'
 
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
@@ -453,6 +461,7 @@ class Cvu(CvuPlaceholder):
 		self.set_node_color_mayavi()
 
 	def cracked_surfs_gen(self):
+		ccw=self.custom_colormap_window
 		tri_inds_l=[]
 		tri_inds_r=[]
 		for l in self.labv:
@@ -470,11 +479,11 @@ class Cvu(CvuPlaceholder):
 
 		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1][tri_inds_l],
-			opacity=self.opts.surface_visibility,colormap=self.opts.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=ccw.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfl_cracked',)
 		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3][tri_inds_r],
-			opacity=self.opts.surface_visibility,colormap=self.opts.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=ccw.cmap_scalar,
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
@@ -488,6 +497,7 @@ class Cvu(CvuPlaceholder):
 			pass
 
 	def vectors_gen(self):
+		ccw=self.custom_colormap_window
 		self.vectorsrc = mlab.pipeline.vector_scatter(self.starts[:,0],
 			self.starts[:,1],self.starts[:,2],self.vecs[:,0],self.vecs[:,1],
 			self.vecs[:,2],name='connsrc')
@@ -500,7 +510,7 @@ class Cvu(CvuPlaceholder):
 		self.thres.auto_reset_lower=False
 		self.thres.auto_reset_upper=False
 		self.myvectors = mlab.pipeline.vectors(self.thres,
-			colormap=self.opts.cmap_activation,line_width=self.opts.conns_width,
+			colormap=ccw.cmap_activation,line_width=self.opts.conns_width,
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
 		self.myvectors.glyph.glyph.clamping=False
@@ -543,7 +553,7 @@ class Cvu(CvuPlaceholder):
 			np.reshape(self.adjdat,(self.nr_edges,)),
 			self.nodes_numberless,
 			indices=self.edges.T,
-			colormap=self.opts.cmap_activation,
+			colormap=self.custom_colormap_window.cmap_activation,
 			fig=figure,
 			n_lines=self.nr_edges, #bounded by soft_max_edges
 			node_colors=self.node_colors,
@@ -687,11 +697,13 @@ class Cvu(CvuPlaceholder):
 		self.set_node_color_circ()
 
 	def set_node_color_mayavi(self):
+		ccw=self.custom_colormap_window
 		if self.display_mode=='normal':	
 			for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 					(self.nodes_rh,len(self.rhnodes))]:
-				nod.module_manager.scalar_lut_manager.lut_mode=(
-					self.opts.cmap_default)
+				nod.module_manager.scalar_lut_manager.lut_mode=ccw.cmap_default
+				nod.module_manager.scalar_lut_manager.reverse_lut=(
+					ccw.reverse_default)
 				nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 		elif self.display_mode=='scalar':
 			csw=self.configure_scalars_window
@@ -699,20 +711,26 @@ class Cvu(CvuPlaceholder):
 				for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 						(self.nodes_rh,len(self.rhnodes))]:
 					nod.module_manager.scalar_lut_manager.lut_mode=(
-						self.opts.cmap_default)
+						ccw.cmap_default)
+					nod.module_manager.scalar_lut_manager.reverse_lut=(
+						ccw.reverse_default)
 					nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 			else:
 				for nod,idxs in [(self.nodes_lh,self.lhnodes),
 						(self.nodes_rh,self.rhnodes)]:
 					nod.module_manager.scalar_lut_manager.lut_mode=(
-						self.opts.cmap_scalar)
+						ccw.cmap_scalar)
+					nod.module_manager.scalar_lut_manager.reverse_lut=(
+						ccw.reverse_scalar)
 					nod.mlab_source.dataset.point_data.scalars=(	
 						self.node_scalars[csw.nod_col][idxs])
 		elif self.display_mode=='module_single':
 			for nod,idxs in [(self.nodes_lh,self.lhnodes),
 					(self.nodes_rh,self.rhnodes)]:
 				nod.module_manager.scalar_lut_manager.lut_mode=(
-					self.opts.cmap_default)
+					ccw.cmap_default)
+				nod.module_manager.scalar_lut_manager.reverse_lut=(
+					ccw.reverse_default)
 				new_colors=np.tile(	.3,self.nr_labels)
 				new_colors[self.get_module()]=.8
 				nod.mlab_source.dataset.point_data.scalars=new_colors[idxs]
@@ -721,10 +739,12 @@ class Cvu(CvuPlaceholder):
 			
 			#set the cmap to be relatively discrete colors
 			for nod in [self.nodes_lh,self.nodes_rh]:
-				#file sets the LUT to read from a trait file.  if the
-				#trait isn't set, it ignores this.  later, when it changes
-				#back to cool (or whatever), it triggers a change event
-				nod.module_manager.scalar_lut_manager.lut_mode='file'
+				#we are going to override lut_mode and set the LUT manually.
+				#when we want to go back to some other mode lut_mode is still
+				#the same it will not trigger a change event.
+				#black-white is disallowed as a user-specified value so we
+				#specify this as a placeholder
+				nod.module_manager.scalar_lut_manager.lut_mode='black-white'
 				nod.module_manager.scalar_lut_manager.number_of_colors=(
 					self.nr_modules)
 				nod.module_manager.scalar_lut_manager.lut.table=cols
@@ -1300,27 +1320,106 @@ class Cvu(CvuPlaceholder):
 				elif self.opts.render_style=='speckled':
 					syrf.actor.property.representation='points'
 
-	@on_trait_change('opts:cmap_default')
+	@on_trait_change('custom_colormap_window:cmap_default'
+					',custom_colormap_window:reverse_default'
+					',custom_colormap_window:fname_default')
 	def chg_default_cmap_interactive(self):
-		self.cmap_default_pl=get_cmap(self.opts.cmap_default)
-		self.draw_surfs()
-		self.draw_nodes()
+		ccw=self.custom_colormap_window
+		if ccw.cmap_default=='file' and ccw.fname_default:
+			self.cmap_default=LinearSegmentedColormap.from_list(
+				'file',lut_manager.parse_lut_file(ccw.fname_default))
+			self.myvectors.module_manager.scalar_lut_manager.file_name=(
+				ccw.fname_default)
+		if ccw.reverse_default:
+			self.cmap_default_pl=get_cmap(ccw.cmap_default+'_r')
+		else:
+			self.cmap_default_pl=get_cmap(ccw.cmap_default)
 
-	@on_trait_change('opts:cmap_scalar')
+		try:
+			self.draw_surfs()
+			self.draw_nodes()
+		except:
+			if ccw.cmap_default=='file' and not ccw.fname_default:
+				pass #fail silently until user has a chance to specify file
+			else:
+				raise
+
+	@on_trait_change('custom_colormap_window:cmap_scalar'
+					',custom_colormap_window:reverse_scalar'
+					',custom_colormap_window:fname_scalar')
 	def chg_scalar_cmap_interactive(self):
-		self.cmap_scalar_pl=get_cmap(self.opts.cmap_scalar)
-		self.draw_surfs()
-		self.draw_nodes()
+		ccw=self.custom_colormap_window
+		if ccw.cmap_scalar=='file' and ccw.fname_scalar:
+			self.cmap_scalar_pl=LinearSegmentedColormap.from_list(
+				'file',lut_manager.parse_lut_file(ccw.fname_scalar))
+			self.myvectors.module_manager.scalar_lut_manager.file_name=(
+				ccw.fname_scalar)
+		elif ccw.reverse_scalar:
+			self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar+'_r')
+		else:
+			self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar)
 
-	@on_trait_change('opts:cmap_activation')
+		#surf color doesnt change anywhere else; keep out of draw for simplicity
+		for surf in [self.syrf_lh,self.syrf_rh]:
+			surf.module_manager.scalar_lut_manager.lut_mode=ccw.cmap_scalar
+			surf.module_manager.scalar_lut_manager.reverse_lut=(
+				ccw.reverse_scalar)
+
+		try:
+			self.draw_surfs()
+			self.draw_nodes()
+		except:
+			if ccw.cmap_scalar=='file' and not ccw.fname_scalar:
+				pass #fail silently until user has a chance to specify file
+			else:
+				raise
+
+	@on_trait_change('custom_colormap_window:cmap_activation'
+					',custom_colormap_window:reverse_activation'
+					',custom_colormap_window:fname_activation')
 	def chg_activation_cmap_interactive(self):
-		self.cmap_activation_pl=get_cmap(self.opts.cmap_activation)
-		self.draw_conns()
+		ccw=self.custom_colormap_window
+		if ccw.cmap_activation=='file' and ccw.fname_activation:
+			self.cmap_activation_pl=LinearSegmentedColormap.from_list(
+				'file',lut_manager.parse_lut_file(ccw.fname_activation))
+			self.myvectors.module_manager.scalar_lut_manager.file_name=(
+				ccw.fname_activation)
+		elif ccw.reverse_activation:
+			self.cmap_activation_pl=get_cmap(ccw.cmap_activation+'_r')
+		else:
+			self.cmap_activation_pl=get_cmap(ccw.cmap_activation)
 
-		#conn color doesnt change anywhere else so just do this here instead of
-		#in draw
+		#conncolor doesnt change anywhere else; keep out of draw for simplicity
 		self.myvectors.module_manager.scalar_lut_manager.lut_mode=(
-			self.opts.cmap_activation)
+			ccw.cmap_activation)
+		self.myvectors.module_manager.scalar_lut_manager.reverse_lut=(
+			ccw.reverse_activation)
+
+		try:
+			self.draw_conns()
+		except:
+			if ccw.cmap_activation=='file' and not ccw.fname_activation:
+				pass #fail silently until user has a chance to specify file
+			else:
+				raise
+
+	@on_trait_change('custom_colormap_window:notify')
+	def colormap_customize_check(self):
+		ccw=self.custom_colormap_window
+
+		errstr=''
+		if ccw.cmap_default=='file' and not ccw.fname_default:
+			errstr+='No file specified for default colormap\n'
+			ccw.cmap_default='cool'
+		if ccw.cmap_scalar=='file' and not ccw.fname_scalar:
+			errstr+='No file specified for scalar colormap\n'
+			ccw.cmap_scalar='BuGn'
+		if ccw.cmap_activation=='file' and not ccw.fname_activation:
+			errstr+='No file specified for connections colormap\n'
+			ccw.cmap_activation='YlOrRd'
+
+		if errstr:
+			self.error_dialog(errstr)
 
 	## LOAD DATA HELPER FUNCTIONS ##
 	def _load_adjmat_button_fired(self):
@@ -1594,6 +1693,9 @@ class Cvu(CvuPlaceholder):
 	def _options_button_fired(self):
 		self.opts.edit_traits()
 
+	def _custom_colormap_button_fired(self):
+		self.custom_colormap_window.edit_traits()
+
 	def _color_legend_button_fired(self):
 		self.color_legend_window.edit_traits()
 
@@ -1602,6 +1704,7 @@ class Cvu(CvuPlaceholder):
 		self.circ_fig.canvas.draw()
 		self.conn_mat.request_redraw()
 
+	#removed long ago
 	def _up_node_button_fired(self):
 		if self.curr_node==None:
 			return
@@ -1610,6 +1713,7 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.display_node(self.curr_node+1)
 
+	#removed long ago
 	def _down_node_button_fired(self):
 		if self.curr_node==None:
 			return

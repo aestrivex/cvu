@@ -35,11 +35,10 @@ class InteractiveSubwindow(HasTraits):
 	finished=Bool(False)
 	notify=Event
 
-def append_proper_buttons(button):
+def append_proper_buttons(buttonlist):
 	#get around list mutability
-	a=[button]
-	a.extend(OKCancelButtons)
-	return a
+	buttonlist.extend(OKCancelButtons)
+	return buttonlist
 
 class OptionsWindow(InteractiveSubwindow):
 	surface_visibility = Range(0.0,1.0,.15)
@@ -60,9 +59,6 @@ class OptionsWindow(InteractiveSubwindow):
 	rh_surfs_on = Bool(True)
 	conns_width = Float(2.)
 	conns_colors_on = Bool(True)
-	cmap_default = Enum('cool',lut_manager.lut_mode_list())
-	cmap_scalar = Enum('BuGn',lut_manager.lut_mode_list())
-	cmap_activation = Enum('YlOrRd',lut_manager.lut_mode_list())
 	traits_view=View(
 		VSplit(
 			HSplit(
@@ -100,21 +96,87 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='conns_width',label='conn linewidth'),
 				Item(name='conns_colors_on'),
 			),
-			HSplit(
-				Item(name='cmap_default',label='default cmap',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_manager.lut_mode_list(),cols=7)),
-				Item(name='cmap_scalar',label='scalar cmap',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_manager.lut_mode_list(),cols=7)),
-				Item(name='cmap_activation',label='conns cmap',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_manager.lut_mode_list(),cols=7)),
-			),
-			show_labels=False,
+			show_labels=False
 		),
 		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
 		title='Select your desired destiny',
+	)
+
+class CustomCmapWindowHandler(SubwindowHandler):
+	def do_edit_cmap(self,info):
+		from tvtk import util as tvtk_util; import sys,subprocess
+		script=os.path.join(os.path.dirname(tvtk_util.__file__),
+			'wx_gradient_editor.py')
+		subprocess.Popen([sys.executable, script])
+	def do_defaults(self,info):
+		info.object.cmap_default='cool'
+		info.object.cmap_scalar='BuGn'
+		info.object.cmap_activation='YlOrRd'
+
+class CustomColormapWindow(InteractiveSubwindow):
+	lut_list = lut_manager.lut_mode_list()
+	lut_list.remove('black-white')
+	lut_list.remove('blue-red')
+
+	cmap_default = Enum('cool',lut_list)
+	cmap_scalar = Enum('BuGn',lut_list)
+	cmap_activation = Enum('YlOrRd',lut_list)
+	
+	reverse_default = Bool(False)
+	reverse_scalar = Bool(False)
+	reverse_activation = Bool(False)
+	
+	fname_default = File
+	fname_scalar = File
+	fname_activation = File
+
+	label_default = Str('Default Colormap')
+	label_scalar = Str('Scalars Colormap')
+	label_activation = Str('Conns Colormap')
+
+	EditCmapButton = Action(name='Colormap customizer',action='do_edit_cmap')
+	ResetDefaultsButton = Action(name='Reset defaults',action='do_defaults')
+
+	#TODO visible_when doesnt resize automatically?
+	traits_view=View(
+		HSplit(
+			VSplit(
+				Item(name='label_default',style='readonly'),
+				Item(name='cmap_default',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_list,cols=7)),
+				Item(name='fname_default',
+					enabled_when='cmap_default==\'file\''),
+				Item(name='reverse_default',label='invert',show_label=True,
+					enabled_when='cmap_default!=\'file\''),
+				show_labels=False,
+			),
+			VSplit(
+				Item(name='label_scalar',style='readonly'),
+				Item(name='cmap_scalar',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_list,cols=7)),
+				Item(name='fname_scalar',
+					enabled_when='cmap_scalar==\'file\''),
+				Item(name='reverse_scalar',label='invert',show_label=True,
+					enabled_when='cmap_scalar!=\'file\''),
+				show_labels=False,
+			),
+			VSplit(
+				Item(name='label_activation',style='readonly'),
+				Item(name='cmap_activation',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_list,cols=7)),
+				Item(name='fname_activation',
+					enabled_when='cmap_activation==\'file\''),
+				Item(name='reverse_activation',label='invert',show_label=True,
+					enabled_when='cmap_activation!=\'file\''),
+				show_labels=False,
+			),
+		),
+		kind='live',handler=CustomCmapWindowHandler(),
+		buttons=append_proper_buttons([EditCmapButton,ResetDefaultsButton]),
+		title='If it were up to me it would all be monochrome',
 	)
 
 class RequireWindow(InteractiveSubwindow):
@@ -156,7 +218,7 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
-		kind='live',buttons=append_proper_buttons(RequireButton),
+		kind='live',buttons=append_proper_buttons([RequireButton]),
 		handler=AdjmatChooserWindowHandler(),
 		title='Report all man-eating vultures to security',)
 
@@ -333,7 +395,7 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 		Item(name='intermediate_node_list',editor=CheckListEditor(
 			name='initial_node_list',cols=2),show_label=False,style='custom'),
 		kind='live',height=400,width=500,
-		buttons=append_proper_buttons(ClearButton),
+		buttons=append_proper_buttons([ClearButton]),
 		handler=ModuleCustomizerWindowHandler(),
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
 
