@@ -1,0 +1,4 @@
+rh_inferiorparietal
+rh_parsorbitalis
+lh_corpuscallosum
+lh_temporalpole
