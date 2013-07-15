@@ -20,20 +20,29 @@ from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
-	TextEditor,ImageEnumEditor)
+	TextEditor,ImageEnumEditor,UIInfo)
 from traitsui.file_dialog import open_file
 import os
 import cvu_utils as util
+from custom_file_editor import CustomFileEditor, CustomDirectoryEditor
 from mayavi.core import lut_manager
 
-class SubwindowHandler(Handler):
+class InteractiveSubwindow(Handler):
+	finished=Bool(False)
+	notify=Event
+
+	info=Instance(UIInfo)
+
+	def init_info(self,info):
+		self.info=info
 	def closed(self,info,is_ok):
 		info.object.finished=is_ok
 		info.object.notify=True
-
-class InteractiveSubwindow(HasTraits):
-	finished=Bool(False)
-	notify=Event
+	def reconstruct(self,info=None):
+		if info is None:
+			info=self.info
+		info.ui.dispose()
+		info.object.edit_traits()
 
 def append_proper_buttons(buttonlist):
 	#get around list mutability
@@ -98,20 +107,9 @@ class OptionsWindow(InteractiveSubwindow):
 			),
 			show_labels=False
 		),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		kind='live',buttons=OKCancelButtons,
 		title='Select your desired destiny',
 	)
-
-class CustomCmapWindowHandler(SubwindowHandler):
-	def do_edit_cmap(self,info):
-		from tvtk import util as tvtk_util; import sys,subprocess
-		script=os.path.join(os.path.dirname(tvtk_util.__file__),
-			'wx_gradient_editor.py')
-		subprocess.Popen([sys.executable, script])
-	def do_defaults(self,info):
-		info.object.cmap_default='cool'
-		info.object.cmap_scalar='BuGn'
-		info.object.cmap_activation='YlOrRd'
 
 class CustomColormapWindow(InteractiveSubwindow):
 	lut_list = lut_manager.lut_mode_list()
@@ -174,10 +172,21 @@ class CustomColormapWindow(InteractiveSubwindow):
 				show_labels=False,
 			),
 		),
-		kind='live',handler=CustomCmapWindowHandler(),
+		kind='live',
 		buttons=append_proper_buttons([EditCmapButton,ResetDefaultsButton]),
 		title='If it were up to me it would all be monochrome',
 	)
+
+	#handler methods
+	def do_edit_cmap(self,info):
+		from tvtk import util as tvtk_util; import sys,subprocess
+		script=os.path.join(os.path.dirname(tvtk_util.__file__),
+			'wx_gradient_editor.py')
+		subprocess.Popen([sys.executable, script])
+	def do_defaults(self,info):
+		info.object.cmap_default='cool'
+		info.object.cmap_scalar='BuGn'
+		info.object.cmap_activation='YlOrRd'
 
 class RequireWindow(InteractiveSubwindow):
 	require_ls=List(Str)
@@ -189,10 +198,6 @@ class RequireWindow(InteractiveSubwindow):
 			editable=True),label='List ROIs here'),
 		buttons=OKCancelButtons,title='Mango curry')
 
-class AdjmatChooserWindowHandler(SubwindowHandler):
-	def do_rw_show(self,info):
-		info.object.require_window.edit_traits()
-
 class AdjmatChooserWindow(InteractiveSubwindow):
 	Please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
@@ -200,6 +205,7 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		"field name applies to the data field for .mat matrices only.")
 	adjmat=File
 	open_adjmat=Button('Browse')
+	open_adjmat_order=Button('Browse')
 	#adjmat_order=Trait(None,None,File)
 	adjmat_order=File
 	max_edges=Int
@@ -213,19 +219,33 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 		#	Item(name='adjmat',style='text'),
 		#	Item(name='open_adjmat',show_label=False),
 		#),
-		Item(name='adjmat',),
-		Item(name='adjmat_order',label='Label Order',),
+		Item(name='adjmat',
+			editor=CustomFileEditor()),
+		Item(name='adjmat_order',label='Label Order',
+			editor=CustomFileEditor()),
+		#HSplit(
+		#	Item(name='adjmat_order',style='text'),
+		#	Item(name='open_adjmat_order',show_label=False),
+		#),
 		Item(name='max_edges',label='Max Edges'),
 		Item(name='field_name',label='Data Field Name'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
 		kind='live',buttons=append_proper_buttons([RequireButton]),
-		handler=AdjmatChooserWindowHandler(),
 		title='Report all man-eating vultures to security',)
 
+	#private methods
 	def _open_adjmat_fired(self):
 		self.adjmat=open_file()
+		self.edit_traits()
+	def _open_adjmat_order_fired(self):
+		self.adjmat_order=open_file()
+		self.edit_traits()
 	def _require_window_default(self):
 		return RequireWindow()
+
+	#handler methods
+	def do_rw_show(self,info):
+		info.object.require_window.edit_traits()
 
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('fsaverage5 is fine unless individual morphology '
@@ -236,23 +256,31 @@ class ParcellationChooserWindow(InteractiveSubwindow):
 	labelnames_f=File
 	open_labelnames_f=Button('Browse')
 	parcellation_name=Str
+	DisposeEvent=Action(action='do_dispose')
 	traits_view=View(
 		Group(
 			Item(name='Please_note',style='readonly',height=85,width=250),
 			Item(name='SUBJECT'),
-			Item(name='SUBJECTS_DIR'),
+			Item(name='SUBJECTS_DIR',editor=CustomDirectoryEditor()),
 			Item(name='parcellation_name',label='Parcellation'),
-			Item(name='labelnames_f',label='Label Display Order'),
+			Item(name='labelnames_f',label='Label Display Order',
+				editor=CustomFileEditor()),
 			#HSplit(
 			#	Item(name='labelnames_f',label='Label Display Order',
 			#		style='text',springy=True),
 			#	Item(name='open_labelnames_f',show_label=False)
 			#),
-		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		), kind='live',buttons=OKCancelButtons,
 			title="This should not be particularly convenient",)
 
 	def _open_labelnames_f_fired(self):
 		self.labelnames_f=open_file()
+		self.do_dispose(self.info)
+		self.edit_traits()
+
+	def _reconstruct(self):
+		self.do_dispose(self.info)
+		self.edit_traits()
 
 class TractographyChooserWindow(InteractiveSubwindow):
 	Please_note=Str('Tractography will be misaligned with the surface unless '
@@ -268,12 +296,12 @@ class TractographyChooserWindow(InteractiveSubwindow):
 	traits_view=View(
 		Group(
 			Item(name='Please_note',style='readonly',height=125,width=325),
-			Item(name='track_file'),
-			Item(name='b0_volume'),
-			Item(name='SUBJECTS_DIR'),
+			Item(name='track_file',editor=CustomFileEditor()),
+			Item(name='b0_volume',editor=CustomFileEditor()),
+			Item(name='SUBJECTS_DIR',editor=CustomDirectoryEditor()),
 			Item(name='SUBJECT'),
-			Item(name='fs_setup'),
-		), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+			Item(name='fs_setup',editor=CustomFileEditor()),
+		), kind='live',buttons=OKCancelButtons,
 			title='Just FYI subject 39108 has an abnormal HRF')
 
 class LoadGeneralMatrixWindow(InteractiveSubwindow):
@@ -288,17 +316,17 @@ class LoadGeneralMatrixWindow(InteractiveSubwindow):
 	dataset_name=Str('dataset1')
 	traits_view=View(
 		Item(name='Please_note',style='readonly',height=50,width=250),
-		Item(name='mat',label='Filename'),
+		Item(name='mat',label='Filename',editor=CustomFileEditor()),
 		#HSplit(
 		#	Item(name='mat',label='Filename',style='text',springy=True),
 		#	Item(name='open_mat',show_label=False),
 		#),
 		#Item(name='mat',label='Filename',editor=FileEditor(entries=10),style='simple'),
-		Item(name='mat_order',label='Ordering file'),
+		Item(name='mat_order',label='Ordering file',editor=CustomFileEditor()),
 		Item(name='field_name',label='Field (.mat files only)'),
 		Item(name='ignore_deletes',label='Ignore deletes'),
 		Item(name='dataset_name',label='Name this dataset'),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		kind='live',buttons=OKCancelButtons,
 		title='Behold the awesome power of zombies')
 
 	def _open_mat_fired(self):
@@ -357,7 +385,7 @@ class ConfigureScalarsWindow(InteractiveSubwindow):
 				show_labels=False
 			),
 		),
-		height=200,width=800,buttons=OKCancelButtons,handler=SubwindowHandler(),
+		height=200,width=800,buttons=OKCancelButtons,
 		title='Your data is probably just spurious artifacts anyway',
 	)
 	
@@ -368,7 +396,6 @@ class NodeChooserWindow(InteractiveSubwindow):
 		Item(name='node_list',editor=
 			ListStrEditor(selected_index='cur_node'),show_label=False),
 		kind='live',height=350,width=350,buttons=OKCancelButtons,
-		handler=SubwindowHandler(),
 		resizable=True,title='Do you know the muffin man?')
 
 class ModuleChooserWindow(InteractiveSubwindow):
@@ -379,12 +406,7 @@ class ModuleChooserWindow(InteractiveSubwindow):
 			editor=ListStrEditor(editable=True,selected_index='cur_mod'),
 			show_label=False),
 		kind='live',height=350,width=350,buttons=OKCancelButtons,
-		handler=SubwindowHandler(),
 		resizable=True,title='Roll d12 for dexterity check')
-
-class ModuleCustomizerWindowHandler(SubwindowHandler):
-	def do_clear(self,info):
-		info.object.intermediate_node_list=[]
 
 class ModuleCustomizerWindow(InteractiveSubwindow):
 	initial_node_list=List(Str)
@@ -396,7 +418,6 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 			name='initial_node_list',cols=2),show_label=False,style='custom'),
 		kind='live',height=400,width=500,
 		buttons=append_proper_buttons([ClearButton]),
-		handler=ModuleCustomizerWindowHandler(),
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
 
 	#index_convert may return a ValueError, it should be
@@ -404,6 +425,10 @@ class ModuleCustomizerWindow(InteractiveSubwindow):
 	def index_convert(self):
 		self.return_module=[self.initial_node_list.index(i)
 			for i in self.intermediate_node_list]
+
+	#handler methods
+	def do_clear(self,info):
+		info.object.intermediate_node_list=[]
 
 class SaveSnapshotWindow(InteractiveSubwindow):
 	savefile=Str(os.environ['HOME']+'/')
@@ -413,7 +438,7 @@ class SaveSnapshotWindow(InteractiveSubwindow):
 		Item(name='savefile'),
 		Item(name='whichplot',label='view'),
 		Item(name='dpi',label='dots per inch'),
-	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+	), kind='live',buttons=OKCancelButtons,
 		title="Help I'm a bug",height=250,width=250)
 
 class MakeMovieWindow(InteractiveSubwindow):
@@ -431,18 +456,8 @@ class MakeMovieWindow(InteractiveSubwindow):
 		Item(name='bitrate',label='bitrate (kb/s)'),
 		Item(name='anim_style',label='automatically rotate'),
 		Item(name='samplerate',label='animation speed'),
-	), kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+	), kind='live',buttons=OKCancelButtons,
 		title="Make me a sandwich",height=250,width=450)
-
-class AnimatorHandler(Handler):
-	finished=Instance(util.EventHolder)
-
-	def __init__(self,finished):
-		super(AnimatorHandler,self).__init__()
-		self.finished=finished
-
-	def closed(self,info,is_ok):
-		self.finished.e=True
 
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
 	Please_note=Str('That file exists.  Really overwrite?')
@@ -451,7 +466,7 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 		Item(name='Please_note',style='readonly',height=25,width=250,
 			show_label=False),
 		Spring(),
-		kind='live',buttons=OKCancelButtons,handler=SubwindowHandler(),
+		kind='live',buttons=OKCancelButtons,
 		title='Your doom awaits you')
 
 class ErrorDialogWindow(HasTraits):
