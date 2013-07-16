@@ -31,8 +31,8 @@ from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
 	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
 from mayavi.core import lut,lut_manager
-from chaco.api import Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext; 
-from chaco.api import reverse,center
+from chaco.api import (Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext,
+	reverse,center,ColorMapper)
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
@@ -1402,6 +1402,32 @@ class Cvu(CvuPlaceholder):
 				pass #fail silently until user has a chance to specify file
 			else:
 				raise
+	
+	@on_trait_change('custom_colormap_window:cmap_connmat'
+					',custom_colormap_window:reverse_connmat'
+					',custom_colormap_window:fname_connmat')
+	def chg_connmat_cmap_interactive(self):
+		ccw=self.custom_colormap_window
+		if ccw.cmap_connmat=='file' and ccw.fname_connmat:
+			self.cmap_connmat_pl=LinearSegmentedColormap.from_list(
+				'file',lut_manager.parse_lut_file(ccw.fname_connmat))
+		elif ccw.reverse_connmat:
+			self.cmap_connmat_pl=get_cmap(ccw.cmap_connmat+'_r')
+		else:
+			self.cmap_connmat_pl=get_cmap(ccw.cmap_connmat)
+
+		#chaco plot color doesnt change anywhere else ever
+		
+		try:
+			cm=self.cmap_connmat_pl(xrange(256)) #colormap num_colors=256
+			self.conn_mat.color_mapper = ColorMapper.from_palette_array(cm)
+			self.conn_mat.request_redraw()
+		except:
+			if ccw.cmap_connmat=='file' and not ccw.fname_connmat:
+				pass #fail silently until user has a chance to specify file
+			else:
+				raise
+
 
 	@on_trait_change('custom_colormap_window:notify')
 	def colormap_customize_check(self):
@@ -1410,13 +1436,16 @@ class Cvu(CvuPlaceholder):
 		errstr=''
 		if ccw.cmap_default=='file' and not ccw.fname_default:
 			errstr+='No file specified for default colormap\n'
-			ccw.cmap_default='cool'
+			ccw.cmap_default='cool'; ccw.reverse_default=False
 		if ccw.cmap_scalar=='file' and not ccw.fname_scalar:
 			errstr+='No file specified for scalar colormap\n'
-			ccw.cmap_scalar='BuGn'
+			ccw.cmap_scalar='BuGn'; ccw.reverse_scalar=False
 		if ccw.cmap_activation=='file' and not ccw.fname_activation:
 			errstr+='No file specified for connections colormap\n'
-			ccw.cmap_activation='YlOrRd'
+			ccw.cmap_activation='YlOrRd'; ccw.reverse_activation=False
+		if ccw.cmap_connmat=='file' and not ccw.fname_connmat:
+			errstr+='No file specified for matrix colormap\n'
+			ccw.cmap_connmat='RdYlBu'; ccw.reverse_connmat=True
 
 		if errstr:
 			self.error_dialog(errstr)

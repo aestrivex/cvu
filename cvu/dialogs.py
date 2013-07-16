@@ -119,18 +119,22 @@ class CustomColormapWindow(InteractiveSubwindow):
 	cmap_default = Enum('cool',lut_list)
 	cmap_scalar = Enum('BuGn',lut_list)
 	cmap_activation = Enum('YlOrRd',lut_list)
+	cmap_connmat = Enum('RdYlBu',lut_list)
 	
 	reverse_default = Bool(False)
 	reverse_scalar = Bool(False)
 	reverse_activation = Bool(False)
+	reverse_connmat = Bool(True)
 	
 	fname_default = File
 	fname_scalar = File
 	fname_activation = File
+	fname_connmat = File
 
 	label_default = Str('Default Colormap')
 	label_scalar = Str('Scalars Colormap')
 	label_activation = Str('Conns Colormap')
+	label_connmat = Str('Matrix Colormap')
 
 	EditCmapButton = Action(name='Colormap customizer',action='do_edit_cmap')
 	ResetDefaultsButton = Action(name='Reset defaults',action='do_defaults')
@@ -143,8 +147,8 @@ class CustomColormapWindow(InteractiveSubwindow):
 				Item(name='cmap_default',
 					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
 						values=lut_list,cols=7)),
-				Item(name='fname_default',
-					enabled_when='cmap_default==\'file\''),
+				Item(name='fname_default',editor=CustomFileEditor(),
+					enabled_when='cmap_default==\'file\'',),
 				Item(name='reverse_default',label='invert',show_label=True,
 					enabled_when='cmap_default!=\'file\''),
 				show_labels=False,
@@ -154,8 +158,8 @@ class CustomColormapWindow(InteractiveSubwindow):
 				Item(name='cmap_scalar',
 					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
 						values=lut_list,cols=7)),
-				Item(name='fname_scalar',
-					enabled_when='cmap_scalar==\'file\''),
+				Item(name='fname_scalar', editor=CustomFileEditor(),
+					enabled_when='cmap_scalar==\'file\'',),
 				Item(name='reverse_scalar',label='invert',show_label=True,
 					enabled_when='cmap_scalar!=\'file\''),
 				show_labels=False,
@@ -165,11 +169,22 @@ class CustomColormapWindow(InteractiveSubwindow):
 				Item(name='cmap_activation',
 					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
 						values=lut_list,cols=7)),
-				Item(name='fname_activation',
+				Item(name='fname_activation',editor=CustomFileEditor(),
 					enabled_when='cmap_activation==\'file\''),
 				Item(name='reverse_activation',label='invert',show_label=True,
 					enabled_when='cmap_activation!=\'file\''),
 				show_labels=False,
+			),
+			VSplit(
+				Item(name='label_connmat',style='readonly'),
+				Item(name='cmap_connmat',
+					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
+						values=lut_list,cols=7)),
+				Item(name='fname_connmat',editor=CustomFileEditor(),
+					enabled_when='cmap_connmat==\'file\''),
+				Item(name='reverse_connmat',label='invert',show_label=True,
+					enabled_when='cmap_connmat!=\'file\''),
+				show_labels=False
 			),
 		),
 		kind='live',
@@ -184,9 +199,11 @@ class CustomColormapWindow(InteractiveSubwindow):
 			'wx_gradient_editor.py')
 		subprocess.Popen([sys.executable, script])
 	def do_defaults(self,info):
-		info.object.cmap_default='cool'
-		info.object.cmap_scalar='BuGn'
-		info.object.cmap_activation='YlOrRd'
+		info.object.cmap_default='cool';	info.object.reverse_default=False
+		info.object.cmap_scalar='BuGn';		info.object.reverse_scalar=False
+		info.object.cmap_activation='YlOrRd';
+		info.object.reverse_activation=False
+		info.object.cmap_connmat='RdYlBu';	info.object.reverse_connmat=True
 
 class RequireWindow(InteractiveSubwindow):
 	require_ls=List(Str)
