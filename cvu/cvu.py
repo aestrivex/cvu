@@ -30,16 +30,16 @@ from traits.api import (HasTraits,Enum,Instance,Range,Float,Method,Str,Dict,
 from traitsui.api import (View,VSplit,HSplit,Item,Spring,Group,ShellEditor,
 	ButtonEditor,DefaultOverride)
 from mayavi.core.ui.api import MlabSceneModel,MayaviScene,SceneEditor
-from mayavi.core import lut,lut_manager
-from chaco.api import (Plot,ArrayPlotData,YlOrRd,RdYlBu,PlotGraphicsContext,
-	reverse,center,ColorMapper)
+from chaco.api import (Plot,ArrayPlotData,PlotGraphicsContext,ColorMapper,
+	center)
 from enable.component_editor import ComponentEditor
 from chaco.tools.api import ZoomTool,PanTool
 from enable.api import Pointer
-from matplotlib.figure import Figure; from pylab import get_cmap
+from matplotlib.figure import Figure;
 from matplotlib.colors import LinearSegmentedColormap
 import circle_plot as circ; import mpleditor; import dialogs;
-import color_legend; import color_axis
+import color_legend; import color_axis; import color_map
+from color_map import get_cmap_pl,set_lut
 if __name__=="__main__":
 	print "All libraries loaded"
 
@@ -277,9 +277,10 @@ class Cvu(CvuPlaceholder):
 
 		## SET UP COLORS AND COLORMAPS ##
 		ccw=self.custom_colormap_window	
-		self.cmap_activation_pl=get_cmap(ccw.cmap_activation)
-		self.cmap_default_pl=get_cmap(ccw.cmap_default)
-		self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar)
+		self.cmap_activation_pl=get_cmap_pl(ccw.activation_map)
+		self.cmap_default_pl=get_cmap_pl(ccw.default_map)
+		self.cmap_scalar_pl=get_cmap_pl(ccw.scalar_map)
+		self.cmap_connmat_pl=get_cmap_pl(ccw.connmat_map)
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
 		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
@@ -408,11 +409,11 @@ class Cvu(CvuPlaceholder):
 		self.syrf_lh = mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfl',
-			colormap=ccw.cmap_scalar)
+			colormap=ccw.scalar_map.cmap)
 		self.syrf_rh = mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfr',
-			colormap=ccw.cmap_scalar)
+			colormap=ccw.scalar_map.cmap)
 		self.syrf_lh.actor.actor.pickable=0
 		self.syrf_rh.actor.actor.pickable=0
 		#some colors
@@ -443,14 +444,14 @@ class Cvu(CvuPlaceholder):
 			self.lab_pos[lhn,1],self.lab_pos[lhn,2],name='nodepos_lh')
 		self.nodes_lh=mlab.pipeline.glyph(self.nodesource_lh,scale_mode='none',
 			scale_factor=3.0,name='nodes_lh',mode='sphere',
-			colormap=ccw.cmap_default)
+			colormap=ccw.default_map.cmap)
 		self.nodes_lh.glyph.color_mode='color_by_scalar'
 
 		self.nodesource_rh=mlab.pipeline.scalar_scatter(self.lab_pos[rhn,0],
 			self.lab_pos[rhn,1],self.lab_pos[rhn,2],name='nodepos_rh')
 		self.nodes_rh=mlab.pipeline.glyph(self.nodesource_rh,scale_mode='none',
 			scale_factor=3.0,name='nodes_rh',mode='sphere',
-			colormap=ccw.cmap_default)
+			colormap=ccw.default_map.cmap)
 		self.nodes_rh.glyph.color_mode='color_by_scalar'
 
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
@@ -479,11 +480,11 @@ class Cvu(CvuPlaceholder):
 
 		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
 			self.srf[0][:,2],self.srf[1][tri_inds_l],
-			opacity=self.opts.surface_visibility,colormap=ccw.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
 			color=self.default_glass_brain_color,name='syrfl_cracked',)
 		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
 			self.srf[2][:,2],self.srf[3][tri_inds_r],
-			opacity=self.opts.surface_visibility,colormap=ccw.cmap_scalar,
+			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
@@ -510,7 +511,7 @@ class Cvu(CvuPlaceholder):
 		self.thres.auto_reset_lower=False
 		self.thres.auto_reset_upper=False
 		self.myvectors = mlab.pipeline.vectors(self.thres,
-			colormap=ccw.cmap_activation,line_width=self.opts.conns_width,
+			colormap=ccw.activation_map.cmap,line_width=self.opts.conns_width,
 			name='cons',scale_mode='vector',transparent=False)
 		self.myvectors.glyph.glyph_source.glyph_source.glyph_type='dash'
 		self.myvectors.glyph.glyph.clamping=False
@@ -533,8 +534,11 @@ class Cvu(CvuPlaceholder):
 		self.conn_mat = Plot(ArrayPlotData(imagedata=self.adj_thresdiag))
 		#centerpoint=np.mean(self.adj_thresdiag)/2+np.max(self.adj_thresdiag)/4+\
 		#	np.min(self.adj_thresdiag)/4
-		self.conn_mat.img_plot("imagedata",name='conmatplot',
-			colormap=reverse(RdYlBu))
+
+		cm=ColorMapper.from_palette_array(self.cmap_connmat_pl(xrange(256)))
+		self.conn_mat.img_plot("imagedata",name='conmatplot',colormap=cm)
+
+		#TODO nonstatic colormap
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.xa=color_axis.ColorfulAxis(self.conn_mat,self.node_colors,'x')
@@ -553,7 +557,7 @@ class Cvu(CvuPlaceholder):
 			np.reshape(self.adjdat,(self.nr_edges,)),
 			self.nodes_numberless,
 			indices=self.edges.T,
-			colormap=self.custom_colormap_window.cmap_activation,
+			colormap=self.custom_colormap_window.activation_map.cmap,
 			fig=figure,
 			n_lines=self.nr_edges, #bounded by soft_max_edges
 			node_colors=self.node_colors,
@@ -701,36 +705,25 @@ class Cvu(CvuPlaceholder):
 		if self.display_mode=='normal':	
 			for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 					(self.nodes_rh,len(self.rhnodes))]:
-				nod.module_manager.scalar_lut_manager.lut_mode=ccw.cmap_default
-				nod.module_manager.scalar_lut_manager.reverse_lut=(
-					ccw.reverse_default)
+				set_lut(nod,ccw.default_map)
 				nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 		elif self.display_mode=='scalar':
 			csw=self.configure_scalars_window
 			if not csw.nod_col:
 				for nod,nr in [(self.nodes_lh,len(self.lhnodes)),
 						(self.nodes_rh,len(self.rhnodes))]:
-					nod.module_manager.scalar_lut_manager.lut_mode=(
-						ccw.cmap_default)
-					nod.module_manager.scalar_lut_manager.reverse_lut=(
-						ccw.reverse_default)
+					set_lut(nod,ccw.default_map)
 					nod.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
 			else:
 				for nod,idxs in [(self.nodes_lh,self.lhnodes),
 						(self.nodes_rh,self.rhnodes)]:
-					nod.module_manager.scalar_lut_manager.lut_mode=(
-						ccw.cmap_scalar)
-					nod.module_manager.scalar_lut_manager.reverse_lut=(
-						ccw.reverse_scalar)
+					set_lut(nod,ccw.scalar_map)
 					nod.mlab_source.dataset.point_data.scalars=(	
 						self.node_scalars[csw.nod_col][idxs])
 		elif self.display_mode=='module_single':
 			for nod,idxs in [(self.nodes_lh,self.lhnodes),
 					(self.nodes_rh,self.rhnodes)]:
-				nod.module_manager.scalar_lut_manager.lut_mode=(
-					ccw.cmap_default)
-				nod.module_manager.scalar_lut_manager.reverse_lut=(
-					ccw.reverse_default)
+				set_lut(nod,ccw.default_map)
 				new_colors=np.tile(	.3,self.nr_labels)
 				new_colors[self.get_module()]=.8
 				nod.mlab_source.dataset.point_data.scalars=new_colors[idxs]
@@ -1320,101 +1313,57 @@ class Cvu(CvuPlaceholder):
 				elif self.opts.render_style=='speckled':
 					syrf.actor.property.representation='points'
 
-	@on_trait_change('custom_colormap_window:cmap_default'
-					',custom_colormap_window:reverse_default'
-					',custom_colormap_window:fname_default')
+	@on_trait_change('custom_colormap_window:default_map.+')
 	def chg_default_cmap_interactive(self):
 		ccw=self.custom_colormap_window
-		if ccw.cmap_default=='file' and ccw.fname_default:
-			self.cmap_default=LinearSegmentedColormap.from_list(
-				'file',lut_manager.parse_lut_file(ccw.fname_default))
-			self.myvectors.module_manager.scalar_lut_manager.file_name=(
-				ccw.fname_default)
-		if ccw.reverse_default:
-			self.cmap_default_pl=get_cmap(ccw.cmap_default+'_r')
-		else:
-			self.cmap_default_pl=get_cmap(ccw.cmap_default)
+		self.cmap_default_pl=get_cmap_pl(ccw.default_map)
 
 		try:
 			self.draw_surfs()
 			self.draw_nodes()
-		except:
-			if ccw.cmap_default=='file' and not ccw.fname_default:
+		except: 
+			if ccw.default_map.cmap=='file' and not ccw.fname_default.fname:
 				pass #fail silently until user has a chance to specify file
-			else:
-				raise
+			else: raise
 
-	@on_trait_change('custom_colormap_window:cmap_scalar'
-					',custom_colormap_window:reverse_scalar'
-					',custom_colormap_window:fname_scalar')
+	@on_trait_change('custom_colormap_window:scalar_map.+')
 	def chg_scalar_cmap_interactive(self):
 		ccw=self.custom_colormap_window
-		if ccw.cmap_scalar=='file' and ccw.fname_scalar:
-			self.cmap_scalar_pl=LinearSegmentedColormap.from_list(
-				'file',lut_manager.parse_lut_file(ccw.fname_scalar))
-			self.myvectors.module_manager.scalar_lut_manager.file_name=(
-				ccw.fname_scalar)
-		elif ccw.reverse_scalar:
-			self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar+'_r')
-		else:
-			self.cmap_scalar_pl=get_cmap(ccw.cmap_scalar)
 
 		#surf color doesnt change anywhere else; keep out of draw for simplicity
 		for surf in [self.syrf_lh,self.syrf_rh]:
-			surf.module_manager.scalar_lut_manager.lut_mode=ccw.cmap_scalar
-			surf.module_manager.scalar_lut_manager.reverse_lut=(
-				ccw.reverse_scalar)
+			set_lut(surf,ccw.scalar_map)
+
+		self.cmap_scalar_pl=get_cmap_pl(ccw.scalar_map)
 
 		try:
 			self.draw_surfs()
 			self.draw_nodes()
 		except:
-			if ccw.cmap_scalar=='file' and not ccw.fname_scalar:
-				pass #fail silently until user has a chance to specify file
-			else:
-				raise
+			if ccw.scalar_map.cmap=='file' and not ccw.scalar_map.fname: pass
+			else: raise
 
-	@on_trait_change('custom_colormap_window:cmap_activation'
-					',custom_colormap_window:reverse_activation'
-					',custom_colormap_window:fname_activation')
+	@on_trait_change('custom_colormap_window:activation_map.+')
 	def chg_activation_cmap_interactive(self):
 		ccw=self.custom_colormap_window
-		if ccw.cmap_activation=='file' and ccw.fname_activation:
-			self.cmap_activation_pl=LinearSegmentedColormap.from_list(
-				'file',lut_manager.parse_lut_file(ccw.fname_activation))
-			self.myvectors.module_manager.scalar_lut_manager.file_name=(
-				ccw.fname_activation)
-		elif ccw.reverse_activation:
-			self.cmap_activation_pl=get_cmap(ccw.cmap_activation+'_r')
-		else:
-			self.cmap_activation_pl=get_cmap(ccw.cmap_activation)
 
 		#conncolor doesnt change anywhere else; keep out of draw for simplicity
-		self.myvectors.module_manager.scalar_lut_manager.lut_mode=(
-			ccw.cmap_activation)
-		self.myvectors.module_manager.scalar_lut_manager.reverse_lut=(
-			ccw.reverse_activation)
+		set_lut(self.myvectors,ccw.activation_map)
+
+		self.cmap_activation_pl=get_cmap_pl(ccw.activation_map)
 
 		try:
 			self.draw_conns()
 		except:
-			if ccw.cmap_activation=='file' and not ccw.fname_activation:
+			if ccw.activation_map.cmap=='file' and not ccw.activation_map.fname:
 				pass #fail silently until user has a chance to specify file
 			else:
 				raise
 	
-	@on_trait_change('custom_colormap_window:cmap_connmat'
-					',custom_colormap_window:reverse_connmat'
-					',custom_colormap_window:fname_connmat')
+	@on_trait_change('custom_colormap_window:connmat_map.+')
 	def chg_connmat_cmap_interactive(self):
 		ccw=self.custom_colormap_window
-		if ccw.cmap_connmat=='file' and ccw.fname_connmat:
-			self.cmap_connmat_pl=LinearSegmentedColormap.from_list(
-				'file',lut_manager.parse_lut_file(ccw.fname_connmat))
-		elif ccw.reverse_connmat:
-			self.cmap_connmat_pl=get_cmap(ccw.cmap_connmat+'_r')
-		else:
-			self.cmap_connmat_pl=get_cmap(ccw.cmap_connmat)
+		self.cmap_connmat_pl=get_cmap_pl(ccw.connmat_map)
 
 		#chaco plot color doesnt change anywhere else ever
 		
@@ -1423,7 +1372,7 @@ class Cvu(CvuPlaceholder):
 			self.conn_mat.color_mapper = ColorMapper.from_palette_array(cm)
 			self.conn_mat.request_redraw()
 		except:
-			if ccw.cmap_connmat=='file' and not ccw.fname_connmat:
+			if ccw.connmat_map.cmap=='file' and not ccw.connmat_map.fname:
 				pass #fail silently until user has a chance to specify file
 			else:
 				raise
@@ -1434,18 +1383,12 @@ class Cvu(CvuPlaceholder):
 		ccw=self.custom_colormap_window
 
 		errstr=''
-		if ccw.cmap_default=='file' and not ccw.fname_default:
-			errstr+='No file specified for default colormap\n'
-			ccw.cmap_default='cool'; ccw.reverse_default=False
-		if ccw.cmap_scalar=='file' and not ccw.fname_scalar:
-			errstr+='No file specified for scalar colormap\n'
-			ccw.cmap_scalar='BuGn'; ccw.reverse_scalar=False
-		if ccw.cmap_activation=='file' and not ccw.fname_activation:
-			errstr+='No file specified for connections colormap\n'
-			ccw.cmap_activation='YlOrRd'; ccw.reverse_activation=False
-		if ccw.cmap_connmat=='file' and not ccw.fname_connmat:
-			errstr+='No file specified for matrix colormap\n'
-			ccw.cmap_connmat='RdYlBu'; ccw.reverse_connmat=True
+
+		for map in [ccw.default_map,ccw.scalar_map,ccw.activation_map,
+				ccw.connmat_map]:
+			if map.cmap=='file' and not map.fname:
+				errstr+='No file specified for %s\n' % map.label
+				map.reset_traits(['cmap','reverse'])
 
 		if errstr:
 			self.error_dialog(errstr)

@@ -36,6 +36,9 @@ def mkeditor ( parent,editor,use_dir=False, *args ):
 	""" Custom editor factory.  Must be instantiated on top of an
 		InteractiveSubwindow instance with an implemented reconstruct().
 	"""
+
+	#IE the file trait is in the InteractiveSubwindow, not somewhere else
+
 	editor.control = panel = TraitsUIPanel( parent, -1 )
 	sizer        = wx.BoxSizer( wx.HORIZONTAL )
 
@@ -74,7 +77,8 @@ def button_click(event,editor):
 		file_selected=open_file(entries=20)
 	if file_selected:
 		editor.value=file_selected
-	editor.object.reconstruct()
+	#editor.object.reconstruct()
+	editor.ui.handler.reconstruct()
 	#editor.text_control.SetValue(editor.value)
 
 def update_file_obj(event,editor):
@@ -115,11 +119,11 @@ class CustomFileEditorKlass(CustomEditorKlass):
 		self.text_control.SetValue(self.value)
 
 	def button_click(self,event):
+		print "SKAGGGEY MUFFIN"
 		file_selected=open_file()
 		if file_selected:
 			self.value=file_selected
 		self.object.reconstruct()
-		#self.text_control.SetValue(self.value)
 
 	def update_file_obj(self,event):
 		self.value=self.text_control.GetValue()

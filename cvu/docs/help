@@ -13,11 +13,11 @@ networks.  The primary developer is Roan LaPlante.  You can contact him at
 
 ==Usage==
 
-From within the Martinos center, the easiest way to run CVU is
- python /cluster/neuromind/rlaplant/mayavi/cvu/cvu.py
+From within the Martinos center, the easiest way to run cvu is
+ /cluster/neuromind/rlaplant/mayavi/cvu/run
 
 From outside the Martinos center, you will need to download and install the 
-program and its dependencies.  CVU is on the Python Packages Index (PyPI) 
+program and its dependencies.  cvu is on the Python Packages Index (PyPI) 
 which enables you to use tools such as easy-install.  Currently the listing on 
 PyPI ''DOES NOT'' automatically install the required dependencies.  I will fix 
 this sometime...  For hackers or developers, you can also get the source from 
@@ -29,7 +29,7 @@ MNE python is free as in speech.  If you are downloading EPD from its source
 packages by yourself, the packages needed are numpy, scipy, traits, traitsui, 
 tvtk, enable, chaco, matplotlib, tvtk, pylab, and mayavi.
 
-CVU accepts various command line arguments.  Because these may change with 
+cvu accepts various command line arguments.  Because these may change with 
 development, run with --help to see the full list.  As of 13:22, 5 February 2013
  (EST) these are the accepted arguments:
  -p greg.gii --parc=greg: location of annotations *h.greg.annot
@@ -44,14 +44,14 @@ parcellation and optionally adjmat
  -q: specifies quiet flag
  -v: specifies verbose flag (currently does nothing)
  --use-greg: uses the "greg" method for graph partitioning.  sort of pointless, 
-	the only valid choice is --use-spectral
+	the only valid choice is currently --use-spectral
  --max-edges 46000: discards all but the strongest ~46000 connections
  -h --help: display this help
 
 All of the available command line arguments are also modifiable in the program
-itself.
+itself, currently excepting surf-type (changing surf-type is not that useful).
 
-In order to display connectivity, CVU requires three types of data: a Freesurfer
+In order to display connectivity, cvu requires three types of data: a Freesurfer
 parcellation (in the form of two .annot files, one for each hemisphere), a 
 symmetric adjacency matrix (in .npy or .mat format), and a list of ROI names 
 specifying the order that these ROIs appear in the adjacency matrix (a text file
@@ -65,10 +65,17 @@ Parcellations must be freesurfer annotations at this time.  Matrices must be in
 numpy or matlab format.  More formats may be supported in the future.
 
 ===Usage Details===
-''Warning: A lot of the information in this section is critical for using cvu
-correctly and understanding what the options mean, and most of it is not 
-intuitively obvious!''  Other sections are less critical, but still not 
-intuitively obvious.
+
+This section documents the design logic of how cvu chooses to represent
+much of its data.  Selecting an appropriate visualization of any type of data
+is, in principle, a hard problem to solve.  Therefore, some of the choices
+for design and data representation for brain network data are logical and might
+constitute the simplest possible representations of that data, but may still not 
+necessarily be intuitive to use or understand.
+
+As such, this section is devoted to explaining topics that are not immediately
+obvious from using the program.  Some of which are critical for using
+cvu correctly and understanding what it is doing!
 
 =====order files=====
 **THIS SECTION IS IMPORTANT!**
@@ -80,13 +87,13 @@ order.  The multiplicity of files is a bit confusing, but conceptually it is
 necessary in order for the program to know what to do.
 
 The parcellation order file or with the -o/--order command line option is the 
-'''desired''' output order you wish for CVU to display in the connection matrix 
+'''desired''' output order you wish for cvu to display in the connection matrix 
 and on the circle plot.  This permits your adjacency matrices to have an 
-ordering that is different from this, which you can tell CVU about by 
+ordering that is different from this, which you can tell cvu about by 
 specifying a file upon loading the adjmat or with the --adj-order command line 
 option.  Specifying an ordering upon loading an adjmat is optional; if you don't
-do so, CVU will assume that the adjmat is already in parcellation order.  
-However, you must always specify a parcellation order; otherwise CVU would have 
+do so, cvu will assume that the adjmat is already in parcellation order.  
+However, you must always specify a parcellation order; otherwise cvu would have 
 no idea which nodes have which labels.
 
 Note that adjmat orderings can also be specified for module communities and 
@@ -144,9 +151,7 @@ some other parcellation.
 
 Note that to use the Lausanne 2008 parcellations, you'll need to morph your 
 subjects' scans to the target parcellation and extract the signals from the 
-resulting labels.  This isn't especially easy.  I will write some comments here 
-later about how to do this from various different data sources.
-//TODO
+resulting labels.
 
 =====--max-edges and thresholds=====
 **THIS SECTION IS IMPORTANT!**
@@ -157,7 +162,7 @@ happen.  One thing that can happen is that there are too many connections for
 effective visualization; there is too much data to usefully see or make sense of
 anything.  This occurs at around roughly 500 connections (play around with the 
 threshold slider to examine this effect).  Another thing that can happen is that
-CVU has to repeatedly process a very large number of connections, and so becomes
+cvu has to repeatedly process a very large number of connections, and so becomes
 very slow.  This occurs at around roughly 75000 connections.  In order to 
 improve performance, by default the program (i.e. when --max-edges is not 
 specified or left as 0) will discard all but the first 50000 connections.  This 
@@ -196,7 +201,7 @@ is more valuable for generating figures and visualizing statistics.
 
 =====custom parcellations and surfaces====
 
-CVU uses freesurfer surfaces to create the surface meshes and freesurfer 
+cvu uses freesurfer surfaces to create the surface meshes and freesurfer 
 annotations (clusterings of label files) to position the cortical nodes.  By 
 default, the program uses the fsaverage5 brain for all the node locations and 
 the pial surface for display.  However, it is possible to use other surfaces and
@@ -230,10 +235,35 @@ other that they are unreadable.  The program will let you know if you do this.
 One possibility to resolve this is to specify a different ordering.  Specifying 
 a small number of regions, however, will generally work.
 
-===Tools===
+Regardless of which labels are omitted from the circle plot, mousing over a
+region will display a tooltip containing that region.
+
+=====Tractography=====
+
+cvu is able to display tractography, although it is a little bit clunky. In 
+order to display tractography, several things need to be specified in
+addition to the tractography itself (e.g. the .trk file).  
+
+This tractography is registered in CRS coordinates, and not in the surface 
+coordinates of freesurfer surfaces.  Since cvu displays freesurfer surfaces, it 
+uses freesurfer coordinates.  In order to translate it correctly to these
+coordinates, several computations are necessary.  These computations require
+a conventional freesurfer reconstruction, and additionally they run a couple
+of freesurfer binaries (In order to do this, cvu will automagically source any
+freesurfer setup script that you specify).  Additionally, you will have to
+specify the B0 volume from whence the tractography was calculated.
+
+Tractography can only be displayed with an individual subject's brain.  There is
+no way to precisely align tractography with an average brain such as fsaverage5.
+As such, all of the data you specify for this tractography should come from the
+individual subject, and when you specify the subject (while specifying the
+parcellation), the subject's brain you view must be the same one the 
+tractography is from.
+
+===Tools and Features===
 =====Plotting windows=====
 
-CVU currently has three main windows in which data is displayed for 
+cvu currently has three main windows in which data is displayed for 
 visualization -- an interactive 3D brain model rendered with mayavi displaying 
 the centroids of the ROIs and the connectivity between these regions as a glass 
 model, an interactive adjacency matrix rendered with chaco, and a circle plot 
@@ -260,7 +290,9 @@ mouse wheel or the right mouse button.  Right click to restore the entire matrix
 of connections.
 
 The circle plot cannot be panned or zoomed due to fundamental limitations in 
-matplotlib.  This may not be fixed for some time.  However, you can click on the
+matplotlib.  This may not be fixed for some time -- the technical limitation is
+so deep that in order to fix this polar plots would have to be rewritten
+completely in matplotlib.  However, you can click on the
 nodes on the edges, which will highlight the connections originating from only 
 that node.  Right clicking will restore all of the connections in their original
 glory.  Note that the text on the circle plots is not exact with respect to the 
@@ -279,31 +311,55 @@ as specified.
 
 =====Modules=====
 
-CVU will calculate graph partitions and display modules based on minimal cut 
-sets.  Partioning a graph is an NP-hard problem, and CVU is designed to be 
-adaptable for use with a variety of approximation algorithms.  To calculate the 
-modules using a standard algorithm, click on the 'calculate modules' button.  If
-you don't like any of the standard algorithms, you can use your own algorithm 
+cvu will calculate graph partitions and display modules based on minimal cut 
+sets.  Partioning a graph is an NP-hard problem, and cvu is designed to be 
+adaptable for use with a variety of approximation algorithms,although currently 
+the only standard algorithm in use is a spectral partitioning algorithm 
+originating from Newman (2006) that works quite well. To calculate the modules 
+using this standard algorithm, click on the 'calc modules' button.  If you 
+don't like the standard algorithms, you can use your own algorithm 
 and load a community structure from a file (a vector with numbers from 1 to N, 
-with N modules).  To view only the nodes and connections within a module, click 
+with N modules).  To view a single module, click 
 on the 'view module' button and select the desired module.  The order of the 
 modules calculated with the default algorithm is not meaningful.
 
-You can also specify a series of nodes on the fly, from a list and visualize 
-only the connections between those nodes.
+Additionally, there is an option for viewing multiple modules, which are
+displayed in random colors.  If the resulting colors are not easily visible, try
+reloading the module until the colors show high contrast.  However, for a large
+number of modules (such as n>8) it is difficult in principle to visualize many
+colors with high contrast.  For this option, click on the 'view all modules'
+button
+
+You can also specify a series of nodes on the fly from a list, and visualize 
+only those nodes.
+
 
 =====Scalars=====
 
-CVU will show scalar values, such as various graph theoretic measures.  These 
-measures are treated as entirely abstract data.  Load 
-them as vectors from files.  The scalar data 
-will be displayed as color information each node.  You can change the color on 
-the mayavi plot in the mayavi module manager.
+cvu will show scalar values, such as various graph theoretic measures.  These 
+measures are treated as entirely abstract data.  Load them as vectors from 
+files (e.g. matlab or numpy vectors).  You can load as many scalars as you want 
+-- you will be prompted to enter the dataset name to refer to that data by.
+However, you can display at most 5 scalar datasets at one time.  These datasets
+are displayed, respectively, as the node colors, surface colors, and node sizes
+of the 3D brain, and as the node element colors on the circle plot and
+connection matrix.  You will be able to specify which dataset goes where after
+clicking the 'show scalars' button.  You may use a single dataset for all of
+these visualization types (e.g. the node size and color scaling off of the same
+data) if you wish.
+
+Scalars will not be displayed at all until you click on 'show scalars.'  Loading
+scalars into the program does not automatically display them.
+
+With the exception of modules and modularity, cvu does not calculate any graph
+theoretic measures natively.  I am considering translating the Brain
+Connectivity Toolbox (BCT) from matlab to numpy, and including it with cvu, so
+that it will.
 
 =====Movies=====
 
-CVU is able to make movies of the 3D brain.  These movies are created by having 
-the X server grab the screen output from CVU and record it to a video file 
+cvu is able to make movies of the 3D brain.  These movies are created by having 
+the X server grab the screen output from cvu and record it to a video file 
 (using ffmpeg).  This grabs the *screen output.*  This means that if you were 
 to place another window in front of the spot where the brain is, the other 
 window would be captured in your movie.  There is no straightforward way to get 
@@ -319,49 +375,116 @@ Additionally, you can specify the framerate and bitrate of the output movie.
 Increasing these parameters above their default values will increase the image 
 quality, at the cost of additional disk space.
 
+=====Colors=====
+
+By clicking on the 'custom colors' button, you will be able to select different
+color schemes that the program uses.  Each of these color schemes can be
+selected from a list of preexisting colormaps, or specified from a file.
+
+In addition, you can create your own colormaps in a custom colormap editor.
+This editor specifies ((RGB or HSV) and (alpha)) values.  There can be
+arbitrarily many segmentations -- that is, colors defining the colormap
+gradients.  To create a segmentation, left click.  To delete a segment, right
+click.  RGB (red green blue), HSV (hue spectrum value) and alpha (transparency)
+values can be adjusted for each segmentation by dragging the little box.
+When done using the editor, three files will be saved -- a .lut, .png, and 
+.grad file.  The one that the cvu reads and understands is the .lut file.
+
+**WHEN USING THE COLOR EDITOR MAKE SURE TO USE NONZERO ALPHA VALUES!**
+
+The color editor seems to make the default transparency rather low -- i.e. fully
+transparent. Not every visualization respects transparency values -- for 
+instance, the lines on the circle plot ignore this value. But for any 
+visualizations that do respect transparency (e.g. the 3D brain), if you don't 
+make these values higher, you won't see anything.  Chances are, you '''will''' 
+make this mistake if you use the color editor.  If you do, this is the problem; 
+set your transparency higher!  Sorry that I can't fix this.
+
 =====Python Shell=====
+
 There is an interactive python shell in the program.  It is fantastic for 
 looking up data or doing math on the fly.  It does not have all of the features 
-of ipython, but it has most of them.  You are welcome.
+of ipython, but it has many of them.  You are welcome.
 
 ===Options===
 =====Circle Size=====
+
 Changes the size of the circle plot.  Unfortunately due to technical limitations
 it is extremely difficult to only show a small portion (e.g. zoom) of the circle
 plot, so this alteration in size is the best that can be done to e.g. help read 
-the labels.
+the labels.  This doesn't do a lot, and I don't recommend using it.  Note that
+in order to change the size, you need to click the 'force render' button.
+
+=====Floating 3D text=====
+
+Setting this off removes the text floating around the 3D brain.  Note that the 
+text is always disabled when making snapshots due to technical limitations.
+
+=====Threshold=====
+
+See the --max-edges and thresholds section of this manual
+
+=====Surface Style=====
+
+Offers several visualizations for the surface triangular mesh (in VTK terms, 
+several different visualizations of the connectivity).  Purely cosmetic 
+differences.
 
 =====Surface Opacity=====
+
 Changes the opacity of the 3D brain between 0 and 1.  At 1, the 3D brain is 
 completely opaque, effectively making it impossible to see any connections.  At 
 0, the brain surface is not present at all.  Low values provide a good balance 
 between anatomical specificity and transparency, while high values provide some 
 amusingly useless images.
 
-=====Surface Style=====
-Offers several visualizations for the surface triangular mesh (in VTK terms, 
-several different visualizations of the connectivity).  Purely cosmetic 
-differences.
-
 =====Prune empty/singleton modules=====
+
 This option gets rid of relatively uninteresting singleton modules when using 
 builtin modularity calculations.
 
-=====3D ROI text on=====
-Setting this off removes the text floating around the screen.  Note that the 
-text is disabled by default when making snapshots due to technical limitations.
+=====Module Connection Style=====
 
-=====Intramodule Connections=====
-When viewing modules, by default connections are shown if both nodes in the 
-connection are in the currently displayed module.  Turning this option off will 
-relax this restriction to only one node.  This option has no effect outside of 
-visualizing modules.
+When viewing single modules, select which connections are shown
+*Intramodular (default): only connections where both nodes are in the module
+are shown
+*Intermodular: only connections where exactly one node is in the module are 
+shown
+*Both: connections with at least one node in the module are shown
 
-=====Interhemispheric/LH/RH connections off=====
+=====Interhemispheric/LH/RH connections=====
+
 There are three types of connections; intrahemispheric connections within only 
 the left hemisphere, intrahemispheric connections within only the right 
 hemisphere, and interhemispheric connections.  Selecting these options will 
-selectively disable connections of the specific type.  Note that you will have 
-to recalculate the view (e.g. by clicking "show all" or right clicking a plot) 
-before these changes will take effect; clicking the "force render" button will 
-not work.
+selectively disable connections of the specific type.  
+
+Note that you will have to recalculate the view (e.g. by right clicking any 
+plot) before these changes will take effect; clicking the "force render" button
+is not sufficient.  The reason that this step is necessary is
+that recalculating the plot with a new set of connections is a costly 
+(time-consuming) operation.  Imagine accidentally ticking that box, and having 
+to wait for several seconds (potentially upwards of 30 seconds for large 
+parcellations), only to just turn it off afterwards and wait for it to compute 
+again.  This potential inconvenience outweighs the inconvenience of right
+clicking once to effect the desired changes.
+
+=====LH/RH nodes=====
+Selecting these options will remove the spherical nodes from the 3D brain 
+display. Unlike the options to display connection types, this operation is 
+computationally fast and will update the 3D brain immediately.
+
+=====LH/RH surfaces=====
+Selecting these options will remove the gray surfaces from the 3D brain display.
+Unlike the options to display connection types, this operation is 
+computationally fast and will update the 3D brain immediately.
+
+
+==Acknowledgments==
+
+I did not write every line of code executed by cvu.  I used libraries.  Most of 
+these libraries are BSD-like licensed,
+such that a copy of the license must accompany the
+basic documentation.  These copies are contained in the licenses folder of cvu.
+If your copy of cvu did not contain the licenses folder, you may peruse the
+licenses on cvu's github page at https://github.com/aestrivex/cvu

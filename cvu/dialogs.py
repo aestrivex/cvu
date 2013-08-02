@@ -20,12 +20,11 @@ from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
-	TextEditor,ImageEnumEditor,UIInfo)
+	TextEditor,ImageEnumEditor,UIInfo,Label)
 from traitsui.file_dialog import open_file
-import os
-import cvu_utils as util
+import os; import cvu_utils as util;
+from color_map import CustomColormap
 from custom_file_editor import CustomFileEditor, CustomDirectoryEditor
-from mayavi.core import lut_manager
 
 class InteractiveSubwindow(Handler):
 	finished=Bool(False)
@@ -112,80 +111,35 @@ class OptionsWindow(InteractiveSubwindow):
 	)
 
 class CustomColormapWindow(InteractiveSubwindow):
-	lut_list = lut_manager.lut_mode_list()
-	lut_list.remove('black-white')
-	lut_list.remove('blue-red')
-
-	cmap_default = Enum('cool',lut_list)
-	cmap_scalar = Enum('BuGn',lut_list)
-	cmap_activation = Enum('YlOrRd',lut_list)
-	cmap_connmat = Enum('RdYlBu',lut_list)
-	
-	reverse_default = Bool(False)
-	reverse_scalar = Bool(False)
-	reverse_activation = Bool(False)
-	reverse_connmat = Bool(True)
-	
-	fname_default = File
-	fname_scalar = File
-	fname_activation = File
-	fname_connmat = File
-
-	label_default = Str('Default Colormap')
-	label_scalar = Str('Scalars Colormap')
-	label_activation = Str('Conns Colormap')
-	label_connmat = Str('Matrix Colormap')
+	#first argument is class, second is default value.
+	default_map=Instance(CustomColormap,CustomColormap('default'))
+	scalar_map=Instance(CustomColormap,CustomColormap('scalar'))
+	activation_map=Instance(CustomColormap,CustomColormap('activation'))
+	connmat_map=Instance(CustomColormap,CustomColormap('connmat'))
 
 	EditCmapButton = Action(name='Colormap customizer',action='do_edit_cmap')
 	ResetDefaultsButton = Action(name='Reset defaults',action='do_defaults')
 
-	#TODO visible_when doesnt resize automatically?
+	def cmap_group_view(m):
+		return Group(Item(name='label',style='readonly',object=m),
+					Item(name='cmap',object=m,
+						editor=ImageEnumEditor(path=CustomColormap.imgs_path,
+							values=CustomColormap.lut_list,cols=7)),
+					Item(name='fname',editor=CustomFileEditor(),object=m,
+						enabled_when='%s.cmap==\'file\''%m),
+					HGroup(
+						Item(name='reverse',object=m)
+					),
+					Item(name='threshold',object=m,
+						enabled_when='%s.cmap==\'custom_heat\''%m),
+					show_labels=False)
+
 	traits_view=View(
-		HSplit(
-			VSplit(
-				Item(name='label_default',style='readonly'),
-				Item(name='cmap_default',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_list,cols=7)),
-				Item(name='fname_default',editor=CustomFileEditor(),
-					enabled_when='cmap_default==\'file\'',),
-				Item(name='reverse_default',label='invert',show_label=True,
-					enabled_when='cmap_default!=\'file\''),
-				show_labels=False,
-			),
-			VSplit(
-				Item(name='label_scalar',style='readonly'),
-				Item(name='cmap_scalar',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_list,cols=7)),
-				Item(name='fname_scalar', editor=CustomFileEditor(),
-					enabled_when='cmap_scalar==\'file\'',),
-				Item(name='reverse_scalar',label='invert',show_label=True,
-					enabled_when='cmap_scalar!=\'file\''),
-				show_labels=False,
-			),
-			VSplit(
-				Item(name='label_activation',style='readonly'),
-				Item(name='cmap_activation',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_list,cols=7)),
-				Item(name='fname_activation',editor=CustomFileEditor(),
-					enabled_when='cmap_activation==\'file\''),
-				Item(name='reverse_activation',label='invert',show_label=True,
-					enabled_when='cmap_activation!=\'file\''),
-				show_labels=False,
-			),
-			VSplit(
-				Item(name='label_connmat',style='readonly'),
-				Item(name='cmap_connmat',
-					editor=ImageEnumEditor(path=lut_manager.lut_image_dir,
-						values=lut_list,cols=7)),
-				Item(name='fname_connmat',editor=CustomFileEditor(),
-					enabled_when='cmap_connmat==\'file\''),
-				Item(name='reverse_connmat',label='invert',show_label=True,
-					enabled_when='cmap_connmat!=\'file\''),
-				show_labels=False
-			),
+		HGroup(
+			cmap_group_view('default_map'),
+			cmap_group_view('scalar_map'),
+			cmap_group_view('activation_map'),
+			cmap_group_view('connmat_map')
 		),
 		kind='live',
 		buttons=append_proper_buttons([EditCmapButton,ResetDefaultsButton]),
@@ -198,12 +152,19 @@ class CustomColormapWindow(InteractiveSubwindow):
 		script=os.path.join(os.path.dirname(tvtk_util.__file__),
 			'wx_gradient_editor.py')
 		subprocess.Popen([sys.executable, script])
+
 	def do_defaults(self,info):
-		info.object.cmap_default='cool';	info.object.reverse_default=False
-		info.object.cmap_scalar='BuGn';		info.object.reverse_scalar=False
-		info.object.cmap_activation='YlOrRd';
-		info.object.reverse_activation=False
-		info.object.cmap_connmat='RdYlBu';	info.object.reverse_connmat=True
+		for map in [self.default_map,self.scalar_map,self.activation_map,
+				self.connmat_map]:
+			map.reset_traits(['cmap','fname','reverse','threshold'])
+
+	def edit_traits(self):
+		super(CustomColormapWindow,self).edit_traits(context=
+			{'default_map':self.default_map,
+			 'scalar_map':self.scalar_map,
+			 'activation_map':self.activation_map,
+			 'connmat_map':self.connmat_map,
+			 'object':self})
 
 class RequireWindow(InteractiveSubwindow):
 	require_ls=List(Str)
