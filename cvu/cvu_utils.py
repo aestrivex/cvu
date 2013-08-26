@@ -80,9 +80,9 @@ def read_parcellation_textfile(fname):
 		i+=1
 	return labnam,deleters
 
-def loadannot(p,subj,subjdir):
+def loadannot(p,subj,subjdir,surf_type='pial'):
 	import mne
-	annot=mne.labels_from_parc(parc=p,subject=subj,#surf_name='pial'
+	annot=mne.labels_from_parc(parc=p,subject=subj,surf_name=surf_type,
 		subjects_dir=subjdir,verbose=False)
 	return annot
 

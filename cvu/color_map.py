@@ -141,6 +141,9 @@ edge cases
 	else:
 		lut_mgr=mayavi_obj.module_manager.scalar_lut_manager
 
+	lut_mgr.file_name=map.fname	
+	lut_mgr.reverse_lut=map.reverse
+
 	if map.cmap=='custom_heat':
 		lut_mgr.lut_mode='black-white' #this mode is not used and will always
 									#trigger notifications when changed
@@ -149,5 +152,3 @@ edge cases
 	else:
 		lut_mgr.lut_mode=map.cmap
 
-	lut_mgr.file_name=map.fname	
-	lut_mgr.reverse_lut=map.reverse

@@ -283,7 +283,7 @@ class Cvu(CvuPlaceholder):
 		self.cmap_connmat_pl=get_cmap_pl(ccw.connmat_map)
 
 		## SET UP ALL THE MLAB VARIABLES FOR THE SCENE ##	
-		self.fig = mlab.figure(bgcolor=(.36,.34,.30),
+		self.fig = mlab.figure(bgcolor=(.34,.34,.34),#(.36,.34,.30),
 			figure=self.scene.mayavi_scene)
 		self.surfs_gen()
 		self.nodes_gen()
@@ -626,7 +626,7 @@ class Cvu(CvuPlaceholder):
 		csw=self.configure_scalars_window
 		if self.display_mode=='scalar' and csw.srf_col:
 			colors_lh=np.zeros((len(self.srf[0])))
-			colors_rh=np.zeros((len(self.srf[0])))
+			colors_rh=np.zeros((len(self.srf[2])))
 			for i,l in enumerate(self.labv):
 				if l.hemi=='lh':
 					colors_lh[l.vertices]=self.node_scalars[csw.srf_col][i]
@@ -869,7 +869,7 @@ class Cvu(CvuPlaceholder):
 			pcw=self.parc_chooser_window
 			labnam,ign = util.read_parcellation_textfile(pcw.labelnames_f)
 			labv = util.loadannot(pcw.parcellation_name,pcw.SUBJECT,
-				pcw.SUBJECTS_DIR)
+				pcw.SUBJECTS_DIR,self.srf[4])
 			self.lab_pos,self.labv = util.calcparc(labv,labnam,quiet=quiet,
 				parcname=pcw.parcellation_name)
 			self.srf = util.loadsurf(os.path.join(pcw.SUBJECTS_DIR,pcw.SUBJECT,
@@ -1716,7 +1716,8 @@ def preproc():
 	surf_struct=util.loadsurf(surf_fname,args['surftype'])
 
 	#load parcellation and vertex positions
-	labv=util.loadannot(args['parc'],args['subject'],args['subjdir'])
+	labv=util.loadannot(args['parc'],args['subject'],args['subjdir'],
+		surf_type=args['surftype'])
 
 	#calculate label positions from vertex positions
 	lab_pos,labv=util.calcparc(labv,labnam,quiet=quiet,parcname=args['parc'])
