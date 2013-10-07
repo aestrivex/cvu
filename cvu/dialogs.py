@@ -20,11 +20,13 @@ from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
-	TextEditor,ImageEnumEditor,UIInfo,Label)
+	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor)
 from traitsui.file_dialog import open_file
 import os; import cvu_utils as util;
 from color_map import CustomColormap
 from custom_file_editor import CustomFileEditor, CustomDirectoryEditor
+
+from traits.api import on_trait_change
 
 class InteractiveSubwindow(Handler):
 	finished=Bool(False)
@@ -67,8 +69,12 @@ class OptionsWindow(InteractiveSubwindow):
 	rh_surfs_on = Bool(True)
 	conns_width = Float(2.)
 	conns_colors_on = Bool(True)
+
+	intermediate_graphopts_list=List(Str)
+	initial_graphopts_list=List(Str)
+	modules_list=List(Str)
 	traits_view=View(
-		VSplit(
+		VGroup(
 			HSplit(
 				Item(name='circ_size'),
 				Item(name='show_floating_text',label='floating 3D text on'),
@@ -104,11 +110,62 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='conns_width',label='conn linewidth'),
 				Item(name='conns_colors_on'),
 			),
-			show_labels=False
+			label='Display options',show_labels=False
+		),
+		VGroup(
+			Item(name='intermediate_graphopts_list',editor=CheckListEditor(
+				name='initial_graphopts_list'),show_label=False,
+				style='custom'),
+			label='Graph statistics',show_labels=False
 		),
 		kind='live',buttons=OKCancelButtons,
 		title='Select your desired destiny',
 	)
+
+	def _initial_graphopts_list_default(self):
+		return ['global efficiency', 'local efficiency', 'average strength',
+			'clustering coefficient', 'eigenvector centrality', 'modularity', 
+			'participation coefficient', 'within-module degree']
+	def _intermediate_graphopts_list_default(self):
+		return ['global efficiency', 'clustering coefficient']
+
+class GraphTheoryWindow(InteractiveSubwindow):
+	from graph import StatisticsDisplay
+
+	graph_stats=List(StatisticsDisplay)
+	current_stat=Instance(StatisticsDisplay)
+	scalar_savename=Str
+
+	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
+	RecalculateEvent=Event
+
+	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
+	SaveToScalarEvent=Event
+	
+	traits_view=View(
+		VGroup(
+			HGroup(
+			Item('graph_stats',style='custom',show_label=False,
+				editor=ListEditor(use_notebook=True,page_name='.name',
+				selected='current_stat')),
+			),HGroup(
+			Item('scalar_savename',label='Scalar name',
+				height=25,width=180),
+			),
+		),
+		height=400,width=350,
+		title='Mid or feed',kind='live',
+		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
+
+	def _current_stat_changed(self):
+		self.scalar_savename=self.current_stat.name
+
+	#handler methods
+	def do_sv_scalar(self,info):
+		self.SaveToScalarEvent=True
+
+	def do_recalculate(self,info):
+		self.RecalculateEvent=True
 
 class CustomColormapWindow(InteractiveSubwindow):
 	#first argument is class, second is default value.
@@ -228,7 +285,7 @@ class AdjmatChooserWindow(InteractiveSubwindow):
 class ParcellationChooserWindow(InteractiveSubwindow):
 	Please_note=Str('fsaverage5 is fine unless individual morphology '
 		'is of interest.  Visualizing tractography requires individual '
-		'morphology (at least for now)')
+		'morphology.')
 	SUBJECTS_DIR=Directory('./')
 	SUBJECT=Str('fsavg5')
 	labelnames_f=File

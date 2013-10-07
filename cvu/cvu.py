@@ -90,8 +90,9 @@ class Cvu(CvuPlaceholder):
 	#buttons
 	select_node_button = Button('Choose node')
 	display_all_button = Button('Reset Display')
-	calc_mod_button = Button('Calc modules')
-	load_mod_button = Button('Load premade')
+	calc_graph_button = Button('Graph Theory')
+	calc_mod_button=Button('Calc modules')
+	load_mod_button = Button('Load module')
 	select_mod_button = Button('View module')
 	custom_mod_button = Button('Custom module')
 	all_mod_button = Button('View all modules')
@@ -111,6 +112,7 @@ class Cvu(CvuPlaceholder):
 	about_button = Button('About')
 
 	#various subwindows
+	graph_theory_window = Instance(HasTraits)
 	parc_chooser_window = Instance(HasTraits)
 	adjmat_chooser_window = Instance(HasTraits)
 	track_chooser_window = Instance(HasTraits)
@@ -169,14 +171,16 @@ class Cvu(CvuPlaceholder):
 						Item(name='color_legend_button'),
 						Item(name='center_adjmat_button'),
 						Spring(),
+						Item(name='calc_graph_button'),
+						Spring(),
+						Item(name='load_scalars_button'),
+						Item(name='display_scalars_button'),
+						Spring(),
 						Item(name='calc_mod_button'),
 						Item(name='load_mod_button'),
 						Item(name='select_mod_button'),
 						Item(name='custom_mod_button'),
 						Item(name='all_mod_button'),
-						Spring(),
-						Item(name='load_scalars_button'),
-						Item(name='display_scalars_button'),
 						Spring(),
 						Item(name='draw_stuff_button'),
 					show_labels=False,
@@ -237,6 +241,7 @@ class Cvu(CvuPlaceholder):
 		#self.lab_pos *= 1000
 		#print np.shape(self.lab_pos)
 		self.opts=dialogs.OptionsWindow()
+		self.graph_theory_window=dialogs.GraphTheoryWindow()
 		self.custom_colormap_window=dialogs.CustomColormapWindow()
 		self.adjmat_chooser_window=dialogs.AdjmatChooserWindow()
 		self.parc_chooser_window=dialogs.ParcellationChooserWindow()
@@ -986,13 +991,15 @@ class Cvu(CvuPlaceholder):
 				"size (%i,1) and got %s" % (self.nr_labels,str(np.shape(ci))))
 			
 		if lsmw.whichkind=='modules':
-			import modularity
-			self.modules=modularity.comm2list(ci)
+			#import modularity
+			#self.modules=modularity.comm2list(ci)
+			import bct
+			self.modules=bct.ci2ls(ci)
 			self.update_modules_metadata()
 		elif lsmw.whichkind=='scalars':
-			#convert data to float to avoid potential integer division
+			#convert data to float to avoid potential integer division FIXME
 			ci=np.array(ci,dtype=float)
-			ci=(ci-np.min(ci))/np.max(ci)
+			ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
 			#normalize scalars to 0-1 range
 			self.node_scalars.update({lsmw.dataset_name:ci})
 
@@ -1081,12 +1088,47 @@ class Cvu(CvuPlaceholder):
 		else:
 			self.display_scalars()
 
+	#graph theory
+	def _calc_graph_button_fired(self):
+		gtw=self.graph_theory_window
+		#first check if stats are computed, if so let user ask for recalculate
+		if not gtw.graph_stats:
+			self.calc_graphstats()
+		#now, check to see if there are any, just in case 0 are specified
+		if gtw.graph_stats:
+			gtw.current_stat=gtw.graph_stats[0]
+		self.graph_theory_window.edit_traits()
+		
+	@on_trait_change('graph_theory_window:RecalculateEvent')
+	def calc_graphstats(self):
+		import graph,bct
+		try: 
+			stats=graph.do_summary(self.adj_nulldiag,bct.ls2ci(self.modules),
+				self.opts.intermediate_graphopts_list)
+		except ValueError:
+			self.error_dialog("Community structure required for some " 
+				"of the calculations specified. Try calculating modules first.")
+			return
+
+		for k,v in stats.iteritems():
+			self.graph_theory_window.graph_stats.append(
+				graph.StatisticsDisplay(k,v))
+
+	@on_trait_change('graph_theory_window:SaveToScalarEvent')
+	def sv_graphstat_to_scalar(self):
+		gtw=self.graph_theory_window
+		if np.shape(gtw.current_stat.stat)!=(self.nr_labels,1):
+			self.error_dialog("Only Nx1 vectors can be saved as scalars")
+			return
+		ci=gtw.current_stat.stat.ravel().copy()
+		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
+		self.node_scalars.update({gtw.scalar_savename:ci})
+
 	#module selection
 	def _calc_mod_button_fired(self):
-		import modularity
+		import bct
 		if self.partitiontype=="spectral":
-			self.modules=modularity.spectral_partition(self.adj_nulldiag,
-				delete_extras=self.opts.prune_modules)
+			self.modules=bct.ci2ls(bct.modularity_und(self.adj_nulldiag)[0])
 		else:
 			raise Exception("Partition type %s not found" % self.partitiontype)
 		self.update_modules_metadata()

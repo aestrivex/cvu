@@ -8,7 +8,7 @@ lh_fusiform
 lh_inferiorparietal
 lh_inferiortemporal
 lh_insula
-lh_insthmuscingulate
+lh_isthmuscingulate
 lh_lateraloccipital
 lh_lateralorbitofrontal
 lh_lingual
@@ -42,7 +42,7 @@ rh_fusiform
 rh_inferiorparietal
 rh_inferiortemporal
 rh_insula
-rh_insthmuscingulate
+rh_isthmuscingulate
 rh_lateraloccipital
 rh_lateralorbitofrontal
 rh_lingual

@@ -34,6 +34,7 @@ rh_transversetemporal
 rh_insula
 lh_lateralorbitofrontal
 lh_parsorbitalis
+lh_frontalpole
 lh_medialorbitofrontal
 lh_parstriangularis
 lh_parsopercularis
