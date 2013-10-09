@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 quiet=True
 import cvu_utils as util
 if __name__=="__main__":
@@ -543,7 +544,6 @@ class Cvu(CvuPlaceholder):
 		cm=ColorMapper.from_palette_array(self.cmap_connmat_pl(xrange(256)))
 		self.conn_mat.img_plot("imagedata",name='conmatplot',colormap=cm)
 
-		#TODO nonstatic colormap
 		self.conn_mat.tools.append(ZoomTool(self.conn_mat))
 		self.conn_mat.tools.append(ConnmatPanClickTool(self,self.conn_mat))
 		self.xa=color_axis.ColorfulAxis(self.conn_mat,self.node_colors,'x')
@@ -685,7 +685,7 @@ class Cvu(CvuPlaceholder):
 			while self.nr_modules > len(self.module_colors):
 				i,j=np.random.randint(18,size=(2,))
 				col=(np.array(self.module_colors[i])+self.module_colors[j])/2
-				#integer division is fine
+				col=int(col)
 				self.module_colors.append(col.tolist())
 				#self.error_dialog("+18 modules not supported yet")
 				#return
@@ -696,8 +696,8 @@ class Cvu(CvuPlaceholder):
 			#module colors must be saved, mayavi scalars depend on it
 			
 			cols=self.module_colors[:self.nr_modules]
-			import modularity
-			ci=modularity.list2comm(self.modules,zeroindexed=True)
+			import bct
+			ci=bct.ls2ci(self.modules,zeroindexed=True)
 			self.node_colors=((np.array(self.module_colors)[ci])/255.0).tolist()
 
 		#these routines expect self.node_colors to be set
@@ -748,12 +748,13 @@ class Cvu(CvuPlaceholder):
 				nod.module_manager.scalar_lut_manager.lut.table=cols
 
 			#set the mlab scalars to be fractions between 0 and 1 for the cmap
-			import modularity
+			import bct
 			for nodes,idxs in [(self.nodes_lh,self.lhnodes),
 					(self.nodes_rh,self.rhnodes)]:
-				nodes.mlab_source.dataset.point_data.scalars=(np.array(
-					modularity.list2comm(self.modules,zeroindexed=True))
-					/ self.nr_modules)[idxs]
+				nodes.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
+					self.modules,zeroindexed=True)/self.nr_modules)[idxs]
+				
+			#FIXME WRONG COLOR!
 			
 		mlab.draw()
 
@@ -991,14 +992,10 @@ class Cvu(CvuPlaceholder):
 				"size (%i,1) and got %s" % (self.nr_labels,str(np.shape(ci))))
 			
 		if lsmw.whichkind=='modules':
-			#import modularity
-			#self.modules=modularity.comm2list(ci)
 			import bct
 			self.modules=bct.ci2ls(ci)
 			self.update_modules_metadata()
 		elif lsmw.whichkind=='scalars':
-			#convert data to float to avoid potential integer division FIXME
-			ci=np.array(ci,dtype=float)
 			ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
 			#normalize scalars to 0-1 range
 			self.node_scalars.update({lsmw.dataset_name:ci})
@@ -1592,7 +1589,6 @@ class Cvu(CvuPlaceholder):
 		#restore the 3D region text if it was previously enabled
 		self.txt.visible=self.opts.show_floating_text
 
-
 	def _make_movie_button_fired(self):
 		if self.mk_movie_lbl=='Make movie':
 			self.make_movie_window.finished=False
@@ -1634,7 +1630,7 @@ class Cvu(CvuPlaceholder):
 					self.scene.render()
 				yield
 		animation=anim()
-		fps_in=1000/samplerate #result is in ms, integer division is fine
+		fps_in=int(1000/samplerate) #result is in ms, integer division is fine
 		self.animator=Animator(fps_in,animation.next)
 
 	def do_mkmovie_snapshots(self,samplerate,anim_style):
