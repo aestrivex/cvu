@@ -342,7 +342,7 @@ class Cvu(CvuPlaceholder):
 	
 	#precondition: adj_helper_gen() must be run after pos_helper_gen()
 	def adj_helper_gen(self):
-		self.nr_edges = self.nr_labels*(self.nr_labels-1)/2
+		self.nr_edges = int(self.nr_labels*(self.nr_labels-1)/2)
 		self.adjdat = np.zeros((self.nr_edges),dtype=float)
 		self.interhemi = np.zeros((self.nr_edges),dtype=bool)
 		self.left = np.zeros((self.nr_edges),dtype=bool)
@@ -358,8 +358,12 @@ class Cvu(CvuPlaceholder):
 				self.right[i] = self.labnam[r1][0]==self.labnam[r2][0]=='r'
 				i+=1
 		self.adj_thresdiag=self.adj_nulldiag.copy()
-		self.adj_thresdiag[np.nonzero(self.adj_thresdiag==0)]=\
-			np.min(self.adj_thresdiag[np.nonzero(self.adj_thresdiag)])
+		try:
+			self.adj_thresdiag[np.where(self.adj_thresdiag==0)]=\
+				np.min(self.adj_thresdiag[np.where(self.adj_thresdiag)])
+		except ValueError:
+			self.error_dialog("The adjmat supplied has no nonzero values")
+			return
 
 		#remove all but the soft_max_edges largest connections
 		if self.nr_edges > self.soft_max_edges:
@@ -420,14 +424,17 @@ class Cvu(CvuPlaceholder):
 			self.srf[2][:,2],self.srf[3],opacity=self.opts.surface_visibility,
 			color=self.default_glass_brain_color,name='syrfr',
 			colormap=ccw.scalar_map.cmap)
-		self.syrf_lh.actor.actor.pickable=0
-		self.syrf_rh.actor.actor.pickable=0
 		#some colors
 		#(.4,.75,0) #DARKISH GREEN
 		#(.82,1,.82) #LIGHTER GREEN
 		#(.82,.82,.82) #GRAY
 
 		self.surfs_cracked=False
+		for surf in (self.syrf_lh,self.syrf_rh):
+			surf.actor.actor.pickable=0
+			set_lut(surf,ccw.scalar_map)
+
+		self.chg_lh_surfmask(); self.chg_rh_surfmask()
 
 	def nodes_clear(self):
 		try:
@@ -463,7 +470,8 @@ class Cvu(CvuPlaceholder):
 		self.txt = mlab.text3d(0,0,0,'',scale=4.0,color=(.8,.6,.98,))
 		self.txt.position=(0,0,83)
 		self.txt.actor.actor.pickable=0
-		self.nodes_on_surf_lh,self.nodes_on_surf_rh=[],[]
+
+		self.chg_lh_nodemask(); self.chg_rh_nodemask()
 	
 		self.set_node_color_mayavi()
 
@@ -494,8 +502,12 @@ class Cvu(CvuPlaceholder):
 			color=self.default_glass_brain_color,name='syrfr_cracked')
 
 		self.surfs_cracked=True
-		self.syrf_lh.actor.actor.pickable=0
-		self.syrf_rh.actor.actor.pickable=0
+
+		for surf in (self.syrf_lh,self.syrf_rh):
+			surf.actor.actor.pickable=0
+			set_lut(surf,ccw.scalar_map)
+
+		self.chg_lh_surfmask(); self.chg_rh_surfmask()
 
 	def vectors_clear(self):
 		try:
@@ -524,6 +536,14 @@ class Cvu(CvuPlaceholder):
 		self.chg_conns_colors() #sets to scalar or off
 		self.myvectors.actor.property.opacity=.3
 		self.myvectors.actor.actor.pickable=0
+
+		set_lut(self.myvectors,ccw.activation_map)
+		if not self.opts.lh_conns_on:
+			self.chg_lh_connmask(); 
+		if not self.opts.rh_conns_on:
+			self.chg_rh_connmask()
+		if not self.opts.interhemi_conns_on:
+			self.chg_interhemi_connmask()
 
 	def chaco_clear(self):
 		self.conn_mat.data.set_data("imagedata",np.tile(0,(self.nr_labels,
@@ -754,8 +774,6 @@ class Cvu(CvuPlaceholder):
 				nodes.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
 					self.modules,zeroindexed=True)/self.nr_modules)[idxs]
 				
-			#FIXME WRONG COLOR!
-			
 		mlab.draw()
 
 	def set_node_color_circ(self):
@@ -1107,6 +1125,7 @@ class Cvu(CvuPlaceholder):
 				"of the calculations specified. Try calculating modules first.")
 			return
 
+		self.graph_theory_window.graph_stats=list()
 		for k,v in stats.iteritems():
 			self.graph_theory_window.graph_stats.append(
 				graph.StatisticsDisplay(k,v))
@@ -1272,8 +1291,9 @@ class Cvu(CvuPlaceholder):
 	# beware.  currently masking only comes from one of these three types
 	# which are mutually exclusive.  if this changes, xor wont work anymore
 	# one thing that would work would be using addition of binary flags as types
+	# but better to make three sets of conns so as not to deal with this mess
 	@on_trait_change('opts:interhemi_conns_on')
-	def chg_intermodule_mask(self):
+	def chg_interhemi_connmask(self):
 		if self.opts.interhemi_conns_on:
 			self.masked=np.logical_xor(self.masked,self.interhemi)
 		else:

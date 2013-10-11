@@ -60,6 +60,7 @@ class OptionsWindow(InteractiveSubwindow):
 	show_floating_text = Bool(True)
 	module_view_style = Enum('intramodular','intermodular','both')
 	render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
+	conns_disclaimer=Str
 	interhemi_conns_on = Bool(True)
 	lh_conns_on = Bool(True)
 	rh_conns_on = Bool(True)
@@ -110,6 +111,10 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='conns_width',label='conn linewidth'),
 				Item(name='conns_colors_on'),
 			),
+			HSplit(
+				Item(name='conns_disclaimer',style='readonly',height=10,
+					width=550,show_label=False)
+			),
 			label='Display options',show_labels=False
 		),
 		VGroup(
@@ -128,6 +133,9 @@ class OptionsWindow(InteractiveSubwindow):
 			'participation coefficient', 'within-module degree']
 	def _intermediate_graphopts_list_default(self):
 		return ['global efficiency', 'clustering coefficient']
+	def _conns_disclaimer_default(self):
+		return ("Note changing conn visibility is not applied immediately as "
+			"it can be costly. To force application, click 'Reset Display'")
 
 class GraphTheoryWindow(InteractiveSubwindow):
 	from graph import StatisticsDisplay

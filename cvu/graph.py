@@ -27,8 +27,8 @@ def do_summary(adj,mods,opts):
 	for opt in opts:
 		#throw an error if modularity calculations were requested but no
 		#community structure exists
-		if opt in ('modularity','participation_coefficient','within-module '
-				'degree') and mods is None:
+		if opt in ('modularity','participation coefficient','within-module '
+				'degree') and not mods:
 			raise ValueError('Need Modules')
 	for opt in opts:
 		stats.update({opt:do_opt(adj,mods,opt)})
@@ -38,8 +38,9 @@ def do_opt(adj,mods,option):
 	if option=='global efficiency':
 		return bct.efficiency_wei(adj)
 	elif option=='local efficiency':
+		print 'ghaattn hierr'
 		return bct.efficiency_wei(adj,local=True)
-	elif option=='average strengths':
+	elif option=='average strength':
 		return bct.strengths_und(adj)
 	elif option=='clustering coefficient':
 		return bct.clustering_coef_wu(adj)
