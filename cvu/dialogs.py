@@ -53,6 +53,8 @@ def append_proper_buttons(buttonlist):
 class OptionsWindow(InteractiveSubwindow):
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,10,mode='spinner')
+	conns_colorbar=Bool(False)
+	scalar_colorbar=Bool(False)
 	pthresh = Range(0.0,1.0,.95)
 	nthresh = Float
 	thresh_type = Enum('prop','num')
@@ -78,6 +80,7 @@ class OptionsWindow(InteractiveSubwindow):
 		VGroup(
 			HSplit(
 				Item(name='circ_size'),
+				Item(name='conns_width',label='conn linewidth'),
 				Item(name='show_floating_text',label='floating 3D text on'),
 			),
 			HSplit(
@@ -91,7 +94,7 @@ class OptionsWindow(InteractiveSubwindow):
 			),
 			HSplit(
 				Item(name='module_view_style',label='module connection style'),
-				Item(name='prune_modules',label='prune singleton modules'),
+				#Item(name='prune_modules',label='prune singleton modules'),
 			),
 			HSplit(
 				Item(name='interhemi_conns_on',
@@ -108,7 +111,8 @@ class OptionsWindow(InteractiveSubwindow):
 				Item(name='rh_surfs_on',label='RH surfaces on'),
 			),
 			HSplit(
-				Item(name='conns_width',label='conn linewidth'),
+				Item(name='conns_colorbar',label='show conns colorbar'),
+				Item(name='scalar_colorbar',label='show scalar colorbar'),
 				Item(name='conns_colors_on'),
 			),
 			HSplit(

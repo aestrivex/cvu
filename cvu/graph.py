@@ -38,7 +38,6 @@ def do_opt(adj,mods,option):
 	if option=='global efficiency':
 		return bct.efficiency_wei(adj)
 	elif option=='local efficiency':
-		print 'ghaattn hierr'
 		return bct.efficiency_wei(adj,local=True)
 	elif option=='average strength':
 		return bct.strengths_und(adj)

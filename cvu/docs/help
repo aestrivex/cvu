@@ -19,8 +19,8 @@ From within the Martinos center, the easiest way to run cvu is
 From outside the Martinos center, you will need to download and install the 
 program and its dependencies.  cvu is on the Python Packages Index (PyPI) 
 which enables you to use tools such as easy-install.  Currently the listing on 
-PyPI ''DOES NOT'' automatically install the required dependencies.  I will fix 
-this sometime...  For hackers or developers, you can also get the source from 
+PyPI ''DOES NOT'' automatically install the required dependencies.
+For hackers or developers, you can also get the source from 
 [https://github.com/aestrivex github].
 
 The packages needed are MNE python and EPD (enthought python distribution).  
@@ -333,12 +333,13 @@ button
 You can also specify a series of nodes on the fly from a list, and visualize 
 only those nodes.
 
-
-=====Scalars=====
+=====Scalars and Graph Theoretical Quantities=====
 
 cvu will show scalar values, such as various graph theoretic measures.  These 
-measures are treated as entirely abstract data.  Load them as vectors from 
-files (e.g. matlab or numpy vectors).  You can load as many scalars as you want 
+measures are treated as entirely abstract data.  Graph theory calculations are
+done using bct-python (I translated that from matlab!).  In addition to the 
+builtin graph theory metrics, you can also load arbitrary vectors from files 
+(They must be matlab or numpy vectors). You can load as many scalars as you want 
 -- you will be prompted to enter the dataset name to refer to that data by.
 However, you can display at most 5 scalar datasets at one time.  These datasets
 are displayed, respectively, as the node colors, surface colors, and node sizes
@@ -348,13 +349,13 @@ clicking the 'show scalars' button.  You may use a single dataset for all of
 these visualization types (e.g. the node size and color scaling off of the same
 data) if you wish.
 
+Graph theory measures are displayed fully in the graph theory panel.  From this
+panel, you can view tables of numbers displaying the metrics in parcellation
+order, or more usefully you can save these values as scalars for subsequent
+visualization.
+
 Scalars will not be displayed at all until you click on 'show scalars.'  Loading
 scalars into the program does not automatically display them.
-
-With the exception of modules and modularity, cvu does not calculate any graph
-theoretic measures natively.  I am considering translating the Brain
-Connectivity Toolbox (BCT) from matlab to numpy, and including it with cvu, so
-that it will.
 
 =====Movies=====
 
@@ -407,6 +408,18 @@ looking up data or doing math on the fly.  It does not have all of the features
 of ipython, but it has many of them.  You are welcome.
 
 ===Options===
+=====Graph Theory=====
+
+In the graph theory window, there are various graph theoretic measures that
+can be ticked on or off.  When graph theoretic measures are calculated
+(either the first time you click on the "Graph theory" panel, or whenever
+"Recalculate" is clicked subsequently), only these measures are chosen.
+
+The only one of these that takes any substantial amount of time to calculate
+is local efficiency.  This might take a few minutes to calculate.
+
+More graph theory measures may be added later.
+
 =====Circle Size=====
 
 Changes the size of the circle plot.  Unfortunately due to technical limitations

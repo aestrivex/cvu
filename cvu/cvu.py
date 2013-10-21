@@ -521,7 +521,6 @@ class Cvu(CvuPlaceholder):
 			self.starts[:,1],self.starts[:,2],self.vecs[:,0],self.vecs[:,1],
 			self.vecs[:,2],name='connsrc')
 		self.vectorsrc.mlab_source.dataset.point_data.scalars = self.adjdat 
-		self.vectorsrc.mlab_source.dataset.point_data.scalars.name='edgekey'
 		self.vectorsrc.outputs[0].update()
 		self.init_thres_gen()
 		self.thres = mlab.pipeline.threshold(self.vectorsrc,name='thresh',
@@ -1339,6 +1338,19 @@ class Cvu(CvuPlaceholder):
 			self.myvectors.glyph.color_mode='color_by_scalar'
 		else:
 			self.myvectors.glyph.color_mode='no_coloring'
+
+	@on_trait_change('opts:conns_colorbar')
+	def chg_conns_colorbar(self):
+		#TODO FIX THIS
+		#make these bars auto-go to different places and format reasonably
+		#also check that scalars are adjusted for both syrf and nodes
+		self.myvectors.module_manager.scalar_lut_manager.show_scalar_bar=(
+			self.opts.conns_colorbar)
+
+	@on_trait_change('opts:scalar_colorbar')
+	def chg_scalar_colorbar(self):
+		self.syrf_lh.module_manager.scalar_lut_manager.show_scalar_bar=(
+			self.opts.scalar_colorbar)
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
