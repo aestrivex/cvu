@@ -371,7 +371,7 @@ class Cvu(CvuPlaceholder):
 			zi = np.nonzero(self.adjdat>=cutoff)
 			# if way way too many edges remain, make it a hard max
 			# this happens in DTI data which is very sparse, the cutoff is 0
-			if len(zi[0])>2*self.soft_max_edges:
+			if len(zi[0])>(self.soft_max_edges+200):
 				zi=np.nonzero(self.adjdat>cutoff)
 
 			self.starts=self.starts[zi[0],:]
@@ -1293,24 +1293,15 @@ class Cvu(CvuPlaceholder):
 	# but better to make three sets of conns so as not to deal with this mess
 	@on_trait_change('opts:interhemi_conns_on')
 	def chg_interhemi_connmask(self):
-		if self.opts.interhemi_conns_on:
-			self.masked=np.logical_xor(self.masked,self.interhemi)
-		else:
-			self.masked=np.logical_or(self.masked,self.interhemi)
+		self.masked[self.interhemi]=self.opts.interhemi_conns_on
 		
 	@on_trait_change('opts:lh_conns_on')
 	def chg_lh_connmask(self):
-		if self.opts.lh_conns_on:
-			self.masked=np.logical_xor(self.masked,self.left)
-		else:
-			self.masked=np.logical_or(self.masked,self.left)
+		self.masked[self.left]=self.opts.lh_conns_on
 	
 	@on_trait_change('opts:rh_conns_on')
 	def chg_rh_connmask(self):
-		if self.opts.rh_conns_on:
-			self.masked=np.logical_xor(self.masked,self.right)
-		else:
-			self.masked=np.logical_or(self.masked,self.right)
+		self.masked[self.right]=self.opts.rh_conns_on
 
 	@on_trait_change('opts:lh_nodes_on')
 	def chg_lh_nodemask(self):
@@ -1341,16 +1332,19 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('opts:conns_colorbar')
 	def chg_conns_colorbar(self):
-		#TODO FIX THIS
-		#make these bars auto-go to different places and format reasonably
-		#also check that scalars are adjusted for both syrf and nodes
-		self.myvectors.module_manager.scalar_lut_manager.show_scalar_bar=(
-			self.opts.conns_colorbar)
+		v=self.myvectors
+		if self.opts.conns_colorbar:
+			mlab.colorbar(object=v,orientation='horizontal',title='')
+		else:
+			v.module_manager.scalar_lut_manager.show_scalar_bar=False
 
 	@on_trait_change('opts:scalar_colorbar')
 	def chg_scalar_colorbar(self):
-		self.syrf_lh.module_manager.scalar_lut_manager.show_scalar_bar=(
-			self.opts.scalar_colorbar)
+		s=self.syrf_lh
+		if self.opts.scalar_colorbar:
+			mlab.colorbar(object=s,orientation='vertical',title='')
+		else:
+			s.module_manager.scalar_lut_manager.show_scalar_bar=False
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
@@ -1790,7 +1784,13 @@ def preproc():
 		surf_type=args['surftype'])
 
 	#calculate label positions from vertex positions
-	lab_pos,labv=util.calcparc(labv,labnam,quiet=quiet,parcname=args['parc'])
+	if args['subject']=='fsavg5':
+		lab_pos,labv=util.calcparc(labv,labnam,quiet=quiet,
+			parcname=args['parc'])
+	else:
+		lab_pos,labv=util.calcparc(labv,labnam,quiet=quiet,
+			parcname=args['parc'],subjdir=args['subjdir'],
+			subject=args['subject'],lhsurf=surf_struct[0],rhsurf=surf_struct[2])
 
 	# Package dataloc and modality into tuple for passing
 	datainfo =(args['dataloc'],args['modality'],args['partitiontype'],

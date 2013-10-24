@@ -119,7 +119,7 @@ class CustomFileEditorKlass(CustomEditorKlass):
 		self.text_control.SetValue(self.value)
 
 	def button_click(self,event):
-		print "SKAGGGEY MUFFIN"
+		#print "SKAGGGEY MUFFIN"
 		file_selected=open_file()
 		if file_selected:
 			self.value=file_selected

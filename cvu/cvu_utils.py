@@ -16,6 +16,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from traits.api import HasTraits,Event
+import os
 
 class EventHolder(HasTraits):
 	e=Event
@@ -95,7 +96,10 @@ def loadsurf(fname,surftype):
 def mangle_hemi(s):
 	return s[-2:]+'_'+s[0:-3]
 
-def calcparc(labv,labnam,quiet=False,parcname=' '):
+def calcparc(labv,labnam,quiet=False,parcname=' ',subjdir='.',subject='fsavg5',
+		lhsurf=None,rhsurf=None):
+	#subjdir and subject are passed here in order to get subcortical
+	#structures from a brain other than fsavg5
 	import numpy as np
 	lab_pos=np.zeros((len(labnam),3))
 	#an nlogn sorting algorithm is theoretically possible here but rather hard
@@ -117,12 +121,18 @@ def calcparc(labv,labnam,quiet=False,parcname=' '):
 	
 	import volume
 	valid_subcortical_keys=volume.aseg_rois.keys()
+	asegd=None
 
 	for i,lab in enumerate(labnam):
 		if lab not in labs_used:
 			#TODO get subcortical labels from the volume file
 			if lab in valid_subcortical_keys:
-				lab_pos[i,:] = volume.roi_coords(lab)	
+				if asegd is None:
+					import nibabel
+					aseg=nibabel.load(os.path.join(subject,'mri','aseg.mgz'))
+					asegd=aseg.get_data()
+				lab_pos[i,:] = volume.roi_coords(lab,asegd,subjdir=subjdir,
+					subject=subject,lhsurf=lhsurf,rhsurf=rhsurf)
 			#let the user know if parc order file has unrecongized entries
 			elif not quiet:
 				print ("Warning: Label %s not found in parcellation %s" % 

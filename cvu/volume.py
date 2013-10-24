@@ -13,17 +13,17 @@ LH_CORTEX_ASEGNUM=3
 RH_CORTEX_ASEGNUM=42
 
 #TODO hardcode slightly more softly
-aseg_rois={ 'lh_hippocampus':17, 'rh_hippocampus':53,
-			'lh_amygdala':18, 'rh_amygdala':54,
-			'lh_thalamus':10, 'rh_thalamus':49,
-			'lh_caudate':11, 'rh_caudate':50,
-			'lh_putamen':12, 'rh_putamen':51,
-			'lh_pallidum':13, 'rh_pallidum':52,
-			'lh_globus_pallidus':13, 'rh_globus_pallidus':52,
-			'lh_insula':19, 'rh_insula':55,
-			'lh_nucleus_accumbens':26, 'rh_nucleus_accumbens':58,
-			'lh_accumbens':26, 'rh_accumbens':58,
-			'lh_accumbens_area':26, 'rh_accumbens_area':58,}
+aseg_rois={ 'lh_hippocampus':53, 'rh_hippocampus':17,
+			'lh_amygdala':54, 'rh_amygdala':18,
+			'lh_thalamus':49, 'rh_thalamus':10,
+			'lh_caudate':50, 'rh_caudate':11,
+			'lh_putamen':51, 'rh_putamen':12,
+			'lh_pallidum':52, 'rh_pallidum':13,
+			'lh_globus_pallidus':52, 'rh_globus_pallidus':13,
+			'lh_insula':55, 'rh_insula':19,
+			'lh_nucleus_accumbens':58, 'rh_nucleus_accumbens':26,
+			'lh_accumbens':58, 'rh_accumbens':26,
+			'lh_accumbens_area':58, 'rh_accumbens_area':26,}
 			#'brainstem':16, 'brain_stem':16 }
 
 def surf_properties(use_fsavg5=True,lhsurf=None,rhsurf=None):
@@ -50,11 +50,7 @@ def surf_properties(use_fsavg5=True,lhsurf=None,rhsurf=None):
 #First find the mean location within the volume, and then translate this
 #location to surface/mayavi coordinates.
 
-def roi_and_vol_properties(asegnum,subject='fsavg5'):
-	#TODO this is dumb, don't reload the volume for each subcortical structure
-	aseg=nibabel.load(os.path.join(subject,'mri','aseg.mgz'))
-	asegd=aseg.get_data()
-
+def roi_and_vol_properties(asegnum,asegd):
 	roi_mean=np.mean(np.where(asegd==asegnum),axis=1)
 
 	xc,yc,zc=np.where(np.logical_or(asegd==LH_CORTEX_ASEGNUM,
@@ -83,7 +79,10 @@ def translate_coords(roi,surf_lims,cortical_vol_lims,
 
 	return retx,rety,retz
 
-def roi_coords(roi_name):
-	c=surf_properties()
-	r,v=roi_and_vol_properties(aseg_rois[roi_name])
+def roi_coords(roi_name,asegd,subjdir=None,subject='fsavg5',lhsurf=None,rhsurf=None):
+	#if subject is none, use fsavg5
+	#TODO profile this code
+	c=surf_properties(use_fsavg5=(subject=='fsavg5' or subject is None),
+		lhsurf=lhsurf,rhsurf=rhsurf)
+	r,v=roi_and_vol_properties(aseg_rois[roi_name],asegd)
 	return translate_coords(r,c,v)
