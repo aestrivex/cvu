@@ -537,12 +537,10 @@ class Cvu(CvuPlaceholder):
 		self.myvectors.actor.actor.pickable=0
 
 		set_lut(self.myvectors,ccw.activation_map)
-		if not self.opts.lh_conns_on:
-			self.chg_lh_connmask(); 
-		if not self.opts.rh_conns_on:
-			self.chg_rh_connmask()
-		if not self.opts.interhemi_conns_on:
-			self.chg_interhemi_connmask()
+		self.chg_lh_connmask(); 
+		self.chg_rh_connmask()
+		self.chg_interhemi_connmask()
+		self.chg_conns_colorbar()
 
 	def chaco_clear(self):
 		self.conn_mat.data.set_data("imagedata",np.tile(0,(self.nr_labels,
@@ -917,6 +915,11 @@ class Cvu(CvuPlaceholder):
 		self.nodes_gen()
 		self.surfs_gen()
 		self.node_colors_gen()
+		self.chg_scalar_colorbar()
+		#scalar colorbar loading is tied to the surface and not to nodes
+		#because the surface always has the same color scheme and the nodes
+		#don't.  but it can't be in surfs_gen because the surf can get gen'd
+		#when switching from cracked to glass. so it is here.
 	
 	def load_new_adjmat(self):
 		acw=self.adjmat_chooser_window
@@ -1293,15 +1296,15 @@ class Cvu(CvuPlaceholder):
 	# but better to make three sets of conns so as not to deal with this mess
 	@on_trait_change('opts:interhemi_conns_on')
 	def chg_interhemi_connmask(self):
-		self.masked[self.interhemi]=self.opts.interhemi_conns_on
+		self.masked[self.interhemi]=not self.opts.interhemi_conns_on
 		
 	@on_trait_change('opts:lh_conns_on')
 	def chg_lh_connmask(self):
-		self.masked[self.left]=self.opts.lh_conns_on
+		self.masked[self.left]=not self.opts.lh_conns_on
 	
 	@on_trait_change('opts:rh_conns_on')
 	def chg_rh_connmask(self):
-		self.masked[self.right]=self.opts.rh_conns_on
+		self.masked[self.right]=not self.opts.rh_conns_on
 
 	@on_trait_change('opts:lh_nodes_on')
 	def chg_lh_nodemask(self):
