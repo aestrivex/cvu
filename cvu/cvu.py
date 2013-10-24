@@ -1130,7 +1130,7 @@ class Cvu(CvuPlaceholder):
 		self.graph_theory_window.graph_stats=list()
 		for k,v in stats.iteritems():
 			self.graph_theory_window.graph_stats.append(
-				graph.StatisticsDisplay(k,v))
+				graph.StatisticsDisplay(k,v,self.labnam))
 
 	@on_trait_change('graph_theory_window:SaveToScalarEvent')
 	def sv_graphstat_to_scalar(self):

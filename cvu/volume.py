@@ -81,8 +81,13 @@ def translate_coords(roi,surf_lims,cortical_vol_lims,
 
 def roi_coords(roi_name,asegd,subjdir=None,subject='fsavg5',lhsurf=None,rhsurf=None):
 	#if subject is none, use fsavg5
-	#TODO profile this code
+	#import time
+	#t1=time.clock()
 	c=surf_properties(use_fsavg5=(subject=='fsavg5' or subject is None),
 		lhsurf=lhsurf,rhsurf=rhsurf)
+	#t2=time.clock(); print t2-t1,'bip'
 	r,v=roi_and_vol_properties(aseg_rois[roi_name],asegd)
+	#this is the bottleneck.  indexing into a large file.  cant really fix.
+	#t3=time.clock(); print t3-t2,'bop'
 	return translate_coords(r,c,v)
+	#t4=time.clock(); print t4-t3,'bap'

@@ -4,22 +4,39 @@ import bct
 import numpy as np
 import scipy.io as sio
 from collections import OrderedDict
-from traits.api import HasTraits,Str,Any
+from traits.api import HasTraits,Str,Any,List
 
 class StatisticsDisplay(HasTraits):
-	from traitsui.api import View,Item
-	from traitsui.ui_editors.array_view_editor import ArrayViewEditor
+	from traitsui.api import View,Item,TabularEditor
+	#from traitsui.ui_editors.array_view_editor import ArrayViewEditor
+	from traitsui.tabular_adapter import TabularAdapter
 	name=Str
 	stat=Any	#np.ndarray
+	label_names=List(Str)
 
-	def __init__(self,name,stat,**kwargs):
+	def __init__(self,name,stat,labels,**kwargs):
 		super(HasTraits,self).__init__(**kwargs)
 		self.name=name
-		self.stat=np.reshape(stat,(np.size(stat),1))
+		if np.size(stat)==1:
+			self.stat=np.array((('','%.3f'%stat,),))
+		elif np.size(stat)!=len(labels):
+			print np.size(stat),len(labels)
+			raise ValueError('Size of graph statistic inconsistent')
+		else:
+			nr_labels=len(labels)
+			self.stat=np.append(
+				np.reshape(labels,(nr_labels,1)),
+				np.reshape(map(lambda nr:'%.3f'%nr,stat),(nr_labels,1)),
+				axis=1)
+		#self.stat=np.reshape(stat,(np.size(stat),1))
 
 	traits_view=View(
-		Item('stat',editor=ArrayViewEditor(show_index=False,format='%.4f'),
-			height=350,width=225,show_label=False),
+		#Item('stat',editor=ArrayViewEditor(show_index=False,format='%.4f'),
+		#	height=350,width=225,show_label=False),
+		Item('stat',editor=TabularEditor(
+			adapter=TabularAdapter(columns=['','']),
+			editable=False,show_titles=True),
+			height=300,width=225,show_label=False),
 	)
 
 def do_summary(adj,mods,opts):
