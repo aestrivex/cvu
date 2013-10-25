@@ -1,4 +1,8 @@
 graft cvu/data
-graft cvu/docs
 graft cvu/orders
+graft cvu/cmaps
+recursive-include cvu/docs
 recursive-include cvu/fsavg5 *
+recursive-include licenses
+LICENSE
+README

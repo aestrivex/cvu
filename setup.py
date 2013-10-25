@@ -6,12 +6,14 @@ def read(fname):
 
 setuptools.setup(
 	name="cvu",
-	version="0.1",
+	version="0.2",
 	maintainer="Roan LaPlante",
 	maintainer_email="rlaplant@nmr.mgh.harvard.edu",
 	description=("A visualizer for human brain networks"),
 	license="Visuddhimagga Sutta; GPLv3+",
-	packages=["cvu"],#package_data={'cvu':['data/*','docs/*','fsavg5/label/*','fsavg5/surf/*','orders/*']},
+	packages=["cvu"],
+	package_data={'cvu':['data/*','docs/help','docs/scripting','docs/tutorials/*/*','fsavg5/label/*','fsavg5/surf/*','orders/*','cmaps/*']},
+	data_files=[('',['LICENSE','README']),('licenses',['licenses/ENTHOUGHT_LICENSE','licenses/YORICK_LICENSE','licenses/COLORBREWER_LICENSE'])],
 	url="https://github.com/aestrivex/cvu",
 	long_description=read('README'),
 	classifiers=[
@@ -24,5 +26,5 @@ setuptools.setup(
 		"Topic :: Scientific/Engineering :: Visualization",
 	],
 	platforms=['any'],
-	requires=["ets","mne"]
+	requires=["numpy","scipy","bctpy","mne"]
 )
