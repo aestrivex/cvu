@@ -378,7 +378,10 @@ class Cvu(CvuPlaceholder):
 			self.vecs=self.vecs[zi[0],:]
 			self.edges=self.edges[zi[0],:]
 			self.adjdat=self.adjdat[zi[0]]
+
 			self.interhemi=self.interhemi[zi[0]]
+			self.left=self.left[zi[0]]
+			self.right=self.right[zi[0]]
 			
 			self.nr_edges=len(self.adjdat)
 		if not quiet:
@@ -1122,7 +1125,7 @@ class Cvu(CvuPlaceholder):
 		try: 
 			stats=graph.do_summary(self.adj_nulldiag,bct.ls2ci(self.modules),
 				self.opts.intermediate_graphopts_list)
-		except ValueError:
+		except util.CVUError:
 			self.error_dialog("Community structure required for some " 
 				"of the calculations specified. Try calculating modules first.")
 			return
