@@ -1,0 +1,137 @@
+In this tutorial, I describe a real visualization problem that I encountered,
+and what commands I used to resolve it.
+
+Our group used MEG to examine synchrony between numerous cortical regions in a
+task-based study.  This tutorial is about visualizing the regions themselves.
+
+One of these regions was defined using a functional localizer task, and for each
+subject taking a small number of vertices of activation.  Each of the other
+regions was defined anatomically, using the Destrieux (aparc.a2009s) atlas.
+
+We had only nine regions of interest to display, and wished to create a figure
+that showed the spatial extent of each of these regions, with each region in a
+different color so they could be easily distinguished.  The desired figure
+from this method is shown in output.png.
+
+
+I could have written a standalone script to do this using mne-python or nibabel to load the surfaces, and colored in all the vertices myself.  However, this
+would have been unnecessary work -- cvu does most of this for me.  Specifically,
+it loads the surface in mayavi, and defines anatomical regions according to an
+atlas.
+
+
+Firstly, I wanted to use the inflated surface for my visualization.  Visualizing
+the inflated surface is problematic in cvu, but because in this case I was
+not interested in the network connectivity at all, I chose to use it anyway.  To
+access the inflated surface, I used the command line flag to select that
+surface:
+
+./run -s inflated
+
+In this instance of cvu, all of the surfaces loaded by default will be the
+inflated surface.  Right now this cannot be changed other than by reloading
+cvu.  But that was okay for my purposes.
+
+
+After that, I wrote an ordering file containing only the regions I wanted to
+see.  This ordering file is located at ordering.txt.  This parcellation does
+not span the entire surface, but I did not care about the regions that I
+omitted.  I loaded this ordering as a new parcellation, using a specific
+subject's aparc.a2009s atlas.  (That is, "parcellation" was aparc.a2009s,
+SUBJECTS_DIR and SUBJECT were specific to my analysis, and the ordering file
+was ordering.txt.  If you are trying to reproduce my steps, use fsavg5 as
+the subject -- the only difference will be in the surface morphometry)
+
+<< GUI interaction -- load a parcellation >>
+
+At this point, I wanted each of the regions to be shown in a different color.
+Therefore, I defined scalars for each region: [1,2,3,4,5,6,7,8,9].  I could have
+created these scalars as a numpy array saved to a file, and load them with a GUI
+load scalars button, but it was slightly easier to simply place them in the
+program directly, as the scalars are located in self.node_scalars:
+
+self.node_scalars.update({'data':[1,2,3,4,5,6,7,8,9]})
+
+#Then, I was able to treat these data as normal scalars.  I projected the
+#the scalars on the surface (e.g. I selected the "surface color" option from the
+#scalars menu.  I also increased the surface opacity to 100% for a better image.
+
+<< GUI interaction -- show scalars; select surface color only >> 
+
+#I also wanted to visualize the sulcal and gyral curvature.  cvu does *not* do
+#this (yet), but I knew of a library that does: pysurfer.  
+#Pysurfer uses mayavi to
+#visualize vertexwise activation on surfaces, most typically the inflated 
+#surface.  I was not interested in pysurfer's visualization, but I looked at the
+#pysurfer source code, and figured out the commands to extract the curvature 
+#data without having to read the curvature files myself:
+
+import surfer
+surf=surfer.Surface( 'SUBJECTNAME', 'rh', 'inflated')
+		#for those following the tutorial, use 'fsavg5' as SUBJECTNAME
+surf.load_curvature()
+curv=surf.bin_curv
+
+#Note that pysurfer requires SUBJECTS_DIR to be set.  You can do this by
+#manually manipulating the os.environ variable
+
+import os
+os.environ['SUBJECTS_DIR']='/path/to/dir' # use '/path/to/cvu/cvu'
+
+
+#Now, curv is a binary array of length nr_vertices, where 1 represents a sulcus
+#and 0 a gyrus.  I wanted to show this curvature in the background, with my ROIs
+#in the foreground.  Conveniently, the visualization had already computed
+#which vertices corresponded to my regions of interest, so I took this data:
+
+old_scalars = self.syrf_rh.mlab_source.scalars
+
+#and then copied it:
+
+new_scalars = curv.copy()
+new_scalars*=10			#Here, I wanted to make the curvature in the background
+						#0/10 instead of 0/1 only because I felt this was a
+						#better color scheme with the map I was using.
+for i,s in enumerate(new_scalars):
+  if old_scalars[i]:	#For all values that are not 0, e.g. ROIs
+	new_scalars[i]=old_scalars[i]
+
+#There is probably a more efficient way to do this, but this loop took a few
+#seconds at most.
+
+
+#And then, I loaded the scalars into the visualization directly.
+
+self.syrf_rh.mlab_source.scalars = new_scalars
+
+
+#At this point, the color scheme was not very good.  I made my own colormap.
+#This is not very user friendly, but here are the steps I took
+
+l=['#555555','#888888','#ff3300','#9933ff','#66ffff','#ffaa00','#339933',
+	'#ccff66','#cc99cc','#ffff33']
+lm=LinearSegmentedColormap.from_list('name',l) 
+	#the name parameter is required but it doesn't matter.  
+	#LinearSegmentedColormap is a library call to matplotlib
+
+lt=lm(np.linspace(0.,1.,10),bytes=True)
+	#create a colormap with 10 equally spaced entries
+
+self.syrf_rh.module_manager.scalar_lut_manager.lut_table=lt
+self.syrf_rh.module_manager.scalar_lut_manager.number_of_colors=10
+mlab.draw()
+
+
+#There was some minor image postprocessing
+
+mlab.view(distance='auto',azimuth=10,elevation=80)
+self.scene.background=(.15,.15,.15)
+
+
+And then I just saved the output.
+
+After writing this tutorial, I realized that cvu might not be the best tool for this job.  Pysurfer has a similar capability to visualize the inflated surface
+and overlay labels and curvature.  Because I was intimately familiar with cvu
+and less so with pysurfer, I made cvu do the job for me.  The point of the
+tutorial is to expose some of the things going on under the scenes in cvu, to
+help afford others that flexibility.
