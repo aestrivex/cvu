@@ -332,7 +332,8 @@ class Cvu(CvuPlaceholder):
 		#pos_helper_gen is called from three places -- setup, load_parc and 
 		#load_adj. The reason it is called from load_adj is because of the soft
 		#cap.  The number of edges can differ between adjmats because of the
-		#soft cap and all of the positions need to be recalculated if it does.
+		#soft cap and all of the edge 
+		#positions need to be recalculated if it does.
 		#Everything else in this pos_helper_gen is appropriate to run at that
 		#point, except for the scalar reset.  So, I added a flag for it, for use
 		#only within load_adj
@@ -439,6 +440,40 @@ class Cvu(CvuPlaceholder):
 
 		self.chg_lh_surfmask(); self.chg_rh_surfmask()
 
+	def cracked_surfs_gen(self):
+		ccw=self.custom_colormap_window
+		tri_inds_l=[]
+		tri_inds_r=[]
+		for l in self.labv:
+			if l.hemi=='lh':
+				tris=self.srf[1]
+				tri_inds=tri_inds_l
+			elif l.hemi=='rh':
+				tris=self.srf[3]
+				tri_inds=tri_inds_r
+			v_as_set=set(l.vertices)
+
+			#get the triangles entirely contained in this set of vertices
+			ts=np.where([v_as_set.issuperset(tri) for tri in tris])[0]
+			tri_inds.extend(ts)
+
+		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
+			self.srf[0][:,2],self.srf[1][tri_inds_l],
+			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
+			color=self.default_glass_brain_color,name='syrfl_cracked',)
+		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
+			self.srf[2][:,2],self.srf[3][tri_inds_r],
+			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
+			color=self.default_glass_brain_color,name='syrfr_cracked')
+
+		self.surfs_cracked=True
+
+		for surf in (self.syrf_lh,self.syrf_rh):
+			surf.actor.actor.pickable=0
+			set_lut(surf,ccw.scalar_map)
+
+		self.chg_lh_surfmask(); self.chg_rh_surfmask()
+
 	def nodes_clear(self):
 		try:
 			self.nodesource_lh.remove()
@@ -477,40 +512,6 @@ class Cvu(CvuPlaceholder):
 		self.chg_lh_nodemask(); self.chg_rh_nodemask()
 	
 		self.set_node_color_mayavi()
-
-	def cracked_surfs_gen(self):
-		ccw=self.custom_colormap_window
-		tri_inds_l=[]
-		tri_inds_r=[]
-		for l in self.labv:
-			if l.hemi=='lh':
-				tris=self.srf[1]
-				tri_inds=tri_inds_l
-			elif l.hemi=='rh':
-				tris=self.srf[3]
-				tri_inds=tri_inds_r
-			v_as_set=set(l.vertices)
-
-			#get the triangles entirely contained in this set of vertices
-			ts=np.where([v_as_set.issuperset(tri) for tri in tris])[0]
-			tri_inds.extend(ts)
-
-		self.syrf_lh=mlab.triangular_mesh(self.srf[0][:,0],self.srf[0][:,1],
-			self.srf[0][:,2],self.srf[1][tri_inds_l],
-			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
-			color=self.default_glass_brain_color,name='syrfl_cracked',)
-		self.syrf_rh=mlab.triangular_mesh(self.srf[2][:,0],self.srf[2][:,1],
-			self.srf[2][:,2],self.srf[3][tri_inds_r],
-			opacity=self.opts.surface_visibility,colormap=ccw.scalar_map.cmap,
-			color=self.default_glass_brain_color,name='syrfr_cracked')
-
-		self.surfs_cracked=True
-
-		for surf in (self.syrf_lh,self.syrf_rh):
-			surf.actor.actor.pickable=0
-			set_lut(surf,ccw.scalar_map)
-
-		self.chg_lh_surfmask(); self.chg_rh_surfmask()
 
 	def vectors_clear(self):
 		try:
@@ -578,7 +579,7 @@ class Cvu(CvuPlaceholder):
 	# but if the user changes the data the existing figure should be preserved
 	def circ_fig_gen(self,figure=None):
 		self.circ_fig=(
-			circ.plot_connectivity_circle2(
+			circ.plot_connectivity_circle_cvu(
 			np.reshape(self.adjdat,(self.nr_edges,)),
 			self.nodes_numberless,
 			indices=self.edges.T,
@@ -1354,35 +1355,7 @@ class Cvu(CvuPlaceholder):
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
-		#doesnt make sense to change the visualization if the surfaces are off
-		self.opts.lh_surfs_on=True
-		self.opts.rh_surfs_on=True
-
-		if self.surfs_cracked:
-			if self.opts.render_style=='cracked glass':
-				return
-			else:
-				self.surfs_clear()
-				self.surfs_gen()
-				self.set_surf_color()
-		if self.opts.render_style=='cracked_glass':
-			self.surfs_clear()
-			self.cracked_surfs_gen()
-			self.set_surf_color()
-		else:
-			for syrf in [self.syrf_lh,self.syrf_rh]:
-				if self.opts.render_style=='contours':
-					syrf.actor.property.representation='surface'
-					syrf.enable_contours=True
-					syrf.contour.number_of_contours=250	
-				else:
-					syrf.enable_contours=False
-				if self.opts.render_style=='glass':
-					syrf.actor.property.representation='surface'
-				elif self.opts.render_style=='wireframe':
-					syrf.actor.property.representation='wireframe'
-				elif self.opts.render_style=='speckled':
-					syrf.actor.property.representation='points'
+		pass #there was some stff here
 
 	@on_trait_change('custom_colormap_window:default_map.+')
 	def chg_default_cmap_interactive(self):

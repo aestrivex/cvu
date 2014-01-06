@@ -12,7 +12,7 @@ class StatisticsDisplay(HasTraits):
 	from traitsui.tabular_adapter import TabularAdapter
 	name=Str
 	stat=Any	#np.ndarray
-	chart=Any	#np.ndarray
+	display_chart=Any	#np.ndarray
 	label_names=List(Str)
 
 	def __init__(self,name,stat,labels,**kwargs):
@@ -20,14 +20,14 @@ class StatisticsDisplay(HasTraits):
 		self.name=name
 		if np.size(stat)==1:
 			self.stat=stat
-			self.chart=np.array((('','%.3f'%stat,),))
+			self.display_chart=np.array((('','%.3f'%stat,),))
 		elif np.size(stat)!=len(labels):
 			print np.size(stat),len(labels)
 			raise ValueError('Size of graph statistic inconsistent')
 		else:
 			nr_labels=len(labels)
 			self.stat=stat.reshape((nr_labels,1))
-			self.chart=np.append(
+			self.display_chart=np.append(
 				np.reshape(labels,(nr_labels,1)),
 				np.reshape(map(lambda nr:'%.3f'%nr,stat),(nr_labels,1)),
 				axis=1)
@@ -36,7 +36,7 @@ class StatisticsDisplay(HasTraits):
 	traits_view=View(
 		#Item('stat',editor=ArrayViewEditor(show_index=False,format='%.4f'),
 		#	height=350,width=225,show_label=False),
-		Item('chart',editor=TabularEditor(
+		Item('display_chart',editor=TabularEditor(
 			adapter=TabularAdapter(columns=['','']),
 			editable=False,show_titles=True),
 			height=300,width=225,show_label=False),
