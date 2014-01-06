@@ -815,8 +815,6 @@ class Cvu(CvuPlaceholder):
 			count_edges = 0
 			for e,(a,b) in enumerate(zip(self.edges[:,0],
 					self.edges[:,1])):
-				#if not self.masked[e] and (self.curr_node is None or
-				#		self.curr_node in [a,b]):
 				if conditions(e,a,b):
 					new_edges[e]=(a,b)
 
@@ -876,6 +874,12 @@ class Cvu(CvuPlaceholder):
 				(self.curr_node, self.labnam[self.curr_node], count_edges))
 
 		#TODO CHACO
+
+		#for i,e in enumerate(self.edges):
+		#	if np.any(np.all(new_edges==e,axis=1)) and (lo <= self.adjdat[i] <= hi):
+		#		self.circ_data[i].set_visible(True)
+		#	else:
+		#		self.circ_data[i].set_visible(False)
 
 		mlab.draw()
 		self.circ_fig.canvas.draw()
