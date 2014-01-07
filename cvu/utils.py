@@ -24,7 +24,7 @@ class DatasetMetadataElement(HasTraits):
 	_controller=Any				#Controller for the entire program
 	all_datasets=Property(depends_on='_controller:datasets')
 	def _get_all_datasets(self):
-		return self._controller.datasets
+		return self._controller.ds_instances.values()
 
 	_current_dataset_list=List	#List(Dataset)
 	current_dataset=Property(depends_on='_current_dataset_list')
@@ -36,7 +36,7 @@ class DatasetMetadataElement(HasTraits):
 		super(DatasetMetadataElement,self).__init__(**kwargs)
 		self._controller=controller
 		if dataset==None:
-			self._current_dataset_list=[controller.datasets[0]]
+			self._current_dataset_list=[controller.ds_orig]
 		else:
 			self._current_dataset_list=[dataset]
 

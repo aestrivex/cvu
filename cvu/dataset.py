@@ -495,34 +495,9 @@ class Dataset(HasTraits):
 		self.color_legend=ColorLegend()
 		self.node_colors_gen()
 
-		self.adj=None	#must reset adj, or the display will be very confused
-			#during subsequent dataview creation
+		self.adj=None	#whatever adj was, it is now the wrong size
 
-		self.display_mode='normal'
-
-		#if self.dv_3d is not None: self.dv_3d.cleanup()
-
-
-		#if self.dv_3d is not None: self.dv_3d.scene.scene_editor.destroy()
-		#pcw.ctl.ds_ref.dv_3d=None
-		#self.dv_3d=DVMayavi(self)
-		#from viewport import Viewport
-		#if self.gui is not None: self.gui.nw_view=Viewport(self)
-
-		#if self.dv_3d is not None:
-		#	from mayavi import mlab
-		#	mlab.close(scene=self.dv_3d.scene.mayavi_scene)
-		
-		self.dv_3d=DVMayavi(self)
-		self.dv_mat=DVMatrix(self)
-		self.dv_circ=DVCircle(self)
-
-		self.chg_scalar_colorbar()
-		#scalar colorbar loading is tied to the surface and not to nodes
-		#because the surface always has the same color scheme and the nodes
-		#don't.  but it can't be in surfs_gen because the surf can get gen'd
-		#when switching from cracked to glass. so it is here.
-		#it could also go under scene.activated.  but that would be less wieldy
+		self.reset_dataviews()
 
 	def load_adj(self,adj,soft_max_edges,cur_adj_filename):
 		self.adj=adj
@@ -553,6 +528,21 @@ class Dataset(HasTraits):
 			dv.supply_adj()
 
 		self.display_all()
+
+	#this method destroys the current dataviews and resets them entirely
+	def reset_dataviews(self):
+		#in principle it might be useful to do some more cleanup here
+		self.display_mode='normal'
+		
+		self.dv_3d=DVMayavi(self)
+		self.dv_mat=DVMatrix(self)
+		self.dv_circ=DVCircle(self)
+
+		self.chg_scalar_colorbar()
+		#scalar colorbar loading is tied to the surface and not to nodes
+		#because the surface always has the same color scheme and the nodes
+		#don't.  but it can't be in surfs_gen because the surf can get gen'd
+		#when switching from cracked to glass. so it is here.
 
 	#handles the scaling and size checking for new scalar datasets
 	def save_scalar(self,name,scalars):

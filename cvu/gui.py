@@ -48,13 +48,13 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	controller=Instance(Controller)
 
 	def _mayavi_port_default(self):
-		return Viewport(self.controller.datasets[0],
+		return Viewport(self.controller.ds_orig,
 			view_type='3D Brain')
 	def _matrix_port_default(self):
-		return Viewport(self.controller.datasets[0],
+		return Viewport(self.controller.ds_orig,
 			view_type='Connection Matrix')
 	def _circle_port_default(self):
-		return Viewport(self.controller.datasets[0],
+		return Viewport(self.controller.ds_orig,
 			view_type='Circular plot')
 
 	#options_window = 				Instance(dialogs.InteractiveSubwindow)
@@ -172,7 +172,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	def __init__(self,sample_data=None,quiet=False,**kwargs):
 		super(HasTraits,self).__init__(quiet=quiet,**kwargs)
 		ctrl=self.controller=Controller(self,sample_data=sample_data)
-		dlist=self.controller.datasets
+		ds_orig=self.controller.ds_orig
 
 		#these dialogs exist strictly in the gui and have no control item
 		#they do not extend interactivesubwindow
@@ -181,9 +181,9 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.about_window=dialogs.AboutWindow()
 		self.really_overwrite_file_window=dialogs.ReallyOverwriteFileWindow()
 
-		self.options_window=dialogs.OptionsWindow(dlist[0].opts,ctrl)
+		self.options_window=dialogs.OptionsWindow(ds_orig.opts,ctrl)
 		self.configure_scalars_window=dialogs.ConfigureScalarsWindow(
-			dlist[0].scalar_display_settings,ctrl)
+			ds_orig.scalar_display_settings,ctrl)
 
 		self.calculate_window=dialogs.CalculateWindow(
 			ctrl.options_db.calculate_parameters,ctrl)
@@ -204,6 +204,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 			ctrl.options_db.snapshot_parameters,ctrl)
 		self.make_movie_window=dialogs.MakeMovieWindow(
 			ctrl.options_db.make_movie_parameters,ctrl)
+
+		self.panel_name = 'base_gui'
 
 	def error_dialog(self,message):
 		self.error_dialog_window.error=message
@@ -232,7 +234,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		if pcw.ctl.new_dataset:
 			if pcw.ctl.new_dataset_name=='':
 				self.error_dialog('Must specify a dataset name!'); return
-			elif pcw.ctl.new_dataset_name in self.controller.datasets:
+			elif pcw.ctl.new_dataset_name in self.controller.ds_instances:
 				self.error_dialog('Dataset name is not unique'); return	
 			else:
 				ds_name = pcw.ctl.new_dataset_name

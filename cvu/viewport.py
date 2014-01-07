@@ -16,7 +16,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from traits.api import (HasTraits,Int,Instance,Range,List,Str,Range,Property,
-	Enum,Any,DelegatesTo,on_trait_change)
+	Enum,Any,DelegatesTo,Bool,on_trait_change)
 from traitsui.api import (View,Item,Group,VSplit,HSplit,NullEditor,Handler,
 	InstanceEditor,UIInfo)
 
@@ -96,6 +96,7 @@ class Viewport(Handler):
 
 class DatasetViewportInterface(HasTraits):
 	mayavi_port,matrix_port,circle_port = (Instance(Viewport),)*3	
+	panel_name = Str
 
 class DatasetViewportLayout(DatasetViewportInterface):
 	def mkitems(dummies=False):
@@ -112,11 +113,14 @@ class DatasetViewportLayout(DatasetViewportInterface):
 		height=1000,width=1000)
 
 class ViewPanel(Handler):
-	panel_name=Str('Extra Views 1')
+	panel_name=Str('Extra View 1')
 	layout=Enum('single','double','square')
 	#configurations allowed: 2x3, 1x3, 2x2 (like main window)
 
 	group_1,group_2 = 2*(Instance(DatasetViewportLayout),)
+
+	info = Instance(UIInfo)
+	window_active = Bool(False)
 
 	def __str__(self): return self.panel_name
 	def __repr__(self): return self.panel_name
@@ -182,6 +186,21 @@ class ViewPanel(Handler):
 				produce_item(1000,1000,self.group_1,'group_1','square_view'),
 				resizable=True,height=1000,width=1000)
 		else: raise ValueError('Invalid layout')
+
+	#handler methods
+	def init_info(self,info):
+		self.info=info
+		self.window_active=True
+	def closed(self,info,is_ok):
+		self.window_active=False
+
+	def conditionally_dispose(self):
+		if self.window_active:
+			self.info.ui.dispose()
+
+	@on_trait_change('panel_name')
+	def _change_title(self):
+		self.info.ui.title=self.panel_name
 
 	#this is code written that in principle, permits a maximally generic
 	#infrastructure for what viewports should go where on the extra window.

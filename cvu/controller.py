@@ -16,8 +16,8 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from traits.api import (HasTraits,Any,List,Str,Enum,Dict,Instance,Either,
-	on_trait_change)
-from traitsui.api import Handler
+	Property,Button,on_trait_change)
+from traitsui.api import Item,Handler,View,ButtonEditor
 from options_struct import OptionsDatabase
 from utils import DatasetMetadataElement,CVUError
 from viewport import ViewPanel
@@ -33,20 +33,18 @@ class ViewportManager(Handler):
 		CheckListEditor,OKButton)
 
 	ctl=Any
+	selected_col=Any
 
 	def __init__(self,ctl,**kwargs):
 		super(Handler,self).__init__(**kwargs)
 		self.ctl = ctl
 
 	traits_view=View(
-		Item(name='viewports',object='object.ctl',
+		Item(name='metadata_list',object='object.ctl',
 			editor=TableEditor(columns= [
-				ObjectColumn(label='Window',#editor=TextEditor(),
-					name='window_name',style='readonly'),
-				ObjectColumn(label='Dataset',
-					editor=CheckListEditor(name='all_datasets'),style='simple',
-					name='_current_dataset_list',editable=True),
- 			]),
+				ObjectColumn(label='Window',name='panel_scratch',),#style='readonly'),
+				ObjectColumn(label='Dataset',name='ds_name_scratch',)],#style='readonly'),],
+				edit_view='tabular_view'),
 			show_label=False,height=300,width=600, 
 		),
 		kind='nonmodal',buttons=[OKButton],
@@ -54,38 +52,104 @@ class ViewportManager(Handler):
 	)
 
 class DatasetUIMetadata(DatasetMetadataElement):
-	panel = Str				
-	group = Either(1,2)
-	ds_name = Str
+	controller = Any
+	panel,panel_scratch = 2*(Str,)
+	ds_name,ds_name_scratch = 2*(Str,)
 
-	def __init__(self,controller,panel,group,name,**kwargs):
+	rebuild_button = Button
+	rebuild_label = Property(Str)
+	def _get_rebuild_label(self): return 'Rebuild %s'%self.panel
+
+	delete_button = Button
+	delete_label = Property(Str)
+	def _get_delete_label(self): return 'Delete %s'%self.ds_name
+
+	def __init__(self,controller,panel,name,**kwargs):
+		self.panel = self.panel_scratch = panel
+		self.ds_name = self.ds_name_scratch = name
 		super(DatasetUIMetadata,self).__init__(controller,**kwargs)
-		self.panel=panel
-		self.group=group
-		self.ds_name=name
+		self.controller = controller
+
+	def _rebuild_button_fired(self):
+		if self.panel == 'base_gui':
+			self.controller.error_dialog(
+				'Rebuilding the base GUI is not allowed')
+		self.controller.rebuild_panel(self.panel)
+	def _delete_button_fired(self):
+		if self.controller.ds_instance[self.ds_name] is self.controller.ds_orig:
+			self.controller.error_dialog(
+				"Removal of the sample data is not allowed")
+		#dispose of the window if necessary
+		self.controller.remove_dataset(self.ds_name)
+
+	@on_trait_change('panel_scratch')
+	def _rename_panel(self):
+		if self.panel == 'base_gui':
+			self.controller.warning_dialog(
+				'Renaming the base gui window is not allowed')
+			return
+		old_name = self.controller.panel_instances[self.panel].panel_name
+		new_name = self.panel_scratch
+		self.controller.rename_panel(old_name,new_name)
+		self.panel = self.panel_scratch
+
+	@on_trait_change('ds_name_scratch')
+	def _rename_ds(self):
+		old_name = self.controller.ds_instances[self.ds_name].name
+		new_name = self.ds_name_scratch
+		self.controller.rename_dataset(old_name,new_name)
+		self.ds_name = self.ds_name_scratch
+
+	tabular_view = View(
+		Item(name='rebuild_button',
+			editor=ButtonEditor(label_value='rebuild_label'),show_label=False),
+		Item(name='delete_button',
+			editor=ButtonEditor(label_value='delete_label'),show_label=False),
+		#Item(name='rename_button',
+		#	editor=ButtonEditor(label_value='rename_label')),
+	)
 
 class Controller(HasTraits):
-	datasets=List				#list of dataset instances
 	gui=Any						#handle to the gui
 	options_db=Instance(OptionsDatabase)
 
-	dataset_metadatae=List
-	viewport_windows=Dict 	#map of strings (panel names) to ViewPanel objects
+	ds_orig = Any			#convenience reference to the original dataset
+
+	ds_instances = Dict		#map: dataset name -> metadata
+	ds_metadatae = Dict		#map: panel name -> metadata
+	panel_instances = Dict	#map: dataset name -> DS instance
+	panel_metadatae = Dict	#map: panel name -> panel instance
+	#metadata_list = List	#all instances of metadata elements
+	metadata_list = Property(List)
+	def _get_metadata_list(self):
+		return self.ds_metadatae.values()
+	#def _set_metadata_list(self,val): pass
 
 	viewport_manager=Instance(ViewportManager)
+	
+	#HASHING STRATEGY
+	#
+	# 4 hash tables
+	# 	dataset name -> associated metadata
+	#	panel name -> associated metadata
+	#	dataset name -> Dataset Instance
+	#	panel name -> Panel Instance
 
 	def __init__(self,gui,sample_data=None):
 		super(Controller,self).__init__()
 		self.gui=gui
 		if sample_data is not None:
-			self.datasets=[sample_data]
+			self.ds_orig = sample_data
+
+			ds_meta = DatasetUIMetadata(self,'base_gui',sample_data.name)
+			self.ds_instances = {sample_data.name : sample_data}
+			self.panel_instances = {'base_gui' : self.gui}
+			self.ds_metadatae = {sample_data.name : ds_meta}
+			self.panel_metadatae = {'base_gui' : ds_meta}
+			#self.metadata_list.append(ds_meta)
 
 		self.options_db=OptionsDatabase(sample_data)
 		self.viewport_manager=ViewportManager(self)
-
-		self.viewport_windows={'base_gui':self.gui}
-		self.dataset_metadatae=[
-			DatasetUIMetadata(self,'base_gui',1,sample_data.name)]
 
 	#listen to the GUI for changes in the current dataset and set the control
 	#accordingly for the unstable windows
@@ -102,10 +166,11 @@ class Controller(HasTraits):
 	def add_dataset(self,ds,panel=None,group=None):
 		'''Given a dataset, add it to the controller.  If panel and group
 		   are specified, add it to that panel, otherwise any panel will do'''
-		self.datasets.append(ds)
+		if ds.name in self.ds_instances:
+			raise CVUError('A dataset with this name already exists')
 
 		if panel is None and group is None:
-			panel_ref = self._get_any_panel()		
+			panel_ref = self._create_new_panel()		
 			panel = panel_ref.panel_name
 			group = 2 if panel_ref.is_full(group=1) else 1
 		elif group is not None: 
@@ -119,61 +184,102 @@ class Controller(HasTraits):
 			panel_ref = self.get_named_panel(panel)
 
 		panel_ref.populate(ds,group=group)	#group can be none, doesnt matter
-		group_spec = DatasetUIMetadata(self,panel,group,ds.name)
-		self.dataset_metadatae.append(group_spec)	
+
+		ds_meta = DatasetUIMetadata(self,panel,ds.name)
+		self.ds_instances.update({ds.name:ds})
+		self.ds_metadatae.update({ds.name:ds_meta})
+		self.panel_instances.update({panel_ref.panel_name:panel_ref})
+		self.panel_metadatae.update({panel_ref.panel_name:ds_meta})
+		#self.metadata_list.append(ds_meta)
 
 		self.show_panel(panel_ref)
 
 	def show_panel(self,panel):
 		panel.edit_traits(panel.produce_view())
 
-	def rebuild_panel(self,panel):
+	def rebuild_panel(self,panel_name):
+		panel=self.panel_instances[panel_name]
+
 		#find the associated dataset and reset its DataViews		
+		ds=self._get_dataset_from_panel(panel)
+		ds.reset_dataviews()
+			
 		#have the panel dispose of itself if necessary
+		panel.conditionally_dispose()
+
 		#then show the panel
-		pass
+		self.show_panel(panel)
+
+	def rename_panel(self,old_name,new_name):
+		try:
+			panel = self.panel_instances[old_name]
+			ds_meta = self.panel_metadatae[old_name]
+		except KeyError:
+			raise CVUError('No such panel')
+		del self.panel_instances[old_name]
+		del self.panel_metadatae[old_name]
+		self.panel_instances.update({new_name:panel})
+		self.panel_metadatae.update({new_name:ds_meta})
+		panel.panel_name = new_name
+
+	def rename_dataset(self,old_name,new_name):
+		try:
+			ds = self.ds_instances[old_name]
+			ds_meta = self.ds_metadatae[old_name]
+		except KeyError:
+			raise CVUError('No such dataset')
+		del self.ds_instances[old_name]
+		del self.ds_metadatae[old_name]
+		self.ds_instances.update({new_name:ds})
+		self.ds_metadatae.update({new_name:ds_meta})
+		ds.name = new_name
 
 	def find_dataset_views(self,ds):
 		'''Given a dataset, return the three viewports that refer to it'''
-		for ds_meta in self.dataset_metadatae:
-			if ds_meta.ds_name == ds.name:	
-				panel=self.viewport_windows[ds_meta.panel]
-				from viewport import DatasetViewportInterface
-				#if panel is base gui, return it
-				if isinstance(panel,DatasetViewportInterface): layout_obj=panel
-				#otherwise, return its group
-				elif ds_meta.group==1: layout_obj = panel.group_1
-				elif ds_meta.group==2: layout_obj = panel.group_2
-				else: raise CVUError("Inconsistent metadata")
-				return layout_obj
-			else: continue
+		ds_meta = self.ds_metadatae[ds.name]
+		panel=self.panel_instances[ds_meta.panel]
 
-	def remove_dataset(self,name):
-		for ds in self.datasets:
-			if ds.name==name: self.datasets.remove(ds)
-			self.datasets.remove(ds)
+		from viewport import DatasetViewportInterface
+		#if panel is base gui, return it
+		if isinstance(panel,DatasetViewportInterface): layout_obj=panel
+		#otherwise, return its group
+		elif ds_meta.group==1: layout_obj = panel.group_1
+		elif ds_meta.group==2: layout_obj = panel.group_2
+		else: raise CVUError("Inconsistent metadata")
+		return layout_obj
+
+	def remove_dataset(self,ds_name):
 		#remove the metadata elements associated with this dataset
-			#(but dont do anything to reload the viewport manager right now)
-		for ds_meta in self.dataset_metadatae:
-			if ds_meta.ds_name==name: self.dataset_metadatae.remove(ds_meta)
-		#remove the panel if appropriate
+		ds_meta = self.ds_metadatae[ds_name]
+		panel_name = ds_meta.panel
+		
+		panel = self.panel_instances[panel_name]
+		panel.conditionally_dispose()
+
+		try:
+			del self.ds_instances[ds_name]
+			del self.ds_metadatae[ds_name]
+			del self.panel_instances[panel_name]
+			del self.panel_metadatae[panel_name]
+		except KeyError as e:
+			raise CVUError('Inconsistent metadata')
 
 	#internal methods for panel manipulation
 	def _get_named_panel(self,panel_name):
 		try:
-			return self.viewport_windows[panel_name]
+			return self.panel_instances[panel_name]
 		except KeyError as e:
 			raise CVUError('No such panel')
 
-	def _get_any_panel(self):
-		for panel in self.viewport_windows:
-			if panel=='base_gui': continue
-			else:
-				p=self.viewport_windows[panel]
-				if not p.is_full(): return p
+	def _get_dataset_from_panel(self,panel):
+		ds_meta = self.panel_metadatae[panel.panel_name]
+		return self._get_named_dataset(ds_meta.ds_name)
 
-		#if no available panel was found, then make a new one
-		return self._create_new_panel()
+	def _get_named_dataset(self,ds_name):
+		try:
+			return self.ds_instances[ds_name]
+		except KeyError as e:
+			raise CVUError('No such dataset')
 
 	#panel creation
 	def __ctr_generate():
@@ -186,10 +292,18 @@ class Controller(HasTraits):
 		return self.__ctr_generator.next()
 
 	def _create_new_panel(self):
-		name='Extra Views %i'%self._panel_counter()
-		panel = ViewPanel(panel_name=name)
-		self.viewport_windows[name]=panel
+		panel_name='Extra View %i'%self._panel_counter()
+		panel = ViewPanel(panel_name=panel_name)
+		self.panel_instances[panel_name]=panel
 		return panel
 
 	def _destroy_panel(self,name):
-		del self.viewport_windows[name]
+		del self.panel_instances[name]
+
+	#error messages
+	def error_dialog(self,message):
+		return self.gui.error_dialog(message)
+	def warning_dialog(self,message):
+		return self.gui.warning_dialog(message)
+	def verbose_msg(self,message):
+		return self.gui.verbose_msg(message)

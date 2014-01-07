@@ -60,7 +60,9 @@ class DatasetSpecificSubwindow(DatasetMetadataElement,InteractiveSubwindow):
 class UnstableDatasetSpecificSubwindow(DatasetSpecificSubwindow):
 	@on_trait_change('current_dataset')
 	def _chg_ds_ref(self):
-		self.ctl.ds_ref=self.current_dataset
+		try: self.ctl.ds_ref=self.current_dataset
+		#this fails on setup before ctl is initialized so ignore error messages
+		except AttributeError: pass 
 
 def append_proper_buttons(buttonlist):
 	#get around list mutability
