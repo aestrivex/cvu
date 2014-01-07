@@ -620,9 +620,7 @@ class Dataset(HasTraits):
 		import bct
 		thres_adj=self.adj.copy()
 		thres_adj[thres_adj >= thres] = 0
-		print np.where(np.isnan(thres_adj))
-		print np.where(np.isinf(thres_adj))
-		print thres
+		self.verbose_msg('Threshold for modularity calculation: %s'%str(thres))
 		modvec,_=bct.modularity_und(thres_adj)
 		self.modules = bct.ci2ls(modvec)
 		self.nr_modules = len(self.modules)

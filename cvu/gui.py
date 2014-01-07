@@ -300,6 +300,12 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.node_chooser_window.finished=False
 		self.node_chooser_window.edit_traits()
 
+	@on_trait_change('node_chooser_window:notify')
+	def _select_node_check(self):
+		ncw=self.node_chooser_window
+		if not ncw.finished: return
+		ncw.ctl.ds_ref.display_node(ncw.ctl.cur_node)
+
 	def _calculate_button_fired(self):
 		cw=self.calculate_window
 		cw.finished=False
@@ -342,6 +348,17 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	def _custom_module_button_fired(self):
 		self.module_customizer_window.finished=False
 		self.module_customizer_window.edit_traits()
+
+	@on_trait_change('module_customizer_window:notify')
+	def _module_customizer_check(self):
+		mcw=self.module_customizer_window
+		if not mcw.finished: return
+		try: mcw.ctl._index_convert()
+		except ValueError: 
+			self.error_dialog('Internal error: bad index conversion')
+			return
+		mcw.ctl.ds_ref.custom_module=mcw.ctl.return_module
+		mcw.ctl.ds_ref.display_module('custom')
 
 	def _graph_theory_button_fired(self):
 		#more checking required. should make sure stats exist first

@@ -18,7 +18,8 @@
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,Any,CFloat,Property,
 	on_trait_change)
-from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
+from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,
+	CancelButton,Spring,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
 	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor,TableEditor,
 	ObjectColumn)
@@ -39,17 +40,23 @@ class InteractiveSubwindow(Handler):
 	finished=Bool(False)
 	notify=Event
 	info=Instance(UIInfo)
-	def __init__(self):
-		super(InteractiveSubwindow,self).__init__()
+	window_active=Bool(False)
+	def __init__(self,**kwargs):
+		super(InteractiveSubwindow,self).__init__(**kwargs)
 	def init_info(self,info):
 		self.info=info
+		self.finished=False
+		self.window_active=True
 	def closed(self,info,is_ok):
+		info.object.window_active=False
 		info.object.finished=is_ok
 		info.object.notify=True
-	def reconstruct(self,info=None):
-		if info is None: info=self.info
-		info.ui.dispose()
-		info.object.edit_traits()
+	def reconstruct(self):
+		self.info.ui.dispose()
+		self.info.object.edit_traits()
+	def conditionally_dispose(self):
+		if self.window_active:
+			self.info.ui.dispose()
 
 class DatasetSpecificSubwindow(DatasetMetadataElement,InteractiveSubwindow):
 	ctl=Any				#window control for this window
@@ -63,11 +70,6 @@ class UnstableDatasetSpecificSubwindow(DatasetSpecificSubwindow):
 		try: self.ctl.ds_ref=self.current_dataset
 		#this fails on setup before ctl is initialized so ignore error messages
 		except AttributeError: pass 
-
-def append_proper_buttons(buttonlist):
-	#get around list mutability
-	buttonlist.extend(OKCancelButtons)
-	return buttonlist
 
 ############################################################################
 class OptionsWindow(DatasetSpecificSubwindow):
@@ -260,10 +262,7 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 	from graph import StatisticsDisplay
 	
 	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
-	RecalculateEvent=Event
-
 	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
-	SaveToScalarEvent=Event
 	
 	traits_view=View(
 		VGroup(
@@ -284,9 +283,9 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 
 	#handler methods
 	def do_sv_scalar(self,info):
-		self.SaveToScalarEvent=True
+		NotImplemented
 	def do_recalculate(self,info):
-		self.RecalculateEvent=True
+		NotImplemented
 
 ############################################################################
 class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
@@ -322,7 +321,7 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 				label='List ROIs here'),
 		label='required ROIs'),
 	
-		kind='panel',buttons=append_proper_buttons([RequireButton]),
+		kind='panel',buttons=[RequireButton,OKButton,CancelButton],
 		title='Report all man-eating vultures to security',)
 
 	#handler methods
@@ -465,35 +464,54 @@ class NodeChooserWindow(UnstableDatasetSpecificSubwindow):
 		kind='panel',height=350,width=350,buttons=OKCancelButtons,
 		resizable=True,title='Do you know the muffin man?')
 
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
+
 ############################################################################
 class ModuleChooserWindow(UnstableDatasetSpecificSubwindow):
+	AllModulesButton=Action(name='View all modules',action='do_view_all')
+
 	traits_view=View(
 		current_dataset_item,
 		Item(name='module_list',object='object.ctl',
 			editor=ListStrEditor(editable=True,
 				selected_index='object.ctl.cur_mod'),
 			show_label=False),
-		kind='panel',height=350,width=350,buttons=OKCancelButtons,
-		resizable=True,title='Roll d12 for dexterity check')
+		kind='panel',height=350,width=350,resizable=True,
+		buttons=[AllModulesButton,OKButton,CancelButton],
+		title='Roll d12 for dexterity check')
 
+	#handler methods
+
+	#having handler methods call the dataset directly is ok as long as
+	#they just make simple calls to the dataset and dont do processing here
+	def do_view_all(self,info):
+		self.ctl.ds_ref.display_multi_module()
+
+############################################################################
 class ModuleCustomizerWindow(UnstableDatasetSpecificSubwindow):
-	#TODO
-	#make sure to destroy and recreate the window when the dataset changes if
-	#the new one might have different labnam
 	ClearButton=Action(name='Clear Selections',action='do_clear')
 	traits_view=View(
 		current_dataset_item,
 		Item(name='intermediate_node_list',object='object.ctl',
-			editor=CheckListEditor(name='initial_node_list',cols=2),
+			editor=CheckListEditor(name='object.ctl.initial_node_list',cols=2),
 			show_label=False,style='custom'),
 		kind='panel',height=400,width=500,
-		buttons=append_proper_buttons([ClearButton]),
+		buttons=[ClearButton,OKButton,CancelButton],
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
 
 	#handler methods
 	def do_clear(self,info):
 		info.object.ctl.intermediate_node_list=[]
 
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
+
+############################################################################
 class SaveSnapshotWindow(UnstableDatasetSpecificSubwindow):
 	traits_view=View(Group(
 		current_dataset_item,
@@ -503,6 +521,7 @@ class SaveSnapshotWindow(UnstableDatasetSpecificSubwindow):
 	), kind='panel',buttons=OKCancelButtons,
 		title="Help I'm a bug",height=250,width=250)
 
+############################################################################
 class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
 	label=Str("Making movies relies on the ability to record an X11 desktop. "
 		"It won't run on non-X11 systems.")
@@ -518,6 +537,7 @@ class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
 	), kind='panel',buttons=OKCancelButtons,
 		title="Make me a sandwich",height=250,width=450)
 
+############################################################################
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
 	Please_note=Str('That file exists. Really overwrite?')
 	save_continuation=Function # Continuation passing style
@@ -530,6 +550,7 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 		kind='panel',buttons=OKCancelButtons,
 		title='Your doom awaits you')
 
+############################################################################
 class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 	import color_legend
 	legend=Instance(color_legend.ColorLegend)
@@ -543,6 +564,7 @@ class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 		kind='nonmodal',height=500,width=325,resizable=True,
 		title='Fresh artichokes just -$3/lb',)
 
+############################################################################
 class ErrorDialogWindow(HasTraits):
 	error=Str
 	traits_view=View(Item(name='error',style='readonly',height=75,width=300),

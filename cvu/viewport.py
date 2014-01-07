@@ -21,6 +21,7 @@ from traitsui.api import (View,Item,Group,VSplit,HSplit,NullEditor,Handler,
 	InstanceEditor,UIInfo)
 
 from mayavi.core.ui.api import (MayaviScene,SceneEditor,MlabSceneModel)
+from dialogs import InteractiveSubwindow
 from enable.component_editor import ComponentEditor
 from mpleditor import MPLFigureEditor
 from utils import CVUError
@@ -112,15 +113,14 @@ class DatasetViewportLayout(DatasetViewportInterface):
 		columns=2),HSplit(content=[it for it in mkitems()][-1:],columns=2)),
 		height=1000,width=1000)
 
-class ViewPanel(Handler):
+class ViewPanel(InteractiveSubwindow):
 	panel_name=Str('Extra View 1')
 	layout=Enum('single','double','square')
 	#configurations allowed: 2x3, 1x3, 2x2 (like main window)
 
 	group_1,group_2 = 2*(Instance(DatasetViewportLayout),)
 
-	info = Instance(UIInfo)
-	window_active = Bool(False)
+	#def __init__(self):
 
 	def __str__(self): return self.panel_name
 	def __repr__(self): return self.panel_name
@@ -191,8 +191,7 @@ class ViewPanel(Handler):
 	def init_info(self,info):
 		self.info=info
 		self.window_active=True
-	def closed(self,info,is_ok):
-		self.window_active=False
+		self._change_title()
 
 	def conditionally_dispose(self):
 		if self.window_active:
