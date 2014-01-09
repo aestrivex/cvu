@@ -18,32 +18,35 @@
 from traits.api import (HasTraits,Instance,Int,Range,Bool,Float,Property,Enum,
 	Str,List,Either,Directory,Any,File,on_trait_change,cached_property)
 from color_map import CustomColormap
+from color_legend import ColorLegend
 from graph import StatisticsDisplay
 import os
 
 class OptionsDatabase(HasTraits):
-	def __init__(self,init_ds,**kwargs):
+	def __init__(self,ds_orig,**kwargs):
 		super(OptionsDatabase,self).__init__(**kwargs)
 		self.parcellation_chooser_parameters=(
-			ParcellationChooserParameters(init_ds))
+			ParcellationChooserParameters(ds_orig))
 		self.adjmat_chooser_parameters=(
-			AdjmatChooserParameters(init_ds))
+			AdjmatChooserParameters(ds_orig))
 		self.general_matrix_chooser_parameters=(
-			GeneralMatrixChooserParameters(init_ds))
+			GeneralMatrixChooserParameters(ds_orig))
 		self.node_chooser_parameters=(
-			NodeChooserParameters(init_ds))
+			NodeChooserParameters(ds_orig))
 		self.calculate_parameters=(
-			CalculateParameters(init_ds))
+			CalculateParameters(ds_orig))
 		self.module_chooser_parameters=(
-			ModuleChooserParameters(init_ds))
+			ModuleChooserParameters(ds_orig))
 		self.module_customizer_parameters=(
-			ModuleCustomizerParameters(init_ds))
+			ModuleCustomizerParameters(ds_orig))
+		self.color_legend_parameters=(
+			ColorLegendParameters(ds_orig))
 		self.snapshot_parameters=(
-			SnapshotParameters(init_ds))
+			SnapshotParameters(ds_orig))
 		self.make_movie_parameters=(
-			MakeMovieParameters(init_ds))	
+			MakeMovieParameters(ds_orig))	
 		self.graph_theory_parameters=(
-			GraphTheoryParameters(init_ds))
+			GraphTheoryParameters(ds_orig))
 
 #GUI INTERACTION PARAMETER CLASSES
 
@@ -194,6 +197,10 @@ class ModuleCustomizerParameters(DatasetReferenceOptionsStructure):
 	def _index_convert(self):
 		self.return_module=[self.initial_node_list.index(i)
 			for i in self.intermediate_node_list]
+
+class ColorLegendParameters(DatasetReferenceOptionsStructure):
+	legend=Property(Instance(ColorLegend))
+	def _get_legend(self): return self.ds_ref.color_legend
 
 class SnapshotParameters(DatasetReferenceOptionsStructure):
 	savefile=Str(os.environ['HOME'])

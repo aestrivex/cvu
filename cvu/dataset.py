@@ -389,6 +389,11 @@ class Dataset(HasTraits):
 			data_view.draw_surfs()
 
 	def draw_nodes(self):
+		self.set_node_colors()
+		for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
+			data_view.draw_nodes()
+
+	def set_node_colors(self):
 		#set node_colors
 		if self.display_mode=='normal':
 			self.node_colors=list(self.node_colors_default)
@@ -412,9 +417,6 @@ class Dataset(HasTraits):
 			import bct
 			ci=bct.ls2ci(self.modules,zeroindexed=True)
 			self.node_colors=((np.array(self.module_colors)[ci])/255).tolist()
-
-		for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
-			data_view.draw_nodes()
 
 	def draw_conns(self,conservative=False):
 		if conservative: new_edges = None
@@ -470,6 +472,9 @@ class Dataset(HasTraits):
 					self.dv_circ.circ_data[e].set_visible(False)
 	
 		return new_edges,count_edges
+
+	def center_adjmat(self):
+		self.dv_mat.center()
 
 	######################################################################
 	# I/O METHODS (LOADING, SAVING)
@@ -548,6 +553,7 @@ class Dataset(HasTraits):
 	def save_scalar(self,name,scalars):
 		if np.squeeze(scalars).shape != (self.nr_labels,):
 			self.error_dialog("Only Nx1 vectors can be saved as scalars")
+			return
 		ci=scalars.ravel().copy()
 		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
 		self.node_scalars.update({name:ci})
@@ -591,6 +597,7 @@ class Dataset(HasTraits):
 		self.display_mode='normal'
 		self.curr_node=None
 		self.cur_module=None
+		self.center_adjmat()
 		self.draw()
 
 	def display_node(self,n):
@@ -610,7 +617,7 @@ class Dataset(HasTraits):
 		self.draw() #draw surf is needed to unset surf color
 
 	def display_multi_module(self):
-		if self.modules is None:
+		if not self.modules:
 			self.error_dialog('No modules defined')	
 			return
 		self.display_mode='module_multi'

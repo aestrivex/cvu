@@ -45,7 +45,7 @@ class ViewportManager(Handler):
 				ObjectColumn(label='Window',name='panel_scratch',),#style='readonly'),
 				ObjectColumn(label='Dataset',name='ds_name_scratch',)],#style='readonly'),],
 				edit_view='tabular_view'),
-			show_label=False,height=300,width=600, 
+			show_label=False,height=150,width=400, 
 		),
 		kind='nonmodal',buttons=[OKButton],
 		title='If it were up to me it would all be in Swahili',
@@ -243,9 +243,7 @@ class Controller(HasTraits):
 		#if panel is base gui, return it
 		if isinstance(panel,DatasetViewportInterface): layout_obj=panel
 		#otherwise, return its group
-		elif ds_meta.group==1: layout_obj = panel.group_1
-		elif ds_meta.group==2: layout_obj = panel.group_2
-		else: raise CVUError("Inconsistent metadata")
+		else: layout_obj = panel.group_1
 		return layout_obj
 
 	def remove_dataset(self,ds_name):

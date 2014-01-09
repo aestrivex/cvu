@@ -137,7 +137,7 @@ class OptionsWindow(DatasetSpecificSubwindow):
 		VGroup(
 			current_dataset_item,
 			HSplit(
-				Item(name='circ_size',object='object.ctl'),
+				#Item(name='circ_size',object='object.ctl'),
 				Item(name='show_floating_text',object='object.ctl',
 					label='floating 3D text on'),
 				Item(name='scalar_colorbar',object='object.ctl',
@@ -265,6 +265,7 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
 	
 	new_view=View(
+		current_dataset_item,
 		VGroup(
 			HGroup(
 				Item(name='graph_stats',object='object.ctl',style='custom',
@@ -338,7 +339,7 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 		label='Matrix'),
 		Group(
 			current_dataset_item,
-			Item(name='require_note',style='readonly',height=35,width=250,
+			Item(name='require_note',style='readonly',height=50,width=250,
 				label='Please note'),
 			Item(name='require_ls',object='object.ctl',
 				editor=ListStrEditor(auto_add=True,editable=True),
@@ -546,19 +547,18 @@ class SaveSnapshotWindow(UnstableDatasetSpecificSubwindow):
 
 ############################################################################
 class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
-	label=Str("Making movies relies on the ability to record an X11 desktop. "
-		"It won't run on non-X11 systems.")
+	please_note=Str("Making movies relies on the ability to record an X11 "
+		"desktop. It won't run on non-X11 systems.")
 	traits_view=View(Group(
 		current_dataset_item,
-		Item(name='label',style='readonly'),
+		Item(name='please_note',style='readonly',height=25,width=250),
 		Item(name='savefile',object='object.ctl'),
 		Item(name='framerate',object='object.ctl',label='framerate'),
 		Item(name='bitrate',object='object.ctl',label='bitrate (kb/s)'),
 		Item(name='anim_style',object='object.ctl',
 			label='automatically rotate'),
 		Item(name='samplerate',object='object.ctl',label='animation speed'),
-	), kind='panel',buttons=OKCancelButtons,
-		title="Make me a sandwich",height=250,width=450)
+	), kind='panel',buttons=OKCancelButtons,title="Make me a sandwich")
 
 ############################################################################
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
@@ -576,8 +576,7 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 ############################################################################
 class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 	import color_legend
-	legend=Instance(color_legend.ColorLegend)
-	traits_view=View(Item(name='legend.entries',
+	traits_view=View(Item(name='entries',object='object.ctl.legend',
 		editor=TableEditor(columns=
 			[ObjectColumn(label='ROI',editor=TextEditor(),name='metaregion',
 				style='readonly',editable=False),

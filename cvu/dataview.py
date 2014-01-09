@@ -600,6 +600,12 @@ class DVMatrix(DataView):
 	#the dataset
 	def draw_conns(self,new_edges=None): NotImplemented
 
+	def center(self):
+		for ax in (self.xa,self.ya):
+			ax.mapper.range.high_setting=self.ds.nr_labels
+			ax.mapper.range.low_setting=0
+
+
 	########################################################################
 	# I/O
 	########################################################################
@@ -621,9 +627,11 @@ class DVCircle(DataView):
 
 		if self.ds.adj is not None: self.circ_gen()
 		else: self.empty_gen()
+		#self.empty_gen()
 
 	def supply_adj(self):
-			self.circ_gen(figure=self.circ)
+		self.circ_gen(figure=self.circ)
+		#self.empty_gen(figure=self.circ)
 	
 	########################################################################
 	# GEN METHODS

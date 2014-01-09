@@ -87,7 +87,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	#load_standalone_matrix_window
 
 	select_node_button = 			Button('Choose node')
-	display_all_button = 			Button('Reset Display')
+	display_all_button = 			Button('Reset Displays')
 	graph_theory_button = 			Button('Show statistics')
 	calculate_button =				Button('Calculate stats')
 	#load_module_button = 			Button('Load module')
@@ -97,7 +97,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	#load_scalars_button = 			Button('Load scalars')
 	load_external_button =			Button('Load stats')
 	load_adjmat_button = 			Button('Load an adjacency matrix')
-	force_render_button = 			Button('Force render')
+	#force_render_button = 			Button('Force render')
 	color_legend_button = 			Button('Color legend')
 	load_parcellation_button =		Button('Load a parcellation')
 	options_button = 				Button('Options')
@@ -106,7 +106,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	save_snapshot_button = 			Button('Take snapshot')
 	make_movie_button = 			Button
 	mk_movie_lbl = 					Str('Make movie')
-	center_adjmat_button = 			Button('Center adjmat')
 	about_button = 					Button('About')
 
 	manage_views_button = 			Button('Manage views')
@@ -122,10 +121,10 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 				Item(name='matrix_port',height=500,width=500,
 					editor=InstanceEditor(view='matrix_view'),
 					show_label=False,style='custom',resizable=True,),
-				Group(	Item(name='select_node_button'),
+				Group(	Spring(),
+						Item(name='select_node_button'),
 						Item(name='display_all_button'),
 						Item(name='color_legend_button'),
-						Item(name='center_adjmat_button'),
 						Spring(),
 						Item(name='calculate_button'),
 						Item(name='load_external_button'),
@@ -134,7 +133,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 						Item(name='select_module_button'),
 						Item(name='custom_module_button'),
 						Spring(),
-						Item(name='force_render_button'),
+						#Item(name='force_render_button'),
 					show_labels=False,
 				)
 			),
@@ -198,6 +197,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 			ctrl.options_db.module_customizer_parameters,ctrl)
 		self.graph_theory_window=dialogs.GraphTheoryWindow(
 			ctrl.options_db.graph_theory_parameters,ctrl)
+		self.color_legend_window=dialogs.ColorLegendWindow(
+			ctrl.options_db.color_legend_parameters,ctrl)
 		self.save_snapshot_window=dialogs.SaveSnapshotWindow(
 			ctrl.options_db.snapshot_parameters,ctrl)
 		self.make_movie_window=dialogs.MakeMovieWindow(
@@ -216,6 +217,10 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	######################################################################
 	# BUTTONS AND INTERACTIONS
 	######################################################################
+
+	def _display_all_button_fired(self):
+		for ds in self.controller.ds_instances.values():
+			ds.display_all()
 
 	def _options_button_fired(self):
 		self.options_window.finished=False
@@ -258,17 +263,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 			#find the viewports that were previously holding this scene
 			#find_dataset_views returns a DatasetViewportInterface object
 			#with references to the viewports (source in viewport.py)
- 
-			#only the viewports that are affected by nodes should be reset.
-			#i.e., the 3D brain and circle plot should be set here because
-			#they generated something only knowing the parcellation
-			#the conn mat is *not* created yet until an adjmat is generated
-			# (we could make a dummy but is there much of a reason?)
-			#FIXME do make a dummy in some way so that we dont need to
-			#reference the controller again in adj load
-
 			ds_interface=self.controller.find_dataset_views(pcw.ctl.ds_ref)	
-
 			ds_interface.mayavi_port = Viewport(pcw.ctl.ds_ref)
 			ds_interface.matrix_port = Viewport(pcw.ctl.ds_ref)
 			ds_interface.circle_port = Viewport(pcw.ctl.ds_ref)
@@ -366,6 +361,9 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		#more checking required. should make sure stats exist first
 		self.graph_theory_window.finished=False
 		self.graph_theory_window.edit_traits()
+
+	def _color_legend_button_fired(self):
+		self.color_legend_window.edit_traits()
 
 	def _save_snapshot_button_fired(self):
 		self.save_snapshot_window.finished=False
