@@ -16,8 +16,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from traits.api import (HasTraits,Instance,Int,Range,Bool,Float,Property,Enum,
-	Str,List,Directory,Any,File,on_trait_change,cached_property)
+	Str,List,Either,Directory,Any,File,on_trait_change,cached_property)
 from color_map import CustomColormap
+from graph import StatisticsDisplay
 import os
 
 class OptionsDatabase(HasTraits):
@@ -109,14 +110,21 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
 		return ['global efficiency', 'clustering coefficient']
 
 class ScalarDisplaySettings(DatasetReferenceOptionsStructure):
-	node_color=Str
-	surf_color=Str
-	node_size=Str
-	circle=Str
-	connmat=Str
-	scalar_sets=Property(List(Str))
+	node_color=Either(Str,None)
+	surf_color=Either(Str,None)
+	node_size=Either(Str,None)
+	circle=Either(Str,None)
+	connmat=Either(Str,None)
+	#scalar_sets=List(Str)
+	scalar_sets=Property(List(Either(Str,None)))
 	def _get_scalar_sets(self):
-		return self.ds_ref.node_scalars.keys()
+		return [None]+self.ds_ref.node_scalars.keys()
+	#def update_scalars(self):
+	#	self.scalar_sets=self.ds_ref.node_scalars.keys()
+
+	def reset_configuration(self):
+		self.node_color=''; self.surf_color=''; self.node_size='';
+		self.circle=''; self.connmat='';
 
 class ParcellationChooserParameters(DatasetReferenceOptionsStructure):
 	new_dataset=Bool(False)
@@ -165,7 +173,7 @@ class NodeChooserParameters(DatasetReferenceOptionsStructure):
 class CalculateParameters(DatasetReferenceOptionsStructure):
 	calculation_type=Enum('modules','statistics')
 	athresh=Float
-	pthresh=Range(0.,1.,.95)
+	pthresh=Range(0.,1.,.8)
 	thresh_type=Enum('prop','abs')
 
 class ModuleChooserParameters(DatasetReferenceOptionsStructure):
@@ -201,30 +209,33 @@ class MakeMovieParameters(DatasetReferenceOptionsStructure):
 	anim_rate=Int(8)
 
 class GraphTheoryParameters(DatasetReferenceOptionsStructure):
-	from graph import StatisticsDisplay
-	
-	graph_stats=List(StatisticsDisplay)	#this is a *display* list
+	from traitsui.api import View,Item,ListEditor
+
+	graph_stats=Property(List(StatisticsDisplay),
+		depends_on='ds_ref:graph_stats')	#this is a *display* list
 		#each dataset has its own dictionary of stats from which this is created
 	current_stat=Instance(StatisticsDisplay)
 	scalar_savename=Str
-	
-	#the params is not populated until the graph theory window is 
-	#requested for the first time.  populate is called as a direct GUI interact
-	def populate(self):
-		if len(self.ds_ref.graph_stats)==0:
-			self.error_dialog("No graph stats exist yet")
-		self.graph_stats=list()
-		for k,v in self.ds_ref.graph_stats.iteritems():
-			self.graph_stats.append(StatisticsDisplay(k,v,self.ds_ref.labnam))
 
+	@cached_property
+	def _get_graph_stats(self):
+		return list( StatisticsDisplay(k,v,self.ds_ref.labnam) for k,v in
+			self.ds_ref.graph_stats.iteritems() )
+	
 	def _current_stat_changed(self):
 		self.scalar_savename=self.current_stat.name
 
-	@on_trait_change('gui:graph_theory_window:SaveToScalarEvent')
-	def _proc_save_to_scalar_event(self):
-		self.ds_ref.save_scalar(self.scalar_savename,self.current_stat)
+	def _proc_save_to_scalar(self):
+		self.ds_ref.save_scalar(self.scalar_savename,self.current_stat.stat)
 
-	@on_trait_change('gui:graph_theory_window:RecalculateEvent')
-	def _proc_recalculate_event(self):
+	def _proc_recalculate(self):
 		self.ds_ref.calculate_graph_stats()
-		self._populate()
+
+	#before version 4.4.1 of traitsui there was a bug such that list editors
+	#in notebook mode crash when the model object is specified in extended
+	#name notation. so instead we create a view with a local model object
+	old_traitsui_view = View( 
+			Item(name='graph_stats',style='custom',
+				editor=ListEditor(use_notebook=True,page_name='.name',
+					selected='current_stat'),
+				show_label=False,),)

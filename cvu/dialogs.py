@@ -19,7 +19,7 @@ from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
 	Enum,List,Button,Range,Instance,Float,Trait,Any,CFloat,Property,
 	on_trait_change)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,
-	CancelButton,Spring,
+	CancelButton,Spring,InstanceEditor,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
 	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor,TableEditor,
 	ObjectColumn)
@@ -250,8 +250,8 @@ class CalculateWindow(UnstableDatasetSpecificSubwindow):
 		Item(name='pthresh',object='object.ctl',
 			enabled_when='object.ctl.thresh_type==\'prop\''),
 		Item(name='thresh_type',object='object.ctl'),
-		kind='panel',buttons=OKCancelButtons,
-		title='The base pi logarithm of pi^pi is exactly 3')
+		kind='panel',buttons=OKCancelButtons,width=350,height=200,
+		title='log(pi^pi) with base pi is exactly 3')
 
 	@on_trait_change('ctl:thresh_type')
 	def _stupid_listen(self):
@@ -264,14 +264,14 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
 	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
 	
-	traits_view=View(
+	new_view=View(
 		VGroup(
-			#HGroup(
-				#Item(name='graph_stats',object='object.ctl',style='custom',
-				#	editor=ListEditor(use_notebook=True,page_name='.name',
-				#		selected='object.ctl.current_stat'),
-				#	show_label=False,),
-			#),
+			HGroup(
+				Item(name='graph_stats',object='object.ctl',style='custom',
+					editor=ListEditor(use_notebook=True,page_name='.name',
+						selected='object.ctl.current_stat'),
+					show_label=False,),
+			),
 			HGroup(
 				Item(name='scalar_savename',object='object.ctl',
 					label='Scalar name',height=25,width=180),
@@ -281,11 +281,35 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 		title='Mid or feed',kind='panel',
 		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
 
+	#before version 4.4.1 of traitsui there was a bug such that list editors
+	#in notebook mode crash when the model object is specified in extended
+	#name notation. so instead we create a view with a local model object
+	old_view=View(
+		VGroup(
+			HGroup(
+				Item(name='ctl',style='custom',
+					editor=InstanceEditor(view='old_traitsui_view')),
+			),
+			HGroup(
+				Item(name='scalar_savename',object='object.ctl',
+					label='Scalar name',height=25,width=180),
+			),
+		),
+		height=400,width=350,
+		title='Mid or feed',kind='panel',
+		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
+
+	from traitsui import __version__ as version
+	if version[:3] < 4.4 or (version[:3]==4.4 and version[4]==0):
+		traits_view=old_view
+	else:
+		traits_view=new_view
+
 	#handler methods
 	def do_sv_scalar(self,info):
-		NotImplemented
+		self.ctl._proc_save_to_scalar()
 	def do_recalculate(self,info):
-		NotImplemented
+		self.ctl._proc_recalculate()
 
 ############################################################################
 class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
@@ -418,7 +442,7 @@ class ConfigureScalarsWindow(DatasetSpecificSubwindow):
 
 	def _scalar_set(selected_trait):
 		return Item(name='scalar_sets',object='object.ctl',
-			editor=ListStrEditor(selected=selected_trait))
+			editor=ListStrEditor(selected='object.ctl.%s'%selected_trait))
 	traits_view=View(
 		current_dataset_item,
 		HGroup(
@@ -445,7 +469,6 @@ class ConfigureScalarsWindow(DatasetSpecificSubwindow):
 			Group(
 				Item(name='cmat_label',style='readonly'),
 				_scalar_set('connmat'),
-			#	Item('scalar_sets',editor=ListStrEditor(selected='conmat')),
 				show_labels=False
 			),
 		),

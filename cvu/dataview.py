@@ -281,7 +281,7 @@ class DVMayavi(DataView):
 		srf_scalar=self.ds.scalar_display_settings.surf_color
 		if (self.ds.display_mode=='scalar' and srf_scalar):
 			colors_lh=np.zeros((len(self.ds.srf.lh_verts)),)
-			colorh_rh=np.zeros((len(self.ds.srf.rh_verts)),)
+			colors_rh=np.zeros((len(self.ds.srf.rh_verts)),)
 			for i,l in enumerate(self.ds.labv):
 				#assumes that lh labels start with L and so on
 				vertices=self.ds.labv[l]
@@ -313,7 +313,7 @@ class DVMayavi(DataView):
 				nodes.glyph.scale_mode='scale_by_vector'
 				nodes.glyph.glyph.scale_factor=8
 				nodes.mlab_source.dataset.point_data.vectors=(
-					np.tile(self.node_scalars[ns][ixes],(3,1)).T)
+					np.tile(self.ds.node_scalars[ns][ixes],(3,1)).T)
 			else:
 				nodes.glyph.scale_mode='data_scaling_off'
 				nodes.glyph.glyph.scale_factor=3
@@ -589,7 +589,7 @@ class DVMatrix(DataView):
 		mat=self.ds.scalar_display_settings.connmat
 
 		if self.ds.display_mode=='scalar' and mat:
-			colors=list(self.ds.opts.scalar_map._pl(self.node_scalars[mat]))
+			colors=list(self.ds.opts.scalar_map._pl(self.ds.node_scalars[mat]))
 		else:
 			colors=self.ds.node_colors
 
@@ -665,7 +665,7 @@ class DVCircle(DataView):
 	def draw_nodes(self): 
 		circ=self.ds.scalar_display_settings.circle
 
-		if self.ds.display_mode=='scalar' and circle:
+		if self.ds.display_mode=='scalar' and circ:
 			colors=list(self.ds.opts.scalar_map._pl(self.ds.node_scalars[circ]))
 		else:
 			colors=self.ds.node_colors

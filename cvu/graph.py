@@ -5,15 +5,13 @@ import numpy as np
 import scipy.io as sio
 from collections import OrderedDict
 from traits.api import HasTraits,Str,Any,List
+from traitsui.api import View,Item,TabularEditor
+from traitsui.tabular_adapter import TabularAdapter
 
 class StatisticsDisplay(HasTraits):
-	from traitsui.api import View,Item,TabularEditor
-	#from traitsui.ui_editors.array_view_editor import ArrayViewEditor
-	from traitsui.tabular_adapter import TabularAdapter
 	name=Str
 	stat=Any	#np.ndarray
 	display_chart=Any	#np.ndarray
-	label_names=List(Str)
 
 	def __init__(self,name,stat,labels,**kwargs):
 		super(HasTraits,self).__init__(**kwargs)

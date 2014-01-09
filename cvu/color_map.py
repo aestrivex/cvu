@@ -156,6 +156,7 @@ edge cases
 	else:
 		lut_mgr=mayavi_obj.module_manager.scalar_lut_manager
 
+	lut_mgr.number_of_colors = 256
 	lut_mgr.file_name=map.fname	
 	lut_mgr.reverse_lut=map.reverse
 

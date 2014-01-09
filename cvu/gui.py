@@ -93,7 +93,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	#load_module_button = 			Button('Load module')
 	select_module_button = 			Button('View module')
 	custom_module_button = 			Button('Custom subset')
-	all_modules_button = 			Button('View all modules')
 	display_scalars_button = 		Button('Show scalars')
 	#load_scalars_button = 			Button('Load scalars')
 	load_external_button =			Button('Load stats')
@@ -133,7 +132,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 						Item(name='graph_theory_button'),
 						Item(name='display_scalars_button'),
 						Item(name='select_module_button'),
-						Item(name='all_modules_button'),
 						Item(name='custom_module_button'),
 						Spring(),
 						Item(name='force_render_button'),
@@ -293,8 +291,19 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 
 	def _display_scalars_button_fired(self):
 		#more checking required.  should make sure scalars exist first.
-		self.configure_scalars_window.finished=False
+		csw=self.configure_scalars_window
+		csw.finished=False
+		#csw.ctl.reset_configuration()
 		self.configure_scalars_window.edit_traits()
+
+	@on_trait_change('configure_scalars_window:notify')
+	def _display_scalars_check(self):
+		csw=self.configure_scalars_window
+
+		if not csw.finished or (not any((csw.ctl.node_color,csw.ctl.surf_color,
+				csw.ctl.node_size,csw.ctl.circle,csw.ctl.connmat))):
+			return
+		csw.ctl.ds_ref.display_scalars()
 
 	def _select_node_button_fired(self):
 		self.node_chooser_window.finished=False
@@ -337,13 +346,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		mcw=self.module_chooser_window
 		if not mcw.finished or mcw.ctl.cur_mod==-1: return
 		else: mcw.ctl.ds_ref.display_module(mcw.ctl.cur_mod)
-
-	#def _all_modules_button_fired(self):
-		#what dataset does this refer to?  maybe better to make the modules be
-		#recalculated as a way to access this mode?
-
-		#this, or else give control of the mode to the user in options.  if the user
-		#resets the mode, call ds_ref.draw()
 
 	def _custom_module_button_fired(self):
 		self.module_customizer_window.finished=False

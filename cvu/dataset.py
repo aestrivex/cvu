@@ -393,7 +393,7 @@ class Dataset(HasTraits):
 		if self.display_mode=='normal':
 			self.node_colors=list(self.node_colors_default)
 		elif self.display_mode=='scalar':
-			#node colors are not used here, instead the scalar value is set directly
+		#node colors are not used here, instead the scalar value is set directly
 			self.node_colors=list(self.node_colors_default)
 		elif self.display_mode=='module_single':
 			new_colors=np.tile(.3,self.nr_labels)
@@ -627,7 +627,9 @@ class Dataset(HasTraits):
 	
 	def calculate_graph_stats(self,thres):
 		import graph,bct
-		thres_adj = self.adj[self.adj > thres]
+		thres_adj = self.adj.copy()
+		thres_adj[thres_adj > thres] = 0
+		self.verbose_msg('Threshold for graph calculations: %s'%str(thres))
 		try:
 			self.graph_stats=graph.do_summary(thres_adj,bct.ls2ci(self.modules),
 				self.opts.intermediate_graphopts_list)
