@@ -144,6 +144,8 @@ The figure handle.
 	# Make figure background the same colors as axes
 	if fig==None:
 		fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
+	else:
+		fig = pl.figure(num=fig.number)
 		
 	# Use a polar axes
 	axes = pl.subplot(111, polar=True, axisbg=facecolor)

@@ -638,6 +638,8 @@ class DVCircle(DataView):
 	########################################################################
 
 	def circ_gen(self,reqrois=(),figure=None):
+		print figure
+		#if figure is not None: figure.clf(keep_observers=True)
 		if figure is not None: figure.clf()
 
 		self.circ=circle_plot.plot_connectivity_circle_cvu(
