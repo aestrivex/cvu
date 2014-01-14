@@ -15,10 +15,21 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from traits.api import (HasTraits,Any,Property,List)
+from traits.api import (HasTraits,Any,Property,List,Str)
+from traitsui.api import (View,Item)
 
 class CVUError(Exception):
-	pass
+	pass 
+
+class DisplayMetadata(HasTraits):
+	subject_name=Str
+	parc_name=Str
+	adj_filename=Str
+
+	traits_view = View(
+		Item('subject_name',style='readonly'),
+		Item('parc_name',style='readonly'),
+		Item('adj_filename',style='readonly',width=250,height=5),)
 
 class DatasetMetadataElement(HasTraits):
 	_controller=Any				#Controller for the entire program

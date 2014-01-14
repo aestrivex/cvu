@@ -155,14 +155,13 @@ class GeneralMatrixChooserParameters(DatasetReferenceOptionsStructure):
 	field_name=Str
 	ignore_deletes=Bool
 	whichkind=Enum('modules','scalars')
+	#scalar_name=Enum
 
-	#TODO this is a bit of a dumb strategy.  It would be fine if
-		#a) it reset occasionally
-		#b) it represented that this uses scalars and modules alike
 	measure_nr=Int(1)
 	measure_name=Property(Str)
-	def _get_general_data_name(self):
-		return 'statistic%i'%self.dataset_nr
+	def _get_measure_name(self):
+		return 'scalars%i'%self.measure_nr
+	def _set_measure_name(self): pass
 
 	def _dataset_plusplus(self):
 		self.measure_nr+=1

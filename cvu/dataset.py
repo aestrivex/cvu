@@ -40,15 +40,6 @@ class SurfData(HasTraits):
 		self.rh_verts=rhv;		self.rh_tris=rht
 		self.surftype=sft
 
-class CurrentDisplay(HasTraits):
-	subject_name=Str
-	parc_name=Str
-	adj_filename=Str
-
-	def __init__(self,sn,pn,af):
-		super(CurrentDisplay,self).__init__()
-		self.subject_name=sn; self.parc_name=pn; self.adj_filename=af
-
 class Dataset(HasTraits):
 	########################################################################
 	# FUNDAMENTALLY NECESSARY DATA
@@ -56,10 +47,6 @@ class Dataset(HasTraits):
 
 	name=Str							#give this dataset a name
 	
-	#subject name, parcellation name, and adjmat filename need to be displayed
-	#somewhere
-	cur_display=Instance(CurrentDisplay)
-
 	gui=Any								#symbolic reference to a modular cvu
 
 	nr_labels=Int
@@ -107,11 +94,6 @@ class Dataset(HasTraits):
 	dv_circ = Either(Instance(DataView),None)
 
 	soft_max_edges=Int
-
-	current_subject=Str			#this is referred to as "cur_display_brain"
-			#what it actually means is what subject is this (often fsavg5)
-	current_parcellation=Str	#cur_display_parc, not so esoteric
-	current_matrix_file=Str		#cur_display_mat, shows matrix file
 
 	adjdat=Any		#Ex1 np.ndarray
 	left=Any		#Nx1 np.ndarray(bool)
@@ -192,14 +174,13 @@ class Dataset(HasTraits):
 	# SETUP
 	########################################################################
 
-	def __init__(self,name,lab_pos,labnam,srf,labv,init_display,
+	def __init__(self,name,lab_pos,labnam,srf,labv,
 			gui=None,adj=None,soft_max_edges=20000,**kwargs):
 		super(Dataset,self).__init__(**kwargs)
 
 		self.gui=gui
 
 		self.name=name
-		self.cur_display=init_display
 
 		self.opts=DisplayOptions(self)
 		self.scalar_display_settings=ScalarDisplaySettings(self)
@@ -480,15 +461,12 @@ class Dataset(HasTraits):
 	# I/O METHODS (LOADING, SAVING)
 	######################################################################
 
-	def load_parc(self,lab_pos,labnam,srf,labv,cur_subj_name,cur_parc_name):
+	def load_parc(self,lab_pos,labnam,srf,labv):
 		self.lab_pos=lab_pos
 		self.labnam=labnam
 		self.srf=srf
 		self.labv=labv
 		self.nr_labels=len(labnam)
-
-		self.cur_display.subject_name = cur_subj_name
-		self.cur_display.parc_name = cur_parc_name
 
 		#there is no need to call pos_helper_gen here!  pos_helper_gen
 		#only has to do with edges. previously it also reset scalars, but we
@@ -500,16 +478,14 @@ class Dataset(HasTraits):
 		self.color_legend=ColorLegend()
 		self.node_colors_gen()
 
-		self.adj=None	#whatever adj was, it is now the wrong size
+		self.adj=None	#whatever adj was before, it is now the wrong size
 
 		self.reset_dataviews()
 
-	def load_adj(self,adj,soft_max_edges,cur_adj_filename):
+	def load_adj(self,adj,soft_max_edges):
 		self.adj=adj
 		self.soft_max_edges=soft_max_edges
 		
-		self.cur_display.adj_filename = cur_adj_filename
-
 		#it is necessary to rerun pos_helper_gen() on every load because the 
 		#number of edges
 		#is not constant from one adjmat to another and which edges are thrown
@@ -534,6 +510,53 @@ class Dataset(HasTraits):
 
 		self.display_all()
 
+	#This method takes a GeneralMatrixChooserParameters
+	def load_modules_or_scalars(self,params):
+		if not params.mat:
+			self.error_dialog('You must specify a valid matrix file'); return
+		if params.whichkind=='scalars' and not params.measure_name:
+			self.error_dialog('Cannot leave scalar name blank.  cvu uses '
+				'this value as a dictionary index'); return
+
+		import preprocessing
+		try:
+			ci=preprocessing.loadmat(params.mat, field=params.field_name)
+		except (CVUError,IOError) as e: self.error_dialog(str(e)); return
+
+		if params.mat_order:
+			try:
+				init_ord, bads = preprocessing.read_ordering_file(
+					params.mat_order)	
+			except (IndexError,UnicodeDecodeError) as e:
+				self.error_dialog(str(e)); return
+
+			#delete the bads
+			if not params.ignore_deletes:
+				ci=np.delete(ci,bads)
+
+			#perform the swapping
+			try:
+				ci_ord = preprocessing.adj_sort(init_ord, self.labnam)	
+			except CVUError as e: self.error_dialog(str(e)); return
+			except KeyError as e:
+				self.error_dialog('Field not found: %s'%str(e)); return
+			ci=ci[ci_ord]
+
+		try:
+			ci=np.reshape(ci,(self.nr_labels,))
+		except ValueError as e:
+			self.error_dialog('The %s file is of size %i after deletions, but '
+				'the dataset has %i regions' %
+				(params.whichkind, len(ci), self.nr_labels)); return
+
+		if params.whichkind=='modules':	
+			import bct
+			self.modules=bct.ci2ls(ci)
+			self.nr_modules=len(self.modules)
+		elif params.whichkind=='scalars':
+			self.save_scalar(params.measure_name,ci)
+			params._dataset_plusplus()
+
 	#this method destroys the current dataviews and resets them entirely
 	def reset_dataviews(self):
 		#in principle it might be useful to do some more cleanup here
@@ -553,6 +576,7 @@ class Dataset(HasTraits):
 	def save_scalar(self,name,scalars):
 		if np.squeeze(scalars).shape != (self.nr_labels,):
 			self.error_dialog("Only Nx1 vectors can be saved as scalars")
+			print np.squeeze(scalars).shape, self.nr_labels
 			return
 		ci=scalars.ravel().copy()
 		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
@@ -626,7 +650,7 @@ class Dataset(HasTraits):
 	def calculate_modules(self,thres):
 		import bct
 		thres_adj=self.adj.copy()
-		thres_adj[thres_adj >= thres] = 0
+		thres_adj[thres_adj < thres] = 0
 		self.verbose_msg('Threshold for modularity calculation: %s'%str(thres))
 		modvec,_=bct.modularity_und(thres_adj)
 		self.modules = bct.ci2ls(modvec)
@@ -635,7 +659,7 @@ class Dataset(HasTraits):
 	def calculate_graph_stats(self,thres):
 		import graph,bct
 		thres_adj = self.adj.copy()
-		thres_adj[thres_adj > thres] = 0
+		thres_adj[thres_adj < thres] = 0
 		self.verbose_msg('Threshold for graph calculations: %s'%str(thres))
 		try:
 			self.graph_stats=graph.do_summary(thres_adj,bct.ls2ci(self.modules),

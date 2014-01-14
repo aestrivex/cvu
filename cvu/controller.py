@@ -17,9 +17,9 @@
 
 from traits.api import (HasTraits,Any,List,Str,Enum,Dict,Instance,Either,
 	Property,Button,on_trait_change)
-from traitsui.api import Item,Handler,View,ButtonEditor
+from traitsui.api import Item,Handler,View,ButtonEditor,InstanceEditor
 from options_struct import OptionsDatabase
-from utils import DatasetMetadataElement,CVUError
+from utils import DatasetMetadataElement,CVUError,DisplayMetadata
 from viewport import ViewPanel
 
 class ViewportManagerEntry(HasTraits):
@@ -45,7 +45,7 @@ class ViewportManager(Handler):
 				ObjectColumn(label='Window',name='panel_scratch',),#style='readonly'),
 				ObjectColumn(label='Dataset',name='ds_name_scratch',)],#style='readonly'),],
 				edit_view='tabular_view'),
-			show_label=False,height=150,width=400, 
+			show_label=False,height=200,width=700, 
 		),
 		kind='nonmodal',buttons=[OKButton],
 		title='If it were up to me it would all be in Swahili',
@@ -56,6 +56,8 @@ class DatasetUIMetadata(DatasetMetadataElement):
 	panel,panel_scratch = 2*(Str,)
 	ds_name,ds_name_scratch = 2*(Str,)
 
+	display_metadata = Instance(DisplayMetadata)
+
 	rebuild_button = Button
 	rebuild_label = Property(Str)
 	def _get_rebuild_label(self): return 'Rebuild %s'%self.panel
@@ -64,21 +66,23 @@ class DatasetUIMetadata(DatasetMetadataElement):
 	delete_label = Property(Str)
 	def _get_delete_label(self): return 'Delete %s'%self.ds_name
 
-	def __init__(self,controller,panel,name,**kwargs):
+	def __init__(self,controller,panel,name,display_metadata,**kwargs):
 		self.panel = self.panel_scratch = panel
 		self.ds_name = self.ds_name_scratch = name
 		super(DatasetUIMetadata,self).__init__(controller,**kwargs)
 		self.controller = controller
+		self.display_metadata = display_metadata
 
 	def _rebuild_button_fired(self):
 		if self.panel == 'base_gui':
 			self.controller.error_dialog(
-				'Rebuilding the base GUI is not allowed')
+				'Rebuilding the base GUI is not allowed'); return
 		self.controller.rebuild_panel(self.panel)
 	def _delete_button_fired(self):
-		if self.controller.ds_instance[self.ds_name] is self.controller.ds_orig:
+		if (self.controller.ds_instances[self.ds_name] is 
+				self.controller.ds_orig):
 			self.controller.error_dialog(
-				"Removal of the sample data is not allowed")
+				"Removal of the sample data is not allowed"); return
 		#dispose of the window if necessary
 		self.controller.remove_dataset(self.ds_name)
 
@@ -86,8 +90,7 @@ class DatasetUIMetadata(DatasetMetadataElement):
 	def _rename_panel(self):
 		if self.panel == 'base_gui':
 			self.controller.warning_dialog(
-				'Renaming the base gui window is not allowed')
-			return
+				'Renaming the base gui window is not allowed'); return
 		old_name = self.controller.panel_instances[self.panel].panel_name
 		new_name = self.panel_scratch
 		self.controller.rename_panel(old_name,new_name)
@@ -107,6 +110,8 @@ class DatasetUIMetadata(DatasetMetadataElement):
 			editor=ButtonEditor(label_value='delete_label'),show_label=False),
 		#Item(name='rename_button',
 		#	editor=ButtonEditor(label_value='rename_label')),
+		Item(name='display_metadata',style='custom',show_label=False,
+			editor=InstanceEditor(),),
 	)
 
 class Controller(HasTraits):
@@ -135,18 +140,18 @@ class Controller(HasTraits):
 	#	dataset name -> Dataset Instance
 	#	panel name -> Panel Instance
 
-	def __init__(self,gui,sample_data=None):
+	def __init__(self,gui,sample_data,sample_metadata):
 		super(Controller,self).__init__()
 		self.gui=gui
-		if sample_data is not None:
-			self.ds_orig = sample_data
 
-			ds_meta = DatasetUIMetadata(self,'base_gui',sample_data.name)
-			self.ds_instances = {sample_data.name : sample_data}
-			self.panel_instances = {'base_gui' : self.gui}
-			self.ds_metadatae = {sample_data.name : ds_meta}
-			self.panel_metadatae = {'base_gui' : ds_meta}
-			#self.metadata_list.append(ds_meta)
+		self.ds_orig = sample_data
+
+		ds_meta = DatasetUIMetadata(self,'base_gui',sample_data.name,
+			sample_metadata)
+		self.ds_instances = {sample_data.name : sample_data}
+		self.panel_instances = {'base_gui' : self.gui}
+		self.ds_metadatae = {sample_data.name : ds_meta}
+		self.panel_metadatae = {'base_gui' : ds_meta}
 
 		self.options_db=OptionsDatabase(sample_data)
 		self.viewport_manager=ViewportManager(self)
@@ -163,7 +168,7 @@ class Controller(HasTraits):
 
 	##########################################################
 	#viewport allocation
-	def add_dataset(self,ds,panel=None,group=None):
+	def add_dataset(self,ds,display_metadata,panel=None,group=None):
 		'''Given a dataset, add it to the controller.  If panel and group
 		   are specified, add it to that panel, otherwise any panel will do'''
 		if ds.name in self.ds_instances:
@@ -185,12 +190,11 @@ class Controller(HasTraits):
 
 		panel_ref.populate(ds,group=group)	#group can be none, doesnt matter
 
-		ds_meta = DatasetUIMetadata(self,panel,ds.name)
+		ds_meta = DatasetUIMetadata(self,panel,ds.name,display_metadata)
 		self.ds_instances.update({ds.name:ds})
 		self.ds_metadatae.update({ds.name:ds_meta})
 		self.panel_instances.update({panel_ref.panel_name:panel_ref})
 		self.panel_metadatae.update({panel_ref.panel_name:ds_meta})
-		#self.metadata_list.append(ds_meta)
 
 		self.show_panel(panel_ref)
 
@@ -245,6 +249,16 @@ class Controller(HasTraits):
 		#otherwise, return its group
 		else: layout_obj = panel.group_1
 		return layout_obj
+
+	def update_display_metadata(self,ds_name,subject_name=None,parc_name=None,
+			adj_filename=None):
+		ds_meta=self.ds_metadatae[ds_name]
+		if subject_name is not None: 
+			ds_meta.display_metadata.subject_name=subject_name
+		if parc_name is not None:
+			ds_meta.display_metadata.parc_name=parc_name
+		if adj_filename is not None:
+			ds_meta.display_metadata.adj_filename=adj_filename
 
 	def remove_dataset(self,ds_name):
 		#remove the metadata elements associated with this dataset

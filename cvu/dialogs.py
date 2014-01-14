@@ -259,8 +259,6 @@ class CalculateWindow(UnstableDatasetSpecificSubwindow):
 
 ###########################################################################
 class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
-	from graph import StatisticsDisplay
-	
 	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
 	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
 	
@@ -280,7 +278,7 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 		),
 		height=400,width=350,
 		title='Mid or feed',kind='panel',
-		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
+		buttons=[SaveToScalarButton,OKButton,])
 
 	#before version 4.4.1 of traitsui there was a bug such that list editors
 	#in notebook mode crash when the model object is specified in extended
@@ -298,7 +296,7 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
 		),
 		height=400,width=350,
 		title='Mid or feed',kind='panel',
-		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
+		buttons=[SaveToScalarButton,OKButton,])
 
 	from traitsui import __version__ as version
 	if version[:3] < 4.4 or (version[:3]==4.4 and version[4]==0):
@@ -333,7 +331,8 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 			Item(name='adjmat_order',object='object.ctl',label='Label Order',
 				editor=CustomFileEditor()),
 			Item(name='max_edges',object='object.ctl',label='Max Edges'),
-			Item(name='field_name',object='object.ctl',label='Data Field Name'),
+			Item(name='field_name',object='object.ctl',
+				label='Field (.mat files)'),
 			Item(name='ignore_deletes',object='object.ctl',
 				label='Ignore deletes'),
 		label='Matrix'),
@@ -411,6 +410,7 @@ class TractographyChooserWindow(UnstableDatasetSpecificSubwindow):
 
 ############################################################################
 class LoadGeneralMatrixWindow(UnstableDatasetSpecificSubwindow):
+	_stupid_listener=Bool
 	Please_note=Str('Same rules for adjmat ordering files apply')
 	whichkind=Enum('modules','scalars')
 	traits_view=View(
@@ -424,9 +424,15 @@ class LoadGeneralMatrixWindow(UnstableDatasetSpecificSubwindow):
 		Item(name='field_name',object='object.ctl',
 			label='Field (.mat files only)'),
 		Item(name='ignore_deletes',object='object.ctl',label='Ignore deletes'),
-		Item(name='dataset_name',object='object.ctl',label='Name this dataset'),
+		Item(name='measure_name',object='object.ctl',
+			label='Name these scalars',
+			enabled_when='object.ctl.whichkind==\'scalars\''),
 		kind='panel',buttons=OKCancelButtons,
 		title='Behold the awesome power of zombies')
+
+	@on_trait_change('ctl:whichkind')
+	def _stupid_listen(self):
+		self._stupid_listener=self.ctl.whichkind=='scalars'
 
 ############################################################################
 class ConfigureScalarsWindow(DatasetSpecificSubwindow):

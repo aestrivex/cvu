@@ -20,9 +20,10 @@ from traits.api import (HasTraits,List,Instance,Dict,Button,Str,
 	Bool,on_trait_change)
 from traitsui.api import (ButtonEditor,ShellEditor,View,Item,Spring,HSplit,
 	VSplit,Group,InstanceEditor)
-import dataset
-import dialogs
+from dataset import Dataset
 from controller import Controller
+from utils import DisplayMetadata
+import dialogs
 
 from viewport import Viewport,DatasetViewportInterface
 
@@ -57,34 +58,21 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		return Viewport(self.controller.ds_orig,
 			view_type='Circular plot')
 
-	#options_window = 				Instance(dialogs.InteractiveSubwindow)
-	#adjmat_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
-	#parcellation_chooser_window =	Instance(dialogs.InteractiveSubwindow)
-	#node_chooser_window =			Instance(dialogs.InteractiveSubwindow)
-	#module_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
-	#module_customizer_window =		Instance(dialogs.InteractiveSubwindow)
-	#graph_theory_window =			Instance(dialogs.InteractiveSubwindow)
-	#configure_scalars_window =		Instance(dialogs.InteractiveSubwindow)
-	#save_snapshot_window =			Instance(dialogs.InteractiveSubwindow)
-	#make_movie_window = 			Instance(dialogs.InteractiveSubwindow)
-	#really_overwrite_file_window =	Instance(dialogs.InteractiveSubwindow)
-	#calculate_window =				Instance(dialogs.InteractiveSubwindow)
-
-	options_window = 				Instance(HasTraits)
-	adjmat_chooser_window = 		Instance(HasTraits)
-	parcellation_chooser_window =	Instance(HasTraits)
-	node_chooser_window =			Instance(HasTraits)
-	module_chooser_window = 		Instance(HasTraits)
-	module_customizer_window =		Instance(HasTraits)
-	graph_theory_window =			Instance(HasTraits)
-	configure_scalars_window =		Instance(HasTraits)
-	save_snapshot_window =			Instance(HasTraits)
-	make_movie_window = 			Instance(HasTraits)
-	really_overwrite_file_window =	Instance(HasTraits)
-	calculate_window =				Instance(HasTraits)
+	options_window = 				Instance(dialogs.InteractiveSubwindow)
+	adjmat_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
+	parcellation_chooser_window =	Instance(dialogs.InteractiveSubwindow)
+	node_chooser_window =			Instance(dialogs.InteractiveSubwindow)
+	module_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
+	module_customizer_window =		Instance(dialogs.InteractiveSubwindow)
+	graph_theory_window =			Instance(dialogs.InteractiveSubwindow)
+	configure_scalars_window =		Instance(dialogs.InteractiveSubwindow)
+	save_snapshot_window =			Instance(dialogs.InteractiveSubwindow)
+	make_movie_window = 			Instance(dialogs.InteractiveSubwindow)
+	really_overwrite_file_window =	Instance(dialogs.InteractiveSubwindow)
+	calculate_window =				Instance(dialogs.InteractiveSubwindow)
 
 	#load_tractography_window
-	#load_standalone_matrix_window
+	load_standalone_matrix_window = Instance(dialogs.InteractiveSubwindow)
 
 	select_node_button = 			Button('Choose node')
 	display_all_button = 			Button('Reset Displays')
@@ -95,7 +83,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	custom_module_button = 			Button('Custom subset')
 	display_scalars_button = 		Button('Show scalars')
 	#load_scalars_button = 			Button('Load scalars')
-	load_external_button =			Button('Load stats')
+	load_standalone_button =		Button('Load stats')
 	load_adjmat_button = 			Button('Load an adjacency matrix')
 	#force_render_button = 			Button('Force render')
 	color_legend_button = 			Button('Color legend')
@@ -127,7 +115,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 						Item(name='color_legend_button'),
 						Spring(),
 						Item(name='calculate_button'),
-						Item(name='load_external_button'),
+						Item(name='load_standalone_button'),
 						Item(name='graph_theory_button'),
 						Item(name='display_scalars_button'),
 						Item(name='select_module_button'),
@@ -166,9 +154,9 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		),
 		resizable=True,title="Connectome Visualization Utility")
 
-	def __init__(self,sample_data=None,quiet=False,**kwargs):
+	def __init__(self,sample_data,sample_metadata,quiet=False,**kwargs):
 		super(HasTraits,self).__init__(quiet=quiet,**kwargs)
-		ctrl=self.controller=Controller(self,sample_data=sample_data)
+		ctrl=self.controller=Controller(self,sample_data,sample_metadata)
 		ds_orig=self.controller.ds_orig
 
 		#these dialogs exist strictly in the gui and have no control item
@@ -189,6 +177,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 			ctrl.options_db.adjmat_chooser_parameters,ctrl)
 		self.parcellation_chooser_window=dialogs.ParcellationChooserWindow(
 			ctrl.options_db.parcellation_chooser_parameters,ctrl)
+		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow(
+			ctrl.options_db.general_matrix_chooser_parameters,ctrl)
 		self.node_chooser_window=dialogs.NodeChooserWindow(
 			ctrl.options_db.node_chooser_parameters,ctrl)
 		self.module_chooser_window=dialogs.ModuleChooserWindow(
@@ -247,18 +237,19 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 				
 				lab_pos,labnam,srf,labv,subject_name,parc_name=parc_struct
 
-				display = dataset.CurrentDisplay(subject_name,parc_name,'')
-				ds=dataset.Dataset(ds_name,lab_pos,labnam,srf,labv,display,
-					gui=self)
-				self.controller.add_dataset(ds)
+				display_metadata=DisplayMetadata(subject_name=subject_name,
+					parc_name=parc_name,adj_filename='')
+				ds=Dataset(ds_name,lab_pos,labnam,srf,labv,gui=self)
+				self.controller.add_dataset(ds,display_metadata)
 		else:
 			import preprocessing	
 			parc_struct=preprocessing.process_parc(pcw.ctl,self)
 			if parc_struct is None: return #preprocessing returned an error	
 
 			lab_pos,labnam,srf,labv,subject_name,parc_name=parc_struct
-			pcw.ctl.ds_ref.load_parc(lab_pos,labnam,srf,labv,
-				subject_name,parc_name)
+			pcw.ctl.ds_ref.load_parc(lab_pos,labnam,srf,labv)
+			self.controller.update_display_metadata(pcw.ctl.ds_ref.name,
+				subject_name=subject_name, parc_name=parc_name)
 
 			#find the viewports that were previously holding this scene
 			#find_dataset_views returns a DatasetViewportInterface object
@@ -281,8 +272,20 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		adj_struct = pp.process_adj(acw.ctl,self)
 		if adj_struct is None: return #preprocessing returned an error 
 	
-		adj,soft_max_edges,adjmat_filename = adj_struct
-		acw.ctl.ds_ref.load_adj(adj,soft_max_edges,adjmat_filename)
+		adj,soft_max_edges,adj_filename = adj_struct
+		acw.ctl.ds_ref.load_adj(adj,soft_max_edges)
+		self.controller.update_display_metadata(acw.ctl.ds_ref.name,
+			adj_filename=adj_filename)
+
+	def _load_standalone_button_fired(self):
+		self.load_standalone_matrix_window.finished=False	
+		self.load_standalone_matrix_window.edit_traits()
+
+	@on_trait_change('load_standalone_matrix_window:notify')
+	def _load_standalone_check(self):
+		lsmw=self.load_standalone_matrix_window
+		if not lsmw.finished: return
+		lsmw.ctl.ds_ref.load_modules_or_scalars(lsmw.ctl)
 
 	def _display_scalars_button_fired(self):
 		#more checking required.  should make sure scalars exist first.

@@ -152,14 +152,16 @@ def preproc(args):
 
 	dataset_name='sample_data'
 
-	from dataset import Dataset,CurrentDisplay
-	sample_display=CurrentDisplay(args['subject'],args['parc'],args['adjmat'])
+	from utils import DisplayMetadata	
+	sample_metadata=DisplayMetadata(subject_name=args['subject'],
+		parc_name=args['parc'],adj_filename=args['adjmat'])
 
-	sample_data=Dataset(dataset_name,lab_pos,labnam,srf,labv,sample_display,
+	from dataset import Dataset
+	sample_dataset=Dataset(dataset_name,lab_pos,labnam,srf,labv,
 		adj=adj,soft_max_edges=args['maxedges'])
 	# Package dataloc and modality into tuple for passing
 
-	return sample_data
+	return sample_dataset,sample_metadata
 
 def main():
 	#read the command line arguments or fetch the default values
@@ -168,9 +170,9 @@ def main():
 	#generate the initial dataset
 	#TODO collect the "name" of the sample dataset on the command line
 	
-	sample_dataset=preproc(args)
+	sample_dataset,sample_metadata=preproc(args)
 	
-	g=CvuGUI(sample_dataset,quiet=args['quiet'])
+	g=CvuGUI(sample_dataset,sample_metadata,quiet=args['quiet'])
 	sample_dataset.gui=g
 	g.configure_traits()
 
