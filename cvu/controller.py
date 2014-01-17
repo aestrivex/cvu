@@ -175,7 +175,7 @@ class Controller(HasTraits):
 			raise CVUError('A dataset with this name already exists')
 
 		if panel is None and group is None:
-			panel_ref = self._create_new_panel()		
+			panel_ref = self._create_new_panel(ds.name)		
 			panel = panel_ref.panel_name
 			group = 2 if panel_ref.is_full(group=1) else 1
 		elif group is not None: 
@@ -202,14 +202,21 @@ class Controller(HasTraits):
 		panel.edit_traits(panel.produce_view())
 
 	def rebuild_panel(self,panel_name):
+		'''we havent actually destroyed the editor here.
+			have to destroy the panel and create a new one.
+			otherwise the panel still refers to the wrong editor'''
+
 		panel=self.panel_instances[panel_name]
+
+		#have the panel dispose of itself if necessary
+		panel.conditionally_dispose()
 
 		#find the associated dataset and reset its DataViews		
 		ds=self._get_dataset_from_panel(panel)
 		ds.reset_dataviews()
 			
-		#have the panel dispose of itself if necessary
-		panel.conditionally_dispose()
+		#actually ask the panel to drop the old references to the editor
+		panel.populate(ds,force=True)
 
 		#then show the panel
 		self.show_panel(panel)
@@ -303,10 +310,12 @@ class Controller(HasTraits):
 	def _panel_counter(self):
 		return self.__ctr_generator.next()
 
-	def _create_new_panel(self):
+	def _create_new_panel(self,ds_name):
 		panel_name='Extra View %i'%self._panel_counter()
-		panel = ViewPanel(panel_name=panel_name)
-		self.panel_instances[panel_name]=panel
+		#panel = ViewPanel(panel_name=panel_name)
+		#self.panel_instances[panel_name]=panel
+		panel = ViewPanel(panel_name=ds_name)
+		self.panel_instances[ds_name]=panel
 		return panel
 
 	def _destroy_panel(self,name):

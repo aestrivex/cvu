@@ -122,7 +122,7 @@ class ViewPanel(InteractiveSubwindow):
 
 	#def __init__(self):
 
-	def __str__(self): return self.panel_name
+	#def __str__(self): return self.panel_name
 	def __repr__(self): return self.panel_name
 
 	def is_full(self,group=None):
@@ -146,10 +146,9 @@ class ViewPanel(InteractiveSubwindow):
 	#TODO determine based on self.layout
 	def populate(self,ds,ds2=None,group=None,force=False):
 		if ds2 is not None: grps=('group_1','group_2')	
-		elif group==1: grps=('group_1',)
+		elif group==1 or group is None: grps=('group_1',)
 		elif group==2: grps=('group_2',)
 		elif self.is_full(): raise CVUError('Panel is full')
-		elif group is None: grps=('group_1',)
 		else: raise ValueError('Cannot populate ViewPanel with group >=2')
 
 		if not force:
@@ -180,7 +179,7 @@ class ViewPanel(InteractiveSubwindow):
 		elif layout=='single' or (layout is None and self.layout=='single'):
 			return View(
 				produce_item(500,1500,self.group_1,'group_1','single_view'),
-				resizable=True,height=500,width=1500)
+				resizable=True,height=500,width=1500,title=self.panel_name)
 		elif layout=='square' or (layout is None and self.layout=='square'):
 			return View(
 				produce_item(1000,1000,self.group_1,'group_1','square_view'),
@@ -199,7 +198,11 @@ class ViewPanel(InteractiveSubwindow):
 
 	@on_trait_change('panel_name')
 	def _change_title(self):
-		self.info.ui.title=self.panel_name
+		try:
+			self.info.ui.title=self.panel_name
+		#if the panel is renamed when not shown
+		#this also occurs on initialization
+		except AttributeError: pass
 
 	#this is code written that in principle, permits a maximally generic
 	#infrastructure for what viewports should go where on the extra window.

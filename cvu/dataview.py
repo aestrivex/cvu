@@ -85,7 +85,7 @@ class DVMayavi(DataView):
 		else:
 			self.scene=MlabSceneModel()
 
-		print 'INITIALIZE',self.scene
+		#print 'INITIALIZE',self.scene
 
 	@on_trait_change('scene:activated')
 	def setup(self):
@@ -638,7 +638,6 @@ class DVCircle(DataView):
 	########################################################################
 
 	def circ_gen(self,reqrois=(),figure=None):
-		print figure
 		#if figure is not None: figure.clf(keep_observers=True)
 		if figure is not None: figure.clf()
 

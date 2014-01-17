@@ -230,18 +230,27 @@ class Dataset(HasTraits):
 
 	#preconditions: lab_pos has been set.
 	def pos_helper_gen(self,reset_scalars=True):
-		self.nr_labels = len(self.lab_pos)
+		self.nr_labels = n = len(self.lab_pos)
 		self.nr_edges = self.nr_labels*(self.nr_labels-1)//2
-		self.starts = np.zeros((self.nr_edges,3),dtype=float)
-		self.vecs = np.zeros((self.nr_edges,3),dtype=float)
-		self.edges = np.zeros((self.nr_edges,2),dtype=int)
-		i=0
-		for r2 in xrange(0,self.nr_labels,1):
-			for r1 in xrange(0,r2,1):
-				self.starts[i,:] = self.lab_pos[r1]
-				self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
-				self.edges[i,0],self.edges[i,1] = r1,r2
-				i+=1
+		#self.starts = np.zeros((self.nr_edges,3),dtype=float)
+		#self.vecs = np.zeros((self.nr_edges,3),dtype=float)
+		#self.edges = np.zeros((self.nr_edges,2),dtype=int)
+		#i=0
+		#for r2 in xrange(0,self.nr_labels,1):
+		#	for r1 in xrange(0,r2,1):
+				#self.starts[i,:] = self.lab_pos[r1]
+				#self.vecs[i,:] = self.lab_pos[r2]-self.lab_pos[r1]
+				#self.edges[i,0],self.edges[i,1] = r1,r2
+				#i+=1
+
+		tri_ixes = np.triu(np.ones((n,n)),1)
+		ixes, = np.where(tri_ixes.flat)
+
+		A_r = np.tile(self.lab_pos,(n,1,1))
+		self.starts = np.reshape(A_r,(n*n,3))[ixes,:]
+		self.vecs = np.reshape(A_r-np.transpose(A_r,(1,0,2)),(n*n,3))[ixes,:]
+
+		self.edges = np.transpose(np.where(tri_ixes.T))[:,::-1]
 
 		#pos_helper_gen is now only called from load adj. The reason it is
 		#because it can change on all adj changes because of the soft
