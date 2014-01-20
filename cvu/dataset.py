@@ -276,14 +276,31 @@ class Dataset(HasTraits):
 		self.right = np.zeros((self.nr_edges),dtype=bool)
 		self.masked = np.zeros((self.nr_edges),dtype=bool)
 		i=0
-		for r2 in xrange(0,self.nr_labels,1):
-			self.adj[r2][r2]=0
-			for r1 in xrange(0,r2,1):
-				self.adjdat[i] = self.adj[r1][r2]
-				self.interhemi[i] = self.labnam[r1][0] != self.labnam[r2][0]
-				self.left[i] = self.labnam[r1][0]==self.labnam[r2][0]=='l'
-				self.right[i] = self.labnam[r1][0]==self.labnam[r2][0]=='r'
-				i+=1
+	
+		self.adj[xrange(self.nr_labels),xrange(self.nr_labels)]=0
+
+		#for r2 in xrange(0,self.nr_labels,1):
+			#self.adj[r2][r2]=0
+			#for r1 in xrange(0,r2,1):
+				#self.adjdat[i] = self.adj[r1][r2]
+				#self.interhemi[i] = self.labnam[r1][0] != self.labnam[r2][0]
+				#self.left[i] = self.labnam[r1][0]==self.labnam[r2][0]=='l'
+				#self.right[i] = self.labnam[r1][0]==self.labnam[r2][0]=='r'
+				#i+=1
+
+		n = self.nr_labels
+		ixes, = np.where(np.triu(np.ones((n,n)),1).flat)
+
+		self.adjdat = self.adj.flat[::-1][ixes][::-1]
+
+		from parsing_utils import same_hemi
+		sh=np.vectorize(same_hemi)
+
+		L_r = np.tile(self.labnam,(self.nr_labels,1))
+		
+		self.interhemi = np.logical_not(sh(L_r,L_r.T)).flat[::-1][ixes][::-1]
+		self.left = sh(L_r,L_r.T,'l').flat[::-1][ixes][::-1]
+		self.right = sh(L_r,L_r.T,'r').flat[::-1][ixes][::-1]
 
 		#remove all but the soft_max_edges largest connections
 		if self.nr_edges > self.soft_max_edges:

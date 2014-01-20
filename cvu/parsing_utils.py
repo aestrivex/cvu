@@ -32,6 +32,10 @@ def hemineutral(s):
 def mangle_hemi(s):
 	return s[-2:]+'_'+s[0:-3]
 
+def same_hemi(s1,s2,char=None):
+	if char is None: return s1[0]==s2[0]
+	else: return s1[0]==s2[0]==char
+
 #ALL FUNCTIONS THAT FOLLOW ARE NEEDED FOR GIFTI PROCESSING ONLY
 
 def str2intlist(s):
