@@ -47,7 +47,7 @@ def read_ordering_file(fname):
 	with open(fname,'r') as fd:
 		i=0
 		for line in fd:
-			l=line.strip()
+			l=line.strip().lower()
 			if l=='delete':
 				deleters.append(i)
 			else:
@@ -96,6 +96,7 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 					lab.name)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
+		print lab.name,lab_pos[i,:]
 	#the data seems to be incorrectly scaled by a factor of roughly 1000
 	lab_pos*=1000
 	

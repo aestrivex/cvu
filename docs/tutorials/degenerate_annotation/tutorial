@@ -1,0 +1,61 @@
+1/28/2014
+
+Creating an annotation file, especially for a complex non-standard parcellation,
+is a complex task.  Sometimes it might be more desirable to just provide X,Y,Z
+coordinates for the different regions.  This is something that should eventually
+be written into the program (maybe?).  However, I wanted to analyze some data from the UCLA Multimodal Connectivity Database in order to test out some new 
+graph theory measures I was working on.  These data consist of NxN matrices
+just as cvu uses, ordering files, but also Nx3 files that provide XYZ
+coordinates for the region centers.  This is quite different from cvu, where the
+region location is embedded into the annotation.
+
+So I wanted to create this tutorial to show how to deal with this situation, 
+with the program exactly as it is now, without relying on changes for future 
+support.
+
+Here is a broad overview of what we are going to do:
+	*For each node create a label file with one surface vertex corresponding to
+		a point near that label
+	*Create an annotation based on these labels
+	*Create an ordering file compatible with cvu's rules about hemispheres
+	*Load the annotation to visualize the connectivity in CVU
+
+All of the work is done by a short python script.  This script requires several
+inputs -- a file containing the coordinates of the ROIs, the ordering file
+containing the ROI names, and left and right surface files. If you are trying
+to reproduce the steps of this tutorial, you could symlink the surfaces provided
+for fsavg5 with cvu to this directory.
+
+When executed, the script produces left and right hemisphere annotation files,
+as well as a new ordering file that cvu can read.
+
+There is a little bit of
+"magic" in the ordering file construction that is not general to all possible
+ROI names.  Ordering files in cvu must have regions starting with 'lh_' and 'rh_'. This is sort of a "bug/feature" idiosyncracy with how annotations work.  
+Specifically, annotations store their names as things like "temporalpole-rh".
+cvu relies on accurately reading these names from the annotation.  In effect,
+figuring out from an arbitrary string whether the label refers to an ROI in the
+left or right hemisphere is not easy because any number of formats could be
+used. So cvu's convention is that all labels should start with the same "lh_" 
+or "rh_" to elminate the ambiguity (case insensitive).  One could imagine 
+labels formatted like "TEMPORALPOLE LH".  In this case, the present script can
+handle labels formatted in a variety of ways, but it demands that the first
+letter is "L" or "R" (case insensitive).  If you had labels that looked like 
+"TEMPORALPOLE LH", you would have to convert them to some name to an appropriate
+format beforehand.
+
+
+Once the script runs successfully and creates the output ordering and
+annotation, you will only need to load these in cvu. 
+
+First, load parcellation.  Load the "nki" (or other name that you substituted)
+parcellation using the new ordering file.  This ordering file specifies the
+intended display ordering.  When loading the matrix, pick one of the two
+matrices included in this tutorial.  Because the parcellation has deleted
+elements, the matrix is of a larger size than the parcellation.  To fix this,
+specify the same ordering file when loading the matrix and leave "ignore 
+deletes" unchecked -- this will tell cvu to forget about those regions when
+loading the matrix.
+
+
+All done!  You should have a working visualization at this step.

@@ -20,8 +20,8 @@ def rreplace(s,old,new,occurrence):
 	return new.join(li)
 
 def hemineutral(s):
-	lhind=s.find('lh')
-	rhind=s.find('rh')
+	lhind=s.lower().find('lh')
+	rhind=s.lower().find('rh')
 	if lhind>rhind:
 		return rreplace(s,'lh','%s',1)
 	elif rhind>lhind:
