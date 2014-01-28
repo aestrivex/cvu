@@ -308,7 +308,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 
 	def _select_node_button_fired(self):
 		self.node_chooser_window.finished=False
-		#self.node_chooser_window._reset_ctl()
 		self.node_chooser_window.edit_traits()
 
 	@on_trait_change('node_chooser_window:notify')

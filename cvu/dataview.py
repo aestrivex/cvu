@@ -449,11 +449,8 @@ class DVMayavi(DataView):
 
 		from mayavi import __version__ as mayavi_version
 		if float(mayavi_version[:3]) >= 4.3:
-			curx,cury=self.scene.scene_editor.control.Parent.Parent.Size
-			cury-=32 #mayavi toolbar takes up 32 pixels
-			mag=max(res//curx, res//(cury))+1
 			mlab.savefig(params.savefile,figure=self.scene.mayavi_scene,
-				magnification=mag)
+				size=(res,res))
 		else:
 			self.hack_mlabsavefig(params.savefile,size=(res,res))
 
