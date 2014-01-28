@@ -59,3 +59,14 @@ loading the matrix.
 
 
 All done!  You should have a working visualization at this step.
+
+One thing to note is that the subcortical structures such as the hippocampus are
+shown on the cortical surface.  This is done because the entire point of this
+process is to create a literally degenerate annotation, that contains as points
+on the surface all of the ROIs we want (including the subcortical ROIs).
+Obviously, showing subcortical ROIS on the surface is not accurate, but moreover
+cvu is capable of taking the positions of these regions from the fsaverage5
+segmentation volume, which will cause them to show up below the cortical
+surface.  To obtain this behavior, remove all of the subcortical structures from
+the first *input* ordering file so that they are not added to the annotation at
+all.
