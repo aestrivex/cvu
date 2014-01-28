@@ -63,6 +63,11 @@ class DatasetSpecificSubwindow(DatasetMetadataElement,InteractiveSubwindow):
 	def __init__(self,ctl,controller,**kwargs):
 		super(DatasetSpecificSubwindow,self).__init__(controller,**kwargs)
 		self.ctl=ctl	
+	#this is handler init, called on traitsui initialization
+	def init_info(self,info):
+		if self.current_dataset is None:
+			self._current_dataset_list=[self._controller.ds_orig]
+		super(DatasetSpecificSubwindow,self).init_info(info)
 
 class UnstableDatasetSpecificSubwindow(DatasetSpecificSubwindow):
 	@on_trait_change('current_dataset')

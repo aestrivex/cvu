@@ -96,7 +96,7 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 					lab.name)
 			continue
 		lab_pos[i,:]=np.mean(lab.pos,axis=0)
-		print lab.name,lab_pos[i,:]
+		#print lab.name,lab_pos[i,:]
 	#the data seems to be incorrectly scaled by a factor of roughly 1000
 	lab_pos*=1000
 	

@@ -85,6 +85,7 @@ class DatasetUIMetadata(DatasetMetadataElement):
 				"Removal of the sample data is not allowed"); return
 		#dispose of the window if necessary
 		self.controller.remove_dataset(self.ds_name)
+		self.controller.gui.reset_controls()
 
 	@on_trait_change('panel_scratch')
 	def _rename_panel(self):

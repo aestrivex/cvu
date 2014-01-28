@@ -204,6 +204,9 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.warning_dialog_window.warning=message
 		self.warning_dialog_window.edit_traits()
 
+	def reset_controls(self):
+		print 'resetting controls'
+
 	######################################################################
 	# BUTTONS AND INTERACTIONS
 	######################################################################
@@ -305,6 +308,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 
 	def _select_node_button_fired(self):
 		self.node_chooser_window.finished=False
+		#self.node_chooser_window._reset_ctl()
 		self.node_chooser_window.edit_traits()
 
 	@on_trait_change('node_chooser_window:notify')
