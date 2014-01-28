@@ -490,7 +490,6 @@ class ConfigureScalarsWindow(DatasetSpecificSubwindow):
 	
 ############################################################################
 class NodeChooserWindow(UnstableDatasetSpecificSubwindow):
-	#TODO immediate updating of the list on dataset change
 	traits_view=View(
 		current_dataset_item,
 		Item(name='node_list',object='object.ctl',
@@ -597,8 +596,13 @@ class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 					name='blank',editable=False)],
 				selection_bg_color=None,),
 			show_label=False),
-		kind='nonmodal',height=500,width=325,resizable=True,
+		kind='panel',height=500,width=325,resizable=True,
 		title='Fresh artichokes just -$3/lb',)
+
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
 
 ############################################################################
 class ErrorDialogWindow(HasTraits):

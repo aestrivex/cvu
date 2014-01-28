@@ -58,7 +58,7 @@ class OptionsDatabase(HasTraits):
 #expects this).
 
 #So, I'll just have everything out in an OptionsStructure whether it really
-#needs it or not, except for the AboutWindow which literally has no data.
+#needs it or not, except stuff like AboutWindow which literally has no data.
 
 	#######################################################################
 	# OPTIONS STRUCTURES
@@ -72,6 +72,8 @@ class DatasetReferenceOptionsStructure(HasTraits):
 
 	def __init__(self,ds_ref,**kwargs):
 		super(DatasetReferenceOptionsStructure,self).__init__(**kwargs)
+		if isinstance(self,ColorLegendParameters):
+			print ds_ref,'natouuie',self
 		self.ds_ref=ds_ref
 
 class DisplayOptions(DatasetReferenceOptionsStructure):
@@ -198,6 +200,7 @@ class ModuleCustomizerParameters(DatasetReferenceOptionsStructure):
 			for i in self.intermediate_node_list]
 
 class ColorLegendParameters(DatasetReferenceOptionsStructure):
+	skaabbl=Str('skaabll')
 	legend=Property(Instance(ColorLegend))
 	def _get_legend(self): return self.ds_ref.color_legend
 

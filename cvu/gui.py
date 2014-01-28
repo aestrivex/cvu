@@ -70,6 +70,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	make_movie_window = 			Instance(dialogs.InteractiveSubwindow)
 	really_overwrite_file_window =	Instance(dialogs.InteractiveSubwindow)
 	calculate_window =				Instance(dialogs.InteractiveSubwindow)
+	color_legend_window = 			Instance(dialogs.InteractiveSubwindow)
 
 	#load_tractography_window
 	load_standalone_matrix_window = Instance(dialogs.InteractiveSubwindow)
