@@ -587,13 +587,16 @@ class ReallyOverwriteFileWindow(InteractiveSubwindow):
 ############################################################################
 class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 	import color_legend
-	traits_view=View(Item(name='entries',object='object.ctl.legend',
-		editor=TableEditor(columns=
-			[ObjectColumn(label='ROI',editor=TextEditor(),name='metaregion',
-				style='readonly',editable=False),
-			color_legend.ColorColumn(label='color',editor=TextEditor(),
-				name='blank',editable=False)],
-			selection_bg_color=None,),show_label=False),
+	traits_view=View(
+		current_dataset_item,
+		Item(name='entries',object='object.ctl.legend',
+			editor=TableEditor(columns=
+				[ObjectColumn(label='ROI',editor=TextEditor(),name='metaregion',
+					style='readonly',editable=False),
+				color_legend.ColorColumn(label='color',editor=TextEditor(),
+					name='blank',editable=False)],
+				selection_bg_color=None,),
+			show_label=False),
 		kind='nonmodal',height=500,width=325,resizable=True,
 		title='Fresh artichokes just -$3/lb',)
 
