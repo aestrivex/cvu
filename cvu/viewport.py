@@ -195,6 +195,7 @@ class ViewPanel(InteractiveSubwindow):
 	def conditionally_dispose(self):
 		if self.window_active:
 			self.info.ui.dispose()
+			self.window_active=False
 
 	@on_trait_change('panel_name')
 	def _change_title(self):

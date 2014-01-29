@@ -83,9 +83,7 @@ class DatasetUIMetadata(DatasetMetadataElement):
 				self.controller.ds_orig):
 			self.controller.error_dialog(
 				"Removal of the sample data is not allowed"); return
-		#dispose of the window if necessary
 		self.controller.remove_dataset(self.ds_name)
-		self.controller.gui.reset_controls()
 
 	@on_trait_change('panel_scratch')
 	def _rename_panel(self):
@@ -273,8 +271,12 @@ class Controller(HasTraits):
 		ds_meta = self.ds_metadatae[ds_name]
 		panel_name = ds_meta.panel
 		
+		#dispose of the window if necessary
 		panel = self.panel_instances[panel_name]
 		panel.conditionally_dispose()
+
+		ds = self.ds_instances[ds_name]
+		self.gui.reset_controls(ds)
 
 		try:
 			del self.ds_instances[ds_name]

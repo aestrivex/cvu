@@ -72,8 +72,6 @@ class DatasetReferenceOptionsStructure(HasTraits):
 
 	def __init__(self,ds_ref,**kwargs):
 		super(DatasetReferenceOptionsStructure,self).__init__(**kwargs)
-		if isinstance(self,ColorLegendParameters):
-			print ds_ref,'natouuie',self
 		self.ds_ref=ds_ref
 
 class DisplayOptions(DatasetReferenceOptionsStructure):

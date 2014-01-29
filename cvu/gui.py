@@ -205,8 +205,16 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.warning_dialog_window.warning=message
 		self.warning_dialog_window.edit_traits()
 
-	def reset_controls(self):
-		print 'resetting controls'
+	def reset_controls(self,ds_match):
+		for window in ( 	self.load_standalone_matrix_window,
+				self.adjmat_chooser_window,			self.node_chooser_window,
+				self.parcellation_chooser_window,	self.module_chooser_window,
+				self.module_customizer_window,		self.graph_theory_window,
+				self.save_snapshot_window,			self.make_movie_window,
+				self.calculate_window,				self.color_legend_window,
+				self.configure_scalars_window,		self.options_window,):
+			if window.ctl.ds_ref is ds_match or window.ctl.ds_ref is None:
+				window._current_dataset_list=[ self.controller.ds_orig ]
 
 	######################################################################
 	# BUTTONS AND INTERACTIONS

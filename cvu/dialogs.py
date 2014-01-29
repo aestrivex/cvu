@@ -48,10 +48,11 @@ class InteractiveSubwindow(Handler):
 		self.finished=False
 		self.window_active=True
 	def closed(self,info,is_ok):
-		info.object.window_active=False
 		info.object.finished=is_ok
 		info.object.notify=True
+		self.window_active=False
 	def reconstruct(self):
+		#self.window_active=False
 		self.info.ui.dispose()
 		self.info.object.edit_traits()
 	def conditionally_dispose(self):
