@@ -128,7 +128,7 @@ freesurfer aparc.  Ordering files corresponding to these parcellations
 are included with the program, along with a parcellation of the fsaverage5 brain.
 You can morph the labels from fsaverage5 to fit your subjects if you want to
 extract data for these parcellations. See the freesurfer_morph tutorial for more
-details
+details.
 
 The _cmp suffix for these parcellations denotes the canonical connectomemapper ordering
 which begins at roughly frontal pole and wraps around the top of the cortex, proceeding
