@@ -1,0 +1,69 @@
+In spite of my best efforts to streamline many visualizations and make
+good design choices, no visualization
+tool is specific to all situations.  The precise visualization or figures
+required by your analysis may not meet the constraints of my design choices.
+
+Therefore, in order to help make the best use of cvu, it needs to be scriptable.
+My documentation for the meat of cvu is not the greatest, but hopefully these 
+instructions and tools will help you to customize your visualization.  There are
+a few scripting tutorials included as well.
+
+These tutorials are designed to teach something about how and where data is
+organized in cvu, and not to teach you all the features of python.  I expect the
+enterprising scientist to know, or be able to look up the effects of basic
+python commands.
+
+
+This document expects all of the scripting to be done in the shell cvu provides.
+This will be helpful, of course, primarily to scientists who are already somewhat
+comfortable with scripting.  Notably this shell allows you to access all of the
+data structures that cvu uses to define its data.  Try it out!  Type in
+"self.syrf_lh.visible=False".
+
+==Common operations==
+=====Executing a script=====
+
+In python, the exec command executes code in the current context.  To execute
+a script you have written in cvu, you could enter in the command line
+
+with open('/home/myname/a_cvu_script.py') as fd: exec(fd)
+
+(Note that in the above code, fd is *not* a file descriptor, but a python
+file object which wraps the file descriptor internally.  I call it fd only
+because that is the convention I am used to.)
+
+==Data in cvu==
+Much of the readily manipulable data in cvu is stored in mayavi (or VTK) objects
+directly.
+
+Here are some of the data structures:
+
+self.nr_labels : The number of regions in the current parcellation
+self.nr_edges : The number of connections currently kept track of by cvu.
+	This value is bounded from below by (self.nr_labels choose 2) or 
+	(self.nr_labels)!/((self.nr_labels-2)!*2!).  However, it can be lower:
+	the --max-edges option tells cvu to discard all but the N strongest
+	connections.  In practice, including more than the default values produces
+	a cluttered visualization and makes cvu extremely slow.
+
+self.adjdat : A (nr_edges x 1) vector containing the connection weights of the
+	nr_edges currently displayed connections, in sorted order.
+self.adj_nulldiag : A (nr_labels x nr_labels) adjacency matrix, with 0s on the
+	diagonal.
+self.adj_thresdiag : A (nr_labels x nr_labels) adjacency matrix, with values
+	on the diagonal equal to the minimum value of any connection in the matrix.
+self.edges : A (nr_edges x 2) array containing the node numbers of the
+	connections currently tracked, sorted by connection strength.  Node numbers
+	correspond to that node's position in the ordering file, and vary between
+	0 and nr_labels
+
+self.labv : The labels in the current parcellation, in no particular order
+self.labnam : The label names in the current parcellation, in the order
+	specified in the ordering file
+self.lab_pos : A (nr_edges x 3) array containing the x,y,z coordinates of the
+	nodes in the current parcellation.
+
+
+self.circ_fig : The matplotlib Figure containing the circle plot visualization
+self.conn_mat : The chaco plot containing the connection matrix visualization
+self.scene : The mayavi window containing the 3D brain visualization

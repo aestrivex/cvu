@@ -23,46 +23,42 @@ PyPI ''DOES NOT'' automatically install the required dependencies.
 For hackers or developers, you can also get the source from 
 [https://github.com/aestrivex github].
 
-The packages needed are MNE python and EPD (enthought python distribution).  
-EPD is available freely to academics or by downloading the source yourself.  
-MNE python is free as in speech.  If you are downloading EPD from its source 
-packages by yourself, the packages needed are numpy, scipy, traits, traitsui, 
-tvtk, enable, chaco, matplotlib, tvtk, pylab, and mayavi.
+The packages needed are MNE python, numpy/scipy, traits, traitsui,
+matplotlib, mayavi, bctpy and chaco. i *think* that installing these will 
+always include tvtk, enable, and pylab, but there may be some edge cases.
+most of these packages should be available from your scientific
+python distribution of choice.
+
+In order to display connectivity, cvu requires three things:
+	*A Freesurfer parcellation (freesurfer .annot files)
+	*An ordering file (a text file with ROI names)
+	*A matrix (.npy, .mat, or .txt)
+
+All of these things can be loaded on the command line.  If you do not specify
+command line arguments, the program will display some sample data instead.
+Inside the GUI, you will be able to load all of the same things as well as
+tinker with many other options.
 
 cvu accepts various command line arguments.  Because these may change with 
-development, run with --help to see the full list.  As of 13:22, 5 February 2013
+development, run with --help to see the full list.  As of 13:22, 29 January 2014
  (EST) these are the accepted arguments:
  -p greg.gii --parc=greg: location of annotations *h.greg.annot
  -a greg.mat --adjmat=greg.mat: location of adjacency matrix
  -d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR
  -s greg --surf=greg: loads the surface *h.greg
- -o greg.txt --order=greg.txt: location of text file with label order for 
-parcellation and optionally adjmat
- --adj-order greg.txt: location of text file with label order for adjmat
+ -o greg.txt --order=greg.txt: location of parcellation ordering file
+ --adj-order greg.txt: location of adjmat ordering file
  --surf-type=pial: specifies type of surface.  pial is used by default.  white 
-	is also a possible choice.
+	is also a reasonable choice.  inflated is ok for visualizing one hemisphere
+	at a time.
  -q: specifies quiet flag
  -v: specifies verbose flag (currently does nothing)
- --use-greg: uses the "greg" method for graph partitioning.  sort of pointless, 
-	the only valid choice is currently --use-spectral
  --max-edges 46000: discards all but the strongest ~46000 connections
  -h --help: display this help
 
-All of the available command line arguments are also modifiable in the program
-itself, currently excepting surf-type (changing surf-type is not that useful).
-
-In order to display connectivity, cvu requires three types of data: a Freesurfer
-parcellation (in the form of two .annot files, one for each hemisphere), a 
-symmetric adjacency matrix (in .npy or .mat format), and a list of ROI names 
-specifying the order that these ROIs appear in the adjacency matrix (a text file
-with one ROI per line).  You can load this data using the command line options 
-as specified above, or by specifying files to load within the GUI.  If you do 
-not specify the location of any data on the command line, some sample data will 
-be loaded with which you can examine the interactive features of the tool.  If 
-you specify any of these data on the command line, you must specify all of it.
-
-Parcellations must be freesurfer annotations at this time.  Matrices must be in 
-numpy or matlab format.  More formats may be supported in the future.
+There is only one thing you can do in the command line that cannot also be done
+in the GUI: specify the verbosity level.  This does not affect anything except
+how much infomation is printed to stdout or stderr.
 
 ===Usage Details===
 
@@ -80,78 +76,70 @@ cvu correctly and understanding what it is doing!
 =====order files=====
 **THIS SECTION IS IMPORTANT!**
 
-Order files are text files specifying the order in which labels appear in some 
+Ordering files are text files specifying the order in which labels appear in some 
 data files.  As the command line options suggest, there are two completely 
-different types of order files -- a ''parcellation'' order and an ''adjacency'' 
-order.  The multiplicity of files is a bit confusing, but conceptually it is 
-necessary in order for the program to know what to do.
+different types of order files -- a ''parcellation'' ordering and an ''matrix'' 
+ordering. 
 
-The parcellation order file or with the -o/--order command line option is the 
-'''desired''' output order you wish for cvu to display in the connection matrix 
-and on the circle plot.  This permits your adjacency matrices to have an 
-ordering that is different from this, which you can tell cvu about by 
-specifying a file upon loading the adjmat or with the --adj-order command line 
-option.  Specifying an ordering upon loading an adjmat is optional; if you don't
-do so, cvu will assume that the adjmat is already in parcellation order.  
-However, you must always specify a parcellation order; otherwise cvu would have 
-no idea which nodes have which labels.
+The parcellation ordering file represents the '''desired''' order of ROIs that you 
+wish for cvu to display in the connection matrix and on the circle plot.
 
-Note that adjmat orderings can also be specified for module communities and 
-scalar data.
+The adjacency matrix ordering file represents the order in which the ROIs actually
+are presented in the connection matrix.  This could differ from the parcellation
+order.  For instance, you might have a matrix that is generated by ordering all
+regions alphabetically.  But you may want to display a matrix with regions in a
+more intelligently selected order.
 
-The delete keyword is a special label in the order files.  It means, "ignore 
-this entry."  If this keyword exists in a parcellation ordering, it has no 
-effect beyond what would be achieve by simply not including the entry in the 
-file -- a node is only included in displaying a parcellation if it has an entry 
-in an order file.  If it does have an entry in the order file, the vertices 
-corresponding to the label name will be taken from the annotation and its 
-position will be calculated.  If there is no entry, the node will simply be 
-excluded even if its label exists in the annotation.  If the entry in the order 
-file points to a node that doesn't exist in the annotation, the program will 
-print a warning (except in quiet mode) and skip the entry.  If the delete 
-keyword exists in an adjacency ordering, it has a special and important meaning 
-beyond this -- it is used to specify bad/unwanted regions (for instance, the 
-"unknown" label from freesurfer's aparc).  More specifically, it means that the 
-row and column corresponding to the position of the "delete" entry will be 
-removed before being fit to the parcellation.
+Parcellation orderings are always required. Matrix orderings are optional.
+If a matrix ordering is not specified the corresponding parcellation ordering will
+be used in its place (i.e., it is assumed the matrix is already in the correct order).
 
-This behavior has the useful feature that if you have an adjmat with more 
-entries than the parcellation, and you wish to get rid of the garbage entries, 
-you can use the same ordering file for both the parcellation and adjacency 
-order; the adjmat will automatically reduce in size (This condition is true 
-when using adjacency matrices produced by Connectomemapper which generates some 
-outputs for subcortical structures).  However, in some circumstances where the 
-parcellation and adjmat order are significantly different (e.g. if the adjmat is
-completely scrambled) it will be important to make sure that the "delete" 
-regions, if used, are specified in the correct order, and after deleted regions 
-the adjmat has the correct size (e.g. the same size as the parcellation).  You 
-can also tell the program to ignore the delete entries when the order files are 
-being treated as adjmat orderings (e.g. to include the regions that would 
-otherwise be deleted at the next index in the order).
+Note that loading other ordered data, such as module communities and scalars,
+works in the same way as matrices and uses an optional matrix ordering file.
 
-If, upon loading an adjmat with an ordering file, the ordering file has more 
-entries than the parcellation, any entries that are not in the parcellation will
-be omitted (as determined by the parcellation's ordering file).  A warning will
-be printed to stdout detailing the omission and the program will continue as 
-normally.  However, the reverse behavior is not allowed; if the parcellation 
-specifies any entry that is not present in the adjmat ordering, the load will 
-fail.
+In order for an ROI to be enabled in a cvu dataset, the annotation file must have a
+label matching an entry in the parcellation ordering.  Further, each entry in the
+ordering file must begin with 'lh_' or 'rh_' as these are not present in the
+annotation names themselves.  Any entry present in the parcellation ordering, but not
+in the parcellation itself, is ignored (and vice versa).  A message will be printed
+to stdout indicating this.
 
-Some orderings have been made standard already for the Lausanne 2008 
-parcellations at different resolutions.  They have the suffixes _cmp and _alph 
--- the _alph suffix merely orders all the labels in alphabetical order, 
-deleting the corpus callosum and unknown at their alphabetical positions.  The 
-_cmp suffix uses the canonical connectomemapper ordering (starting at lateral 
-orbitofrontal cortex and ending at insula) and deletes all of the subcortical 
-regions at their positions in the connectomemapper adjmats.  There are presently
-additional ordering files for data specific to the Stufflebeam Lab (Support for 
-connections to and from subcortical structures may be added at some point 
-later).  But you can easily create your own ordering files, if you are using 
-some other parcellation.
+The delete keyword has special significance in ordering files.  It means, "ignore 
+this entry." In a parcellation ordering this does not do anything.  In a
+matrix ordering, it means that the row and column at this position in the matrix will
+not be included in the cvu dataset.
 
-Note that to use the Lausanne 2008 parcellations, you'll need to morph your 
-subjects' scans to the target parcellation and extract the signals from the 
-resulting labels.
+This behavior has the useful feature that if you have an adjmat with various entries
+that are not part of the parcellation (such as areas of the brain stem) and you wish
+to get rid of them, you can specify the same ordering file for both parcellation and
+adjacency matrix and replace the unwanted regions with delete.
+
+In the GUI, there is also an option to ignore delete entries (e.g. treat the ordering
+file as though all delete entries were simply not there).
+
+If the adjmat ordering, after deleting the "delete" entries, is not the same length
+as the loaded parcellation ordering, cvu will stop the operation and return an error.
+
+Our lab uses a parcellation scheme called the Lausanne parcellations which were
+developed at Ecole Polytechnique de Lausanne.  These are divisions of the standard
+freesurfer aparc, with regions of roughly equal size.  Several parcellations of this
+type exist at different resolutions, with the smallest one simply equivalent to
+freesurfer aparc.  Ordering files corresponding to these parcellations
+are included with the program, along with a parcellation of the fsaverage5 brain.
+You can morph the labels from fsaverage5 to fit your subjects if you want to
+extract data for these parcellations. See the freesurfer_morph tutorial for more
+details.
+
+The _cmp suffix for these parcellations denotes the canonical connectomemapper ordering
+which begins at roughly frontal pole and wraps around the top of the cortex, proceeding
+to the parietal and then occipital lobe and ending at the temporal pole.  This is a
+decent choice of ordering display for a matrix.  The _alph suffix provides these ROIs
+in alphabetical order.
+
+There are a number of other ordering files available, and various other parcellation
+types. If you would like common atlases to be supported, or need help getting your data
+to display at all, please feel free to contact me personally for support at
+rlaplant @ nmr.mgh.harvard.edu (I will just be happy that someone is using the program).
 
 =====--max-edges and thresholds=====
 **THIS SECTION IS IMPORTANT!**
@@ -191,13 +179,34 @@ calculate with the new threshold will take into account all of the invisible
 connections up to the max-edges cutoff (but many of these statistics will 
 examine only a proportion of these connections).
 
-The display threshold can be either proportional or numerical.  If it is 
+The display threshold can be either proportional or absolute.  If it is 
 proportional, it will be a number between 0 and 1 -- for instance, if pthresh is
 .90, 10% of connections will be displayed and 90% will be thresholded.  If the 
-threshold is numerical, any connections with an edge value exceeding the value 
+threshold is absolute, any connections with an edge value exceeding the value 
 of the threshold will be preserved.  As a rule of thumb, the proprtional 
-threshold is more valuable for exploratory analysis, and the numerical threshold
+threshold is more valuable for exploratory analysis, and the absolute threshold
 is more valuable for generating figures and visualizing statistics.
+
+=====Datasets and View manager=====
+
+cvu is divided into multiple ''datasets.''  When the program starts, only
+one dataset is shown.  It is called "sample data" because it usually represents
+the sample dataset except when cvu is started with command line arguments.  Even
+if the program is started with command line arguments such that another matrix is
+displayed and not the sample data, the initial dataset is still called "sample
+data."
+
+When you load new parcellations, you have the option to select "create new dataset."
+If you do, the currently selected dataset is ignored and instead a new dataset will
+be created in a new window.  Other than being in a new window that has a different
+shape, this dataset functions exactly the same as the sample dataset.
+
+When a dataset window is closed, the dataset is not deleted from cvu.  cvu is still
+keeping track of the state of that visualization and the data itself.  To delete
+the dataset, open "manage views", select the dataset from the table at left,
+and click delete. The "Sample data" dataset that lives on the main GUI cannot be
+deleted, but you can load a new parcellation and/or matrix over the data that it
+contains.
 
 =====custom parcellations and surfaces====
 
@@ -209,8 +218,8 @@ other brain registrations.  The most likely use of other brain registrations is
 for clinical data; it may be of interest to visualize the connectivity and node 
 locations on the brain of a patient with a lesion, for instance.  Users familiar
 with freesurfer will find it straightforward to specify this morphology by 
-specifying SUBJECT and SUBJECTS_DIR.  *The parcellation must be encoded as an 
-annotation (.annot) file.*  There are other surfaces that may be used as opposed
+specifying SUBJECT and SUBJECTS_DIR. The parcellation must be encoded as an 
+annotation (.annot) file.  There are other surfaces that may be used as opposed
 to the pial.  The orig and white surfaces (generated by freesurfer) are ok, but 
 the inflated surface doesn't display properly because its hemispheres are 
 centered differently.  This makes it unsuitable for visualizing interhemispheric
@@ -233,32 +242,14 @@ but it is possible that this operation may fail (imagine the extreme case in
 which the user specified that every region must be labeled).  If cvu cannot
 figure out how to spatially organize all of the labels that are required, it
 will just fail with an error message.  This has never actually happened to me
-in practice.
+in practice except when I was explicitly testing this functionality.
 
-Regardless of which labels are omitted from the circle plot, mousing over a
+Regardless of which labels are omitted from the text, mousing over a
 region will display a tooltip containing that region.
 
 =====Tractography=====
 
-cvu is able to display tractography, although it is a little bit clunky. In 
-order to display tractography, several things need to be specified in
-addition to the tractography itself (e.g. the .trk file).  
-
-This tractography is registered in CRS coordinates, and not in the surface 
-coordinates of freesurfer surfaces.  Since cvu displays freesurfer surfaces, it 
-uses freesurfer coordinates.  In order to translate it correctly to these
-coordinates, several computations are necessary.  These computations require
-a conventional freesurfer reconstruction, and additionally they run a couple
-of freesurfer binaries (In order to do this, cvu will automagically source any
-freesurfer setup script that you specify).  Additionally, you will have to
-specify the B0 volume from whence the tractography was calculated.
-
-Tractography can only be displayed with an individual subject's brain.  There is
-no way to precisely align tractography with an average brain such as fsaverage5.
-As such, all of the data you specify for this tractography should come from the
-individual subject, and when you specify the subject (while specifying the
-parcellation), the subject's brain you view must be the same one the 
-tractography is from.
+Tractography is broken! Very sorry. I hope to fix it sometime in 2014.
 
 ===Tools and Features===
 =====Plotting windows=====
@@ -272,7 +263,8 @@ change any views in one of these windows, the view and color scheme in the other
 windows will also change.
 
 To rotate the 3D brain, drag and click.  By default, this will rotate the scene 
-in 3 dimensions about its center.  Use SHIFT and CONTROL to alter this behavior.
+in 3 dimensions about its center. Hold down SHIFT and CONTROL to alter this 
+behavior.
 SHIFT will allow you to pan in any direction without zooming (dragging while 
 holding down middle click has the same effect).  CONTROL allows you to rotate 
 the scene about its center for only the 2 dimensions currently defining the 
@@ -312,52 +304,65 @@ as specified.
 =====Modules=====
 
 cvu will calculate graph partitions and display modules based on minimal cut 
-sets.  Partioning a graph is an NP-hard problem, and cvu is designed to be 
-adaptable for use with a variety of approximation algorithms, although 
-currently the only default algorithm in use is a spectral partitioning
-algorithm originating from Newman (2006) that works quite well.  This algorithm
-is implemented in bct-python (which is my translation project).  To calculate 
-the modules 
-using this standard algorithm, click on the 'calc modules' button.  If you 
-don't like the default algorithm, you can use your own algorithm and then load 
-the resultant community structure from a file (a vector with numbers from 1 to 
-N, with N modules).  To view a single module, click 
-on the 'view module' button and select the desired module.  The order of the 
-modules calculated with the default algorithm is not meaningful.
+sets. How to optimally partition a graph into communities is an NP-hard problem.
+cvu uses a modularity maximization strategy from the brain connectivity toolbox
+for python (my translation of the brain connectivity toolbox for matlab).
+However, in the event that you prefer a different algorithm, you can also load
+the community structure from a file.  The file should be an Nx1 numpy,
+matlab, or txt matrix with values representing community affiliations ranging
+between 1 and M for some M<=N. This is the format returned by all functions in
+BCT and bctpy. bctpy has several alternative algorithms for
+generating community structure that may be of interest.
 
-Additionally, there is an option for viewing multiple modules, which are
-displayed in random colors.  If the resulting colors are not easily visible, try
-reloading the module until the colors show high contrast.  However, for a large
-number of modules (such as n>8) it is difficult in principle to visualize many
-colors with high contrast.  For this option, click on the 'view all modules'
-button
+To use the default algorithm, click on "calculate stats" and select the
+"modules" calculation type.
+You'll be able to threshold the data at whatever threshold you choose
+before the calculation. To load your own vector, click on "load stats"
+and select "modules".
 
-You can also specify a series of nodes on the fly from a list, and visualize 
-only those nodes.
+After loading, cvu will display each module in a different, random color.
+These colors can show low contrast because they are selected randomly.
+If you can't see, try going to "View Module -> View All Modules" to
+recolor them.  Alternatively, you can view each individual module one
+at a time in the "View Module" tab.
 
 =====Scalars and Graph Theoretical Quantities=====
 
-cvu will show scalar values, such as various graph theoretic measures.  These 
-measures are treated as entirely abstract data.  Graph theory calculations are
-done using bct-python (I translated that from matlab!).  In addition to the 
-builtin graph theory metrics, you can also load arbitrary vectors from files 
-(They must be matlab or numpy vectors). You can load as many scalars as you want 
--- you will be prompted to enter the dataset name to refer to that data by.
-However, you can display at most 5 scalar datasets at one time.  These datasets
-are displayed, respectively, as the node colors, surface colors, and node sizes
-of the 3D brain, and as the node element colors on the circle plot and
-connection matrix.  You will be able to specify which dataset goes where after
-clicking the 'show scalars' button.  You may use a single dataset for all of
-these visualization types (e.g. the node size and color scaling off of the same
-data) if you wish.
+cvu is meant to be a visualization tool for networks. As such, it wouldn't
+be complete without visualization of graph theoretical quantities that
+describe these networks.
 
-Graph theory measures are displayed fully in the graph theory panel.  From this
-panel, you can view tables of numbers displaying the metrics in parcellation
-order, or more usefully you can save these values as scalars for subsequent
-visualization.
+cvu can calculate a variety of measures using bct for python, which is a port
+of the Brain Connectivity Toolbox (written in matlab) to python, for which I
+am the maintainer. bct is a rich toolbox that has a variety of interesting
+graph theory features. I have only integrated several of the most important
+ones into cvu directly. The graph theory measures that are calculated natively
+are:
+	*Global/local efficiency
+	*Average node strength
+	*Clustering coefficient
+	*Eigenvector/betweenness centrality
+	*Modularity (requires modules)
+	*Participation coefficient (requires modules)
+	*Within-module degree (requires modules)
 
-Scalars will not be displayed at all until you click on 'show scalars.'  Loading
-scalars into the program does not automatically display them.
+To calculate these metrics, first click on the "options" button and go to the
+"graph statistics" tab.  Here you can select which of the graph metrics you'd
+like to calculate.  Some of them (particularly local efficiency) take a long
+time to calculate and are disabled by default.
+
+Then, go to "calculate stats" and select the "statistics" calculation type.
+As with modules, you can threshold the matrix before performing this 
+calculation.
+
+The statistics are then displayed in the "show statistics" panel.  You can
+also visualize these statistics on the brain. To do this, select "save to
+scalar" and give the statistic a unique name. Then, click on the "show scalars"
+button in cvu. You'll be able to choose a value for each of several different
+visualization dimensions.
+
+If you want to visualize some statistics that are not available, you can again
+load Nx1 matrices from files from the "load stats" tab.
 
 =====Movies=====
 
@@ -380,9 +385,9 @@ quality, at the cost of additional disk space.
 
 =====Colors=====
 
-By clicking on the 'custom colors' button, you will be able to select different
-color schemes that the program uses.  Each of these color schemes can be
-selected from a list of preexisting colormaps, or specified from a file.
+By clicking on the 'colors' tab within the options panel, you will be able to 
+select different color schemes for each dataset.  Each of these color schemes 
+can be selected from a list of preexisting colormaps, or specified from a file.
 
 In addition, you can create your own colormaps in a custom colormap editor.
 This editor specifies ((RGB or HSV) and (alpha)) values.  There can be
@@ -406,36 +411,15 @@ set your transparency higher!  Sorry that I can't fix this.
 =====Python Shell=====
 
 There is an interactive python shell in the program.  It is fantastic for 
-looking up data or doing math on the fly.  It does not have all of the features 
-of ipython, but it has many of them.  You are welcome.
+looking up data or doing math on the fly.
 
 ===Options===
-=====Graph Theory=====
-
-In the graph theory window, there are various graph theoretic measures that
-can be ticked on or off.  When graph theoretic measures are calculated
-(either the first time you click on the "Graph theory" panel, or whenever
-"Recalculate" is clicked subsequently), only these measures are chosen.
-
-The only one of these that takes any substantial amount of time to calculate
-is local efficiency.  This might take a few minutes to calculate.
-
-More graph theory measures may be added later.
-
-=====Circle Size=====
-
-Changes the size of the circle plot.  Unfortunately due to technical limitations
-it is extremely difficult to only show a small portion (e.g. zoom) of the circle
-plot, so this alteration in size is the best that can be done to e.g. help read 
-the labels.  This doesn't do a lot, and I don't recommend using it.  Note that
-in order to change the size, you need to click the 'force render' button.
-
 =====Floating 3D text=====
 
 Setting this off removes the text floating around the 3D brain.  Note that the 
 text is always disabled when making snapshots due to technical limitations.
 
-=====Threshold=====
+=====Thresholds=====
 
 See the --max-edges and thresholds section of this manual
 
@@ -452,11 +436,6 @@ completely opaque, effectively making it impossible to see any connections.  At
 0, the brain surface is not present at all.  Low values provide a good balance 
 between anatomical specificity and transparency, while high values provide some 
 amusingly useless images.
-
-=====Prune empty/singleton modules=====
-
-This option gets rid of relatively uninteresting singleton modules when using 
-builtin modularity calculations.
 
 =====Module Connection Style=====
 
@@ -494,6 +473,15 @@ Selecting these options will remove the gray surfaces from the 3D brain display.
 Unlike the options to display connection types, this operation is 
 computationally fast and will update the 3D brain immediately.
 
+=====Colorbar (connections)=====
+Provides a colorbar in the 3D brain view showing the values associated with
+the connections.
+
+=====Scalar colorbar=====
+Provides a colorbar in the 3D brain view showing the values associated with
+scalars (i.e. graph measures).  These measures are always visualized
+between 0 and 1 and the scalar colorbar has to reflect this for technical
+reasons.
 
 ==Acknowledgments==
 

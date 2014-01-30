@@ -44,6 +44,10 @@ If the annotation is in the fsaverage5 space, copy the annotation files to
 $cvu_dir/cvu/fsavg5/label.  Otherwise, copy them to the label directory from
 your subject's reconstruction.
 
+If you don't have an annotation file to parcellate your data, consider reading
+the freesurfer_morph tutorial.  This tutorial will help you translate some data
+that you might have into the standard lausanne parcellations that cvu ships 
+with.
 
 When you have done these things, you will need to load the parcellation, and
 then the matrix.  To load the parcellation you will need the following things:

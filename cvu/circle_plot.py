@@ -40,9 +40,8 @@ from collections import OrderedDict
 
 #credit largely goes to martin luessi who adapted this function to mne from
 #whoever wrote it originally which is listed in the docstring
-def plot_connectivity_circle2(con, nodes_numberless, indices=None, 
+def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None, 
 	n_lines=10000, node_colors=None, colormap='YlOrRd', fig=None, reqrois=[],
-
 	node_angles=None, node_width=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5,
 	vmin=None,vmax=None, colorbar=False, title=None):
@@ -145,6 +144,8 @@ The figure handle.
 	# Make figure background the same colors as axes
 	if fig==None:
 		fig = pl.figure(figsize=(5, 5), facecolor=facecolor)
+	else:
+		fig = pl.figure(num=fig.number)
 		
 	# Use a polar axes
 	axes = pl.subplot(111, polar=True, axisbg=facecolor)
@@ -182,11 +183,12 @@ The figure handle.
 	#indices = [ind[sort_idx] for ind in indices]
 
 	# Get vmin vmax for color scaling
-	if vmin is None:
-		vmin = np.min(con[np.abs(con) >= con_thresh])
-	if vmax is None:
-		vmax = np.max(con)
-	vrange = vmax - vmin
+	if np.size(con)>0:
+		if vmin is None:
+			vmin = np.min(con[np.abs(con) >= con_thresh])
+		if vmax is None:
+			vmax = np.max(con)
+		vrange = vmax - vmin
 
 	# We want o add some "noise" to the start and end position of the
 	# edges: We modulate the noise with the number of connections of the
@@ -216,7 +218,8 @@ The figure handle.
 						 / float(nodes_n_con[end]))
 
 	# scale connectivity for colormap (vmin<=>0, vmax<=>1)
-	con_val_scaled = (con - vmin) / vrange
+	if np.size(con)>0:
+		con_val_scaled = (con - vmin) / vrange
 
 	# Finally, we draw the connections
 	for pos, (i, j) in enumerate(zip(indices[0], indices[1])):

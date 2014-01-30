@@ -15,321 +15,383 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
-	Enum,List,Button,Range,Instance,Float,Trait,CFloat)
-from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,Spring,
+	Enum,List,Button,Range,Instance,Float,Trait,Any,CFloat,Property,
+	on_trait_change)
+from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,
+	CancelButton,Spring,InstanceEditor,
 	Group,ListStrEditor,CheckListEditor,HSplit,FileEditor,VSplit,Action,HGroup,
-	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor)
+	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor,TableEditor,
+	ObjectColumn)
 from traitsui.file_dialog import open_file
-import os; import cvu_utils as util;
+import os;
+from utils import DatasetMetadataElement,CVUError
 from color_map import CustomColormap
 from custom_file_editor import CustomFileEditor, CustomDirectoryEditor
 
-from traits.api import on_trait_change
+#this is pretty scary that this works in the global namespace and not if the
+#Item is a child attribute of InteractiveSubwindow.
+current_dataset_item=Item('_current_dataset_list',show_label=False,
+	editor=CheckListEditor(name='all_datasets'),style='simple',height=25)
+
+#UNUSED TITLES
 
 class InteractiveSubwindow(Handler):
 	finished=Bool(False)
 	notify=Event
-
 	info=Instance(UIInfo)
-
+	window_active=Bool(False)
+	def __init__(self,**kwargs):
+		super(InteractiveSubwindow,self).__init__(**kwargs)
 	def init_info(self,info):
 		self.info=info
+		self.finished=False
+		self.window_active=True
 	def closed(self,info,is_ok):
 		info.object.finished=is_ok
 		info.object.notify=True
-	def reconstruct(self,info=None):
-		if info is None:
-			info=self.info
-		info.ui.dispose()
-		info.object.edit_traits()
+		self.window_active=False
+	def reconstruct(self):
+		#self.window_active=False
+		self.info.ui.dispose()
+		self.info.object.edit_traits()
+	def conditionally_dispose(self):
+		if self.window_active:
+			self.info.ui.dispose()
 
-def append_proper_buttons(buttonlist):
-	#get around list mutability
-	buttonlist.extend(OKCancelButtons)
-	return buttonlist
+class DatasetSpecificSubwindow(DatasetMetadataElement,InteractiveSubwindow):
+	ctl=Any				#window control for this window
+	def __init__(self,ctl,controller,**kwargs):
+		super(DatasetSpecificSubwindow,self).__init__(controller,**kwargs)
+		self.ctl=ctl	
+	#this is handler init, called on traitsui initialization
+	def init_info(self,info):
+		if self.current_dataset is None:
+			self._current_dataset_list=[self._controller.ds_orig]
+		super(DatasetSpecificSubwindow,self).init_info(info)
 
-class OptionsWindow(InteractiveSubwindow):
-	surface_visibility = Range(0.0,1.0,.15)
-	circ_size = Range(7,20,10,mode='spinner')
-	conns_colorbar=Bool(False)
-	scalar_colorbar=Bool(False)
-	pthresh = Range(0.0,1.0,.95)
-	nthresh = Float
-	thresh_type = Enum('prop','num')
-	prune_modules = Bool(True)
-	show_floating_text = Bool(True)
-	module_view_style = Enum('intramodular','intermodular','both')
-	render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
+class UnstableDatasetSpecificSubwindow(DatasetSpecificSubwindow):
+	@on_trait_change('current_dataset')
+	def _chg_ds_ref(self):
+		try: self.ctl.ds_ref=self.current_dataset
+		#this fails on setup before ctl is initialized so ignore error messages
+		except AttributeError: pass 
+
+############################################################################
+class OptionsWindow(DatasetSpecificSubwindow):
 	conns_disclaimer=Str
-	interhemi_conns_on = Bool(True)
-	lh_conns_on = Bool(True)
-	rh_conns_on = Bool(True)
-	lh_nodes_on = Bool(True)
-	rh_nodes_on = Bool(True)
-	lh_surfs_on = Bool(True)
-	rh_surfs_on = Bool(True)
-	conns_width = Float(2.)
-	conns_colors_on = Bool(True)
-
-	intermediate_graphopts_list=List(Str)
 	initial_graphopts_list=List(Str)
-	modules_list=List(Str)
+
+	edit_cmap_button=Button('Colormap customizer')
+	reset_default_cmaps_button=Button('Reset defaults')
+
+	_stupid_listener,_stupid_listener_2=Bool,Bool
+
+	def cmap_group_view(m):
+		return Group(Item(name='label',object='object.ctl.%s'%m,
+						style='readonly'),
+					Item(name='cmap',object='object.ctl.%s'%m,
+						editor=ImageEnumEditor(path=CustomColormap.imgs_path,
+							values=CustomColormap.lut_list,cols=7)),
+					Item(name='fname',object='object.ctl.%s'%m,
+						editor=CustomFileEditor(),
+						enabled_when='ctl.%s.cmap==\'file\''%m),
+					HGroup(
+						Item(name='reverse',object='object.ctl.%s'%m)
+					),
+					Item(name='threshold',object='object.ctl.%s'%m,
+						enabled_when='ctl.%s.cmap==\'custom_heat\''%m),
+					show_labels=False)
+
 	traits_view=View(
 		VGroup(
+			current_dataset_item,
 			HSplit(
-				Item(name='circ_size'),
-				Item(name='conns_width',label='conn linewidth'),
-				Item(name='show_floating_text',label='floating 3D text on'),
+				Item(name='pthresh',object='object.ctl',
+					label='percent threshold',
+					enabled_when='object.ctl.thresh_type==\'prop\''),
+				Item(name='athresh',object='object.ctl',
+					label='absolute threshold',
+					enabled_when='object.ctl.thresh_type==\'abs\''),
+				Item(name='thresh_type',object='object.ctl',
+					label='threshold type'),
 			),
 			HSplit(
-				Item(name='pthresh'),
-				Item(name='nthresh'),
-				Item(name='thresh_type'),
+				Item(name='module_view_style',object='object.ctl',
+					label='module connection style'),
 			),
 			HSplit(
-				Item(name='render_style',label='surface style'),
-				Item(name='surface_visibility',label='surface opacity'),
+				Item(name='conns_colors_on',object='object.ctl',
+					label='color on'),
+				Item(name='conns_colorbar',object='object.ctl',
+					label='colorbar'),
+				Item(name='conns_width',object='object.ctl',label='line width'),
 			),
 			HSplit(
-				Item(name='module_view_style',label='module connection style'),
-				#Item(name='prune_modules',label='prune singleton modules'),
-			),
-			HSplit(
-				Item(name='interhemi_conns_on',
-					label='interhemispheric conns on'),
-				Item(name='lh_conns_on',label='LH conns on'),
-				Item(name='rh_conns_on',label='RH conns on'),
-			),
-			HSplit(
-				Item(name='lh_nodes_on',label='LH nodes on'),
-				Item(name='rh_nodes_on',label='RH nodes on'),
-			),
-			HSplit(
-				Item(name='lh_surfs_on',label='LH surfaces on'),
-				Item(name='rh_surfs_on',label='RH surfaces on'),
-			),
-			HSplit(
-				Item(name='conns_colorbar',label='show conns colorbar'),
-				Item(name='scalar_colorbar',label='show scalar colorbar'),
-				Item(name='conns_colors_on'),
+				Item(name='interhemi_conns_on',object='object.ctl',
+					label='interhemispheric_conns_on'),
+				Item(name='lh_conns_on',object='object.ctl',
+					label='LH conns on'),
+				Item(name='rh_conns_on',object='object.ctl',
+					label='RH conns on'),
 			),
 			HSplit(
 				Item(name='conns_disclaimer',style='readonly',height=10,
 					width=550,show_label=False)
 			),
-			label='Display options',show_labels=False
+			label='Connection settings',show_labels=False),
+		VGroup(
+			current_dataset_item,
+			HSplit(
+				#Item(name='circ_size',object='object.ctl'),
+				Item(name='show_floating_text',object='object.ctl',
+					label='floating 3D text on'),
+				Item(name='scalar_colorbar',object='object.ctl',
+					label='show scalar colorbar'),
+			),
+			HSplit(
+				Item(name='render_style',object='object.ctl',
+					label='surface style'),
+				Item(name='surface_visibility',object='object.ctl',
+					label='surface opacity'),
+			),
+			HSplit(
+				Item(name='lh_nodes_on',object='object.ctl',
+					label='LH nodes on'),
+				Item(name='rh_nodes_on',object='object.ctl',
+					label='RH nodes on'),
+			),
+			HSplit(
+				Item(name='lh_surfs_on',object='object.ctl',
+					label='LH surfaces on'),
+				Item(name='rh_surfs_on',object='object.ctl',
+					label='RH surfaces on'),
+			),
+			label='Display settings',show_labels=False
 		),
 		VGroup(
-			Item(name='intermediate_graphopts_list',editor=CheckListEditor(
-				name='initial_graphopts_list'),show_label=False,
-				style='custom'),
+			current_dataset_item,
+			HGroup(
+				cmap_group_view('default_map'),
+				cmap_group_view('scalar_map'),
+				cmap_group_view('activation_map'),
+				cmap_group_view('connmat_map'),
+			),
+			HGroup(
+				Item(name='edit_cmap_button'),
+				Item(name='reset_default_cmaps_button'),
+				show_labels=False
+			),
+			label='Colors',show_labels=False
+		),
+		VGroup(
+			current_dataset_item,
+			Item(name='intermediate_graphopts_list',object='object.ctl',
+				editor=CheckListEditor(name='initial_graphopts_list'),			
+				show_label=False, style='custom'),
 			label='Graph statistics',show_labels=False
 		),
-		kind='live',buttons=OKCancelButtons,
+		kind='panel',buttons=OKCancelButtons,
 		title='Select your desired destiny',
 	)
+
+	#def __init__(self,ctl,controller,**kwargs):
+	#	super(OptionsWindow,self).__init__(ctl,controller,**kwargs)
+
+		#setup stupid listeners for colormap traits
+	#	for cmap in ('default','scalar','activation','connmat'):
+	#		self.on_trait_change(lambda:self._stupid_listen_1('%s_map'%cmap),
+	#			'ctl:%s_map:cmap'%cmap)
 
 	def _initial_graphopts_list_default(self):
 		return ['global efficiency', 'local efficiency', 'average strength',
 			'clustering coefficient', 'eigenvector centrality', 'modularity', 
 			'participation coefficient', 'within-module degree']
-	def _intermediate_graphopts_list_default(self):
-		return ['global efficiency', 'clustering coefficient']
 	def _conns_disclaimer_default(self):
 		return ("Note changing conn visibility is not applied immediately as "
 			"it can be costly. To force application, click 'Reset Display'")
 
-class GraphTheoryWindow(InteractiveSubwindow):
-	from graph import StatisticsDisplay
-
-	graph_stats=List(StatisticsDisplay)
-	current_stat=Instance(StatisticsDisplay)
-	scalar_savename=Str
-
-	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
-	RecalculateEvent=Event
-
-	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
-	SaveToScalarEvent=Event
-	
-	traits_view=View(
-		VGroup(
-			HGroup(
-			Item('graph_stats',style='custom',show_label=False,
-				editor=ListEditor(use_notebook=True,page_name='.name',
-				selected='current_stat')),
-			),HGroup(
-			Item('scalar_savename',label='Scalar name',
-				height=25,width=180),
-			),
-		),
-		height=400,width=350,
-		title='Mid or feed',kind='live',
-		buttons=[RecalculateButton,SaveToScalarButton,OKButton,])
-
-	def _current_stat_changed(self):
-		self.scalar_savename=self.current_stat.name
-
-	#handler methods
-	def do_sv_scalar(self,info):
-		self.SaveToScalarEvent=True
-
-	def do_recalculate(self,info):
-		self.RecalculateEvent=True
-
-class CustomColormapWindow(InteractiveSubwindow):
-	#first argument is class, second is default value.
-	default_map=Instance(CustomColormap,CustomColormap('default'))
-	scalar_map=Instance(CustomColormap,CustomColormap('scalar'))
-	activation_map=Instance(CustomColormap,CustomColormap('activation'))
-	connmat_map=Instance(CustomColormap,CustomColormap('connmat'))
-
-	EditCmapButton = Action(name='Colormap customizer',action='do_edit_cmap')
-	ResetDefaultsButton = Action(name='Reset defaults',action='do_defaults')
-
-	def cmap_group_view(m):
-		return Group(Item(name='label',style='readonly',object=m),
-					Item(name='cmap',object=m,
-						editor=ImageEnumEditor(path=CustomColormap.imgs_path,
-							values=CustomColormap.lut_list,cols=7)),
-					Item(name='fname',editor=CustomFileEditor(),object=m,
-						enabled_when='%s.cmap==\'file\''%m),
-					HGroup(
-						Item(name='reverse',object=m)
-					),
-					Item(name='threshold',object=m,
-						enabled_when='%s.cmap==\'custom_heat\''%m),
-					show_labels=False)
-
-	traits_view=View(
-		HGroup(
-			cmap_group_view('default_map'),
-			cmap_group_view('scalar_map'),
-			cmap_group_view('activation_map'),
-			cmap_group_view('connmat_map')
-		),
-		kind='live',
-		buttons=append_proper_buttons([EditCmapButton,ResetDefaultsButton]),
-		title='If it were up to me it would all be monochrome',
-	)
-
-	#handler methods
-	def do_edit_cmap(self,info):
+	def _edit_cmap_button_fired(self):
 		from tvtk import util as tvtk_util; import sys,subprocess
 		script=os.path.join(os.path.dirname(tvtk_util.__file__),
 			'wx_gradient_editor.py')
 		subprocess.Popen([sys.executable, script])
-
-	def do_defaults(self,info):
-		for map in [self.default_map,self.scalar_map,self.activation_map,
-				self.connmat_map]:
+	def _reset_default_cmaps_button_fired(self,info):
+		for map in (self.default_map,self.scalar_map,self.activation_map,
+				self.connmat_map):
 			map.reset_traits(['cmap','fname','reverse','threshold'])
 
-	def edit_traits(self):
-		super(CustomColormapWindow,self).edit_traits(context=
-			{'default_map':self.default_map,
-			 'scalar_map':self.scalar_map,
-			 'activation_map':self.activation_map,
-			 'connmat_map':self.connmat_map,
-			 'object':self})
+	@on_trait_change('ctl:thresh_type')
+	def _stupid_listen_1(self):
+		self._stupid_listener=self.ctl.thresh_type=='abs'
 
-class RequireWindow(InteractiveSubwindow):
-	require_ls=List(Str)
-	please_note=Str('Enter the ROIs you would like to force to display on the '
-		'circle plot.  You must spell them precisely, e.g. "lh_frontalpole"')
+	@on_trait_change('ctl:default_map:cmap')
+	def _stupid_listen_2(self):
+		self._stupid_listener=self.ctl.default_map.cmap=='file'
+		self._stupid_listener_2=self.ctl.default_map.cmap=='custom_heat'
+
+	@on_trait_change('ctl:scalar_map:cmap')
+	def _stupid_listen_3(self):
+		self._stupid_listener=self.ctl.scalar_map.cmap=='file'
+		self._stupid_listener_2=self.ctl.scalar_map.cmap=='custom_heat'
+
+	@on_trait_change('ctl:activation_map:cmap')
+	def _stupid_listen_4(self):
+		self._stupid_listener=self.ctl.activation_map.cmap=='file'
+		self._stupid_listener_2=self.ctl.activation_map.cmap=='custom_heat'
+
+	@on_trait_change('ctl:connmat_map:cmap')
+	def _stupid_listen_5(self):
+		self._stupid_listener=self.ctl.connmat_map.cmap=='file'
+		self._stupid_listener_2=self.ctl.connmat_map.cmap=='custom_heat'
+
+###########################################################################
+class CalculateWindow(UnstableDatasetSpecificSubwindow):
+	_stupid_listener=Bool
 	traits_view=View(
-		Item(name='please_note',style='readonly',height=35,width=250),
-		Item(name='require_ls',editor=ListStrEditor(auto_add=True,
-			editable=True),label='List ROIs here'),
-		buttons=OKCancelButtons,title='Mango curry')
+		current_dataset_item,
+		Item(name='calculation_type',object='object.ctl'),
+		Item(name='athresh',object='object.ctl',
+			enabled_when='object.ctl.thresh_type==\'abs\''),
+		Item(name='pthresh',object='object.ctl',
+			enabled_when='object.ctl.thresh_type==\'prop\''),
+		Item(name='thresh_type',object='object.ctl'),
+		kind='panel',buttons=OKCancelButtons,width=350,height=200,
+		title='log(pi^pi) with base pi is exactly 3')
 
-class AdjmatChooserWindow(InteractiveSubwindow):
-	Please_note=Str("All but first field are optional.  Specify adjmat order "
+	@on_trait_change('ctl:thresh_type')
+	def _stupid_listen(self):
+		self._stupid_listener=self.ctl.thresh_type=='abs'
+
+###########################################################################
+class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
+	RecalculateButton=Action(name='Recalculate',action='do_recalculate')
+	SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
+	
+	new_view=View(
+		current_dataset_item,
+		VGroup(
+			HGroup(
+				Item(name='graph_stats',object='object.ctl',style='custom',
+					editor=ListEditor(use_notebook=True,page_name='.name',
+						selected='object.ctl.current_stat'),
+					show_label=False,),
+			),
+			HGroup(
+				Item(name='scalar_savename',object='object.ctl',
+					label='Scalar name',height=25,width=180),
+			),
+		),
+		height=400,width=350,
+		title='Mid or feed',kind='panel',
+		buttons=[SaveToScalarButton,OKButton,])
+
+	#before version 4.4.1 of traitsui there was a bug such that list editors
+	#in notebook mode crash when the model object is specified in extended
+	#name notation. so instead we create a view with a local model object
+	old_view=View(
+		VGroup(
+			HGroup(
+				Item(name='ctl',style='custom',
+					editor=InstanceEditor(view='old_traitsui_view')),
+			),
+			HGroup(
+				Item(name='scalar_savename',object='object.ctl',
+					label='Scalar name',height=25,width=180),
+			),
+		),
+		height=400,width=350,
+		title='Mid or feed',kind='panel',
+		buttons=[SaveToScalarButton,OKButton,])
+
+	from traitsui import __version__ as version
+	if version[:3] < 4.4 or (version[:3]==4.4 and version[4]==0):
+		traits_view=old_view
+	else:
+		traits_view=new_view
+
+	#handler methods
+	def do_sv_scalar(self,info):
+		self.ctl._proc_save_to_scalar()
+	def do_recalculate(self,info):
+		self.ctl._proc_recalculate()
+
+############################################################################
+class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
+	please_note=Str("All but first field are optional.  Specify adjmat order "
 		"if the desired display order differs from the existing matrix order."
 		"  Specify unwanted channels as 'delete' in the label order.  Data "
 		"field name applies to the data field for .mat matrices only.")
-	adjmat=File
-	open_adjmat=Button('Browse')
+	require_note=Str('Enter any ROIs you would like to force to display on the '
+		'circle plot.  You must spell them precisely, e.g. "lh_frontalpole"')
 	open_adjmat_order=Button('Browse')
-	#adjmat_order=Trait(None,None,File)
-	adjmat_order=File
-	max_edges=Int
-	field_name=Str('adj_matrices')
-	ignore_deletes=Bool
-	require_window=Instance(InteractiveSubwindow,())
-	RequireButton=Action(name='force display of ROIs',action='do_rw_show')
-	traits_view=View(
-		Item(name='Please_note',style='readonly',height=140,width=250),
-		#HSplit(
-		#	Item(name='adjmat',style='text'),
-		#	Item(name='open_adjmat',show_label=False),
-		#),
-		Item(name='adjmat',
-			editor=CustomFileEditor()),
-		Item(name='adjmat_order',label='Label Order',
-			editor=CustomFileEditor()),
-		#HSplit(
-		#	Item(name='adjmat_order',style='text'),
-		#	Item(name='open_adjmat_order',show_label=False),
-		#),
-		Item(name='max_edges',label='Max Edges'),
-		Item(name='field_name',label='Data Field Name'),
-		Item(name='ignore_deletes',label='Ignore deletes'),
-		kind='live',buttons=append_proper_buttons([RequireButton]),
-		title='Report all man-eating vultures to security',)
+	require_ls=List(Str)
+	RequireButton=Action(name='clear all req\'d ROIs',action='do_rqls_clear')
 
-	#private methods
-	def _open_adjmat_fired(self):
-		self.adjmat=open_file()
-		self.edit_traits()
-	def _open_adjmat_order_fired(self):
-		self.adjmat_order=open_file()
-		self.edit_traits()
-	def _require_window_default(self):
-		return RequireWindow()
-
-	#handler methods
-	def do_rw_show(self,info):
-		info.object.require_window.edit_traits()
-
-class ParcellationChooserWindow(InteractiveSubwindow):
-	Please_note=Str('fsaverage5 is fine unless individual morphology '
-		'is of interest.  Visualizing tractography requires individual '
-		'morphology.')
-	SUBJECTS_DIR=Directory('./')
-	SUBJECT=Str('fsavg5')
-	labelnames_f=File
-	open_labelnames_f=Button('Browse')
-	parcellation_name=Str
-	DisposeEvent=Action(action='do_dispose')
 	traits_view=View(
 		Group(
-			Item(name='Please_note',style='readonly',height=85,width=250),
-			Item(name='SUBJECT'),
-			Item(name='SUBJECTS_DIR',editor=CustomDirectoryEditor()),
-			Item(name='parcellation_name',label='Parcellation'),
-			Item(name='labelnames_f',label='Label Display Order',
+			current_dataset_item,
+			Item(name='please_note',style='readonly',height=140,width=250),
+			Item(name='adjmat',object='object.ctl',label='Adjmat',
 				editor=CustomFileEditor()),
-			#HSplit(
-			#	Item(name='labelnames_f',label='Label Display Order',
-			#		style='text',springy=True),
-			#	Item(name='open_labelnames_f',show_label=False)
-			#),
-		), kind='live',buttons=OKCancelButtons,
+			Item(name='adjmat_order',object='object.ctl',label='Label Order',
+				editor=CustomFileEditor()),
+			Item(name='max_edges',object='object.ctl',label='Max Edges'),
+			Item(name='field_name',object='object.ctl',
+				label='Field (.mat files)'),
+			Item(name='ignore_deletes',object='object.ctl',
+				label='Ignore deletes'),
+		label='Matrix'),
+		Group(
+			current_dataset_item,
+			Item(name='require_note',style='readonly',height=50,width=250,
+				label='Please note'),
+			Item(name='require_ls',object='object.ctl',
+				editor=ListStrEditor(auto_add=True,editable=True),
+				label='List ROIs here'),
+		label='required ROIs'),
+	
+		kind='panel',buttons=[RequireButton,OKButton,CancelButton],
+		title='Report all man-eating vultures to security',)
+
+	#handler methods
+	def do_rqls_clear(self,info):
+		info.object.ctl.require_ls=[]
+
+############################################################################
+class ParcellationChooserWindow(UnstableDatasetSpecificSubwindow):
+	_stupid_listener=Bool
+	Please_note=Str('fsaverage5 is fine unless individual morphology '
+		'is of interest.  Visualizing tractography requires individual '
+		'morphology. Using the pial surface is recommended.')
+	traits_view=View(
+		current_dataset_item,
+		HGroup(
+			Item(name='new_dataset',object='object.ctl',label='new dataset'),
+			Item(name='new_dataset_name',object='object.ctl',
+				enabled_when='object.ctl.new_dataset'),
+		),
+		Group(
+			Item(name='Please_note',style='readonly',height=85,width=250),
+			Item(name='subject',object='object.ctl',label='SUBJECT'),
+			Item(name='subjects_dir',object='object.ctl',label='SUBJECTS_DIR',
+				editor=CustomDirectoryEditor()),
+			Item(name='parcellation_name',object='object.ctl',
+				label='Parcellation'),
+			Item(name='labelnames_file',object='object.ctl',
+				label='Label Display Order',editor=CustomFileEditor()),
+			Item(name='surface_type',object='object.ctl'),
+		), kind='panel',buttons=OKCancelButtons,
 			title="This should not be particularly convenient",)
 
-	def _open_labelnames_f_fired(self):
-		self.labelnames_f=open_file()
-		self.do_dispose(self.info)
-		self.edit_traits()
+	#what! why does this work since the stupid listener is actually ignored
+	@on_trait_change('ctl:new_dataset')
+	def _stupid_listen(self):
+		self._stupid_listener=self.ctl.new_dataset
 
-	def _reconstruct(self):
-		self.do_dispose(self.info)
-		self.edit_traits()
-
-class TractographyChooserWindow(InteractiveSubwindow):
+############################################################################
+#TODO THIS HAS NOT BEEN REDESIGNED YET
+class TractographyChooserWindow(UnstableDatasetSpecificSubwindow):
 	Please_note=Str('Tractography will be misaligned with the surface unless '
 		'the surface corresponds to the subject\'s individual morphology.\n'
 		'cvu will source the freesurfer setup script.  You can omit this if '
@@ -341,6 +403,7 @@ class TractographyChooserWindow(InteractiveSubwindow):
 	SUBJECT=Str
 	fs_setup=File('/usr/local/freesurfer/nmr-stable53-env')
 	traits_view=View(
+		current_dataset_item,
 		Group(
 			Item(name='Please_note',style='readonly',height=125,width=325),
 			Item(name='track_file',editor=CustomFileEditor()),
@@ -348,87 +411,77 @@ class TractographyChooserWindow(InteractiveSubwindow):
 			Item(name='SUBJECTS_DIR',editor=CustomDirectoryEditor()),
 			Item(name='SUBJECT'),
 			Item(name='fs_setup',editor=CustomFileEditor()),
-		), kind='live',buttons=OKCancelButtons,
+		), kind='panel',buttons=OKCancelButtons,
 			title='Just FYI subject 39108 has an abnormal HRF')
 
-class LoadGeneralMatrixWindow(InteractiveSubwindow):
+############################################################################
+class LoadGeneralMatrixWindow(UnstableDatasetSpecificSubwindow):
+	_stupid_listener=Bool
 	Please_note=Str('Same rules for adjmat ordering files apply')
-	mat=File
-	open_mat=Button('Browse')
-	mat_order=File
-	field_name=Str
-	ignore_deletes=Bool
 	whichkind=Enum('modules','scalars')
-	dataset_nr=Int(1)
-	dataset_name=Str('dataset1')
 	traits_view=View(
+		current_dataset_item,
 		Item(name='Please_note',style='readonly',height=50,width=250),
-		Item(name='mat',label='Filename',editor=CustomFileEditor()),
-		#HSplit(
-		#	Item(name='mat',label='Filename',style='text',springy=True),
-		#	Item(name='open_mat',show_label=False),
-		#),
-		#Item(name='mat',label='Filename',editor=FileEditor(entries=10),style='simple'),
-		Item(name='mat_order',label='Ordering file',editor=CustomFileEditor()),
-		Item(name='field_name',label='Field (.mat files only)'),
-		Item(name='ignore_deletes',label='Ignore deletes'),
-		Item(name='dataset_name',label='Name this dataset'),
-		kind='live',buttons=OKCancelButtons,
+		Item(name='whichkind',object='object.ctl',label='Load what?'),
+		Item(name='mat',object='object.ctl',label='Filename',
+			editor=CustomFileEditor()),
+		Item(name='mat_order',object='object.ctl',label='Ordering file',
+			editor=CustomFileEditor()),
+		Item(name='field_name',object='object.ctl',
+			label='Field (.mat files only)'),
+		Item(name='ignore_deletes',object='object.ctl',label='Ignore deletes'),
+		Item(name='measure_name',object='object.ctl',
+			label='Name these scalars',
+			enabled_when='object.ctl.whichkind==\'scalars\''),
+		kind='panel',buttons=OKCancelButtons,
 		title='Behold the awesome power of zombies')
 
-	def _open_mat_fired(self):
-		#self.mat=open_file()
-		res=util.file_chooser(initialdir=os.path.dirname(self.mat),
-			title='Roentgenium is very useful')
-		if len(res)>0:
-			self.mat=res
+	@on_trait_change('ctl:whichkind')
+	def _stupid_listen(self):
+		self._stupid_listener=self.ctl.whichkind=='scalars'
 
-	def dataset_plusplus(self):
-		self.dataset_nr+=1
-		self.dataset_name='dataset%i' % self.dataset_nr
-
-class ConfigureScalarsWindow(InteractiveSubwindow):
+############################################################################
+class ConfigureScalarsWindow(DatasetSpecificSubwindow):
 	#idea:
 	#node_scalars needs to be DICTIONARY.
 	#add field to dictionary upon load scalars.  can replace.
 	#three ListStr editors, one for each display method, across the field names
 	#the selections can be the same for multiple scalars
-	scalar_sets=List(Str)
-	nod_col=Str
-	nc_str=Str('Node color')
-	srf_col=Str
-	sc_str=Str('Surface color')
-	nod_siz=Str
-	ns_str=Str('Node size')
-	circle=Str
-	circ_str=Str('Circle plot')
-	conmat=Str
-	cmat_str=Str('Connection Matrix')
+	node_col_label=Str('Node color')
+	surf_col_label=Str('Surface color')
+	node_size_label=Str('Node size')
+	circ_label=Str('Circle plot')
+	cmat_label=Str('Connection Matrix')
+
+	def _scalar_set(selected_trait):
+		return Item(name='scalar_sets',object='object.ctl',
+			editor=ListStrEditor(selected='object.ctl.%s'%selected_trait))
 	traits_view=View(
+		current_dataset_item,
 		HGroup(
 			Group(
-				Item('nc_str',style='readonly'),
-				Item('scalar_sets',editor=ListStrEditor(selected='nod_col')),
+				Item(name='node_col_label',style='readonly'),
+				_scalar_set('node_color'),
 				show_labels=False
 			),
 			Group(
-				Item('sc_str',style='readonly'),
-				Item('scalar_sets',editor=ListStrEditor(selected='srf_col')),
+				Item(name='surf_col_label',style='readonly'),
+				_scalar_set('surf_color'),
 				show_labels=False
 			),
 			Group(
-				Item('ns_str',style='readonly'),
-				Item('scalar_sets',editor=ListStrEditor(selected='nod_siz')),
+				Item(name='node_size_label',style='readonly'),
+				_scalar_set('node_size'),
 				show_labels=False
 			),
 			Group(
-				Item('circ_str',style='readonly'),
-				Item('scalar_sets',editor=ListStrEditor(selected='circle')),
+				Item(name='circ_label',style='readonly'),
+				_scalar_set('circle'),
 				show_labels=False
 			),
 			Group(
-				Item('cmat_str',style='readonly'),
-				Item('scalar_sets',editor=ListStrEditor(selected='conmat')),
+				Item(name='cmat_label',style='readonly'),
+				_scalar_set('connmat'),
 				show_labels=False
 			),
 		),
@@ -436,86 +489,123 @@ class ConfigureScalarsWindow(InteractiveSubwindow):
 		title='Your data is probably just spurious artifacts anyway',
 	)
 	
-class NodeChooserWindow(InteractiveSubwindow):
-	node_list=List(Str)
-	cur_node=Int(-1)
+############################################################################
+class NodeChooserWindow(UnstableDatasetSpecificSubwindow):
 	traits_view=View(
-		Item(name='node_list',editor=
-			ListStrEditor(selected_index='cur_node'),show_label=False),
-		kind='live',height=350,width=350,buttons=OKCancelButtons,
+		current_dataset_item,
+		Item(name='node_list',object='object.ctl',
+			editor=ListStrEditor(selected_index='object.ctl.cur_node'),
+				show_label=False),
+		kind='panel',height=350,width=350,buttons=OKCancelButtons,
 		resizable=True,title='Do you know the muffin man?')
 
-class ModuleChooserWindow(InteractiveSubwindow):
-	module_list=List(Str)
-	cur_mod=Int(-1)
-	traits_view=View(
-		Item(name='module_list',
-			editor=ListStrEditor(editable=True,selected_index='cur_mod'),
-			show_label=False),
-		kind='live',height=350,width=350,buttons=OKCancelButtons,
-		resizable=True,title='Roll d12 for dexterity check')
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
 
-class ModuleCustomizerWindow(InteractiveSubwindow):
-	initial_node_list=List(Str)
-	intermediate_node_list=List(Str)
-	return_module=List(Int)
+############################################################################
+class ModuleChooserWindow(UnstableDatasetSpecificSubwindow):
+	AllModulesButton=Action(name='View all modules',action='do_view_all')
+
+	traits_view=View(
+		current_dataset_item,
+		Item(name='module_list',object='object.ctl',
+			editor=ListStrEditor(editable=True,
+				selected_index='object.ctl.cur_mod'),
+			show_label=False),
+		kind='panel',height=350,width=350,resizable=True,
+		buttons=[AllModulesButton,OKButton,CancelButton],
+		title='Roll d12 for dexterity check')
+
+	#handler methods
+
+	#having handler methods call the dataset directly is ok as long as
+	#they just make simple calls to the dataset and dont do processing here
+	def do_view_all(self,info):
+		self.ctl.ds_ref.display_multi_module()
+
+############################################################################
+class ModuleCustomizerWindow(UnstableDatasetSpecificSubwindow):
 	ClearButton=Action(name='Clear Selections',action='do_clear')
 	traits_view=View(
-		Item(name='intermediate_node_list',editor=CheckListEditor(
-			name='initial_node_list',cols=2),show_label=False,style='custom'),
-		kind='live',height=400,width=500,
-		buttons=append_proper_buttons([ClearButton]),
+		current_dataset_item,
+		Item(name='intermediate_node_list',object='object.ctl',
+			editor=CheckListEditor(name='object.ctl.initial_node_list',cols=2),
+			show_label=False,style='custom'),
+		kind='panel',height=400,width=500,
+		buttons=[ClearButton,OKButton,CancelButton],
 		resizable=True,scrollable=True,title='Mustard/Revolver/Conservatory')
-
-	#index_convert may return a ValueError, it should be
-	#contained in try/except from higher up.
-	def index_convert(self):
-		self.return_module=[self.initial_node_list.index(i)
-			for i in self.intermediate_node_list]
 
 	#handler methods
 	def do_clear(self,info):
-		info.object.intermediate_node_list=[]
+		info.object.ctl.intermediate_node_list=[]
 
-class SaveSnapshotWindow(InteractiveSubwindow):
-	savefile=Str(os.environ['HOME']+'/')
-	dpi=Int(300)
-	whichplot=Enum('3D brain','connection matrix','circle plot')
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
+
+############################################################################
+class SaveSnapshotWindow(UnstableDatasetSpecificSubwindow):
 	traits_view=View(Group(
-		Item(name='savefile'),
-		Item(name='whichplot',label='view'),
-		Item(name='dpi',label='dots per inch'),
-	), kind='live',buttons=OKCancelButtons,
+		current_dataset_item,
+		Item(name='savefile',object='object.ctl'),
+		Item(name='whichplot',object='object.ctl',label='view'),
+		Item(name='dpi',object='object.ctl',label='dots per inch'),
+	), kind='panel',buttons=OKCancelButtons,
 		title="Help I'm a bug",height=250,width=250)
 
-class MakeMovieWindow(InteractiveSubwindow):
-	savefile=Str(os.environ['HOME']+'/')
-	framerate=Int(20)
-	bitrate=Int(4000) 
-	samplerate=Int(8)
-	#use x11grab exclusively.  remove snapshots altogether eventually
-	type=Enum('x11grab','snapshots')
-	anim_style=Bool(True)
-	animrate=Int(8)
+############################################################################
+class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
+	please_note=Str("Making movies relies on the ability to record an X11 "
+		"desktop. It won't run on non-X11 systems.")
 	traits_view=View(Group(
-		Item(name='savefile'),
-		Item(name='framerate',label='framerate'),
-		Item(name='bitrate',label='bitrate (kb/s)'),
-		Item(name='anim_style',label='automatically rotate'),
-		Item(name='samplerate',label='animation speed'),
-	), kind='live',buttons=OKCancelButtons,
-		title="Make me a sandwich",height=250,width=450)
+		current_dataset_item,
+		Item(name='please_note',style='readonly',height=25,width=250),
+		Item(name='savefile',object='object.ctl'),
+		Item(name='framerate',object='object.ctl',label='framerate'),
+		Item(name='bitrate',object='object.ctl',label='bitrate (kb/s)'),
+		Item(name='anim_style',object='object.ctl',
+			label='automatically rotate'),
+		Item(name='samplerate',object='object.ctl',label='animation speed'),
+	), kind='panel',buttons=OKCancelButtons,title="Make me a sandwich")
 
+############################################################################
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
-	Please_note=Str('That file exists.  Really overwrite?')
+	Please_note=Str('That file exists. Really overwrite?')
 	save_continuation=Function # Continuation passing style
+		#this should technically be stored in a parameters but it is
+		#completely contained in the GUI interaction
 	traits_view=View(Spring(),
 		Item(name='Please_note',style='readonly',height=25,width=250,
 			show_label=False),
 		Spring(),
-		kind='live',buttons=OKCancelButtons,
+		kind='panel',buttons=OKCancelButtons,
 		title='Your doom awaits you')
 
+############################################################################
+class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
+	import color_legend
+	traits_view=View(
+		current_dataset_item,
+		Item(name='entries',object='object.ctl.legend',
+			editor=TableEditor(columns=
+				[ObjectColumn(label='ROI',editor=TextEditor(),name='metaregion',
+					style='readonly',editable=False),
+				color_legend.ColorColumn(label='color',editor=TextEditor(),
+					name='blank',editable=False)],
+				selection_bg_color=None,),
+			show_label=False),
+		kind='panel',height=500,width=325,resizable=True,
+		title='Fresh artichokes just -$3/lb',)
+
+	@on_trait_change('current_dataset')
+	def _rebuild_list(self):
+		if self.window_active:
+			self.reconstruct()
+
+############################################################################
 class ErrorDialogWindow(HasTraits):
 	error=Str
 	traits_view=View(Item(name='error',style='readonly',height=75,width=300),

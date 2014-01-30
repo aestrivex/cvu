@@ -1,0 +1,188 @@
+Brain-Stem
+Right Planum Polare
+Left Temporal Pole
+Right Frontal Pole
+Right Temporal Fusiform anterior 
+Left Frontal Pole
+Left Precuneous 
+Right Juxtapositional Lobule 
+Right Supramarginal posterior 
+Left Middle Temporal posterior 
+Left Temporal Fusiform anterior 
+Left Planum Temporale
+Right Caudate
+Left Crus II
+Left Supramarginal anterior 
+Right Occipital Pole
+Left Paracingulate 
+Right Inferior Temporal posterior 
+Left Caudate
+Left Thalamus
+Right Middle Frontal 
+Right Crus I
+Left Postcentral 
+Left Lateral Occipital superior 
+Right Precuneous 
+Right Frontal Pole
+Right Insular 
+Left Insular 
+Left Insular 
+Right Middle Frontal 
+Left Middle Temporal posterior 
+Right Lateral Occipital superior 
+Right Thalamus
+Right Putamen
+Right Crus II
+Left Paracingulate 
+Right Precuneous 
+Right Middle Temporal anterior 
+Left Temporal Pole
+Brain-Stem
+Left Angular 
+Right Middle Frontal 
+Right Postcentral 
+Left Occipital Pole
+Right Insular 
+Left Pallidum
+Left Middle Frontal 
+Right Lateral Occipital superior 
+Right Crus II
+Right Cingulate posterior 
+Right Inferior Temporal temporooccipital 
+Left Superior Parietal Lobule
+Left Middle Frontal 
+Right Parietal Operculum 
+Left Occipital Fusiform 
+Left Frontal Pole
+Left Inferior Temporal posterior 
+Right Inferior Temporal posterior 
+Right Frontal Pole
+Left VI
+Right Postcentral 
+Right Superior Temporal posterior 
+Left Frontal Pole
+Left Hippocampus
+Left Middle Frontal 
+Brain-Stem
+Right Intracalcarine 
+Right Lateral Occipital superior 
+Right Temporal Fusiform posterior 
+Right Precentral 
+Brain-Stem
+Right Paracingulate 
+Left Frontal Medial 
+Left Lateral Occipital inferior 
+Right Central Opercular 
+Left Putamen
+Left Cingulate posterior 
+Right Lateral Occipital inferior 
+Right Hippocampus
+Left Lateral Occipital superior 
+Left Frontal Pole
+Right Thalamus
+Right Superior Parietal Lobule
+Left Middle Temporal temporooccipital 
+Left Temporal Occipital Fusiform 
+Right Frontal Pole
+Right Temporal Pole
+Right Lateral Occipital inferior 
+Left Insular 
+Right Precentral 
+Right Cingulate anterior 
+Left Frontal Pole
+Right Lingual 
+Left Temporal Fusiform posterior 
+Right Occipital Pole
+Right Middle Temporal posterior 
+Left Superior Frontal 
+Left Precentral 
+Right Frontal Pole
+Left Lateral Occipital superior 
+Left Subcallosal 
+Left Crus I
+Right Frontal Orbital 
+Left Postcentral 
+Right Postcentral 
+Right Frontal Pole
+Left Lateral Occipital inferior 
+Left Superior Frontal 
+Left Lingual 
+Right Postcentral 
+Left Parietal Operculum 
+Right Frontal Pole
+Right Temporal Pole
+Left Occipital Pole
+Left Precentral 
+Right Middle Temporal temporooccipital 
+Left Frontal Pole
+Right Cingulate anterior 
+Right Occipital Fusiform 
+Left Inferior Temporal temporooccipital 
+Left Frontal Orbital 
+Left I-IV
+Right Frontal Pole
+Left Parahippocampal posterior 
+Right Parahippocampal posterior 
+Left Supramarginal posterior 
+Left Precuneous 
+Left Middle Temporal anterior 
+Left Frontal Pole
+Right Superior Frontal 
+Right Angular 
+Left Superior Parietal Lobule
+Left Inferior Frontal pars triangularis
+Left Central Opercular 
+Left Precentral 
+Right Supramarginal anterior 
+Right Lateral Occipital superior 
+Right Lingual 
+Right Superior Frontal 
+Right Lateral Occipital inferior 
+Left Precentral 
+Left Frontal Orbital 
+Left Inferior Temporal posterior 
+Right Inferior Frontal pars triangularis
+Brain-Stem
+Right V
+Left Occipital Pole
+Left Occipital Pole
+Right Frontal Pole
+Right Parietal Operculum 
+Right Crus I
+Right Frontal Pole
+Right Occipital Pole
+Right Pallidum
+Left Postcentral 
+Right Middle Frontal 
+Left Occipital Fusiform 
+Brain-Stem
+Right Paracingulate 
+Right Heschl's 
+Left Lateral Occipital superior 
+Right Temporal Occipital Fusiform 
+Left Thalamus
+Right Superior Parietal Lobule
+Left Frontal Pole
+Right Middle Temporal temporooccipital 
+Right Lateral Occipital superior 
+Right Temporal Fusiform posterior 
+Left Superior Frontal 
+Left Frontal Pole
+Left Cingulate anterior 
+Left Lingual 
+Vermis VI
+Left Temporal Pole
+Left Postcentral 
+Right Lateral Occipital superior 
+Left Crus II
+Left Planum Temporale
+Right Superior Temporal posterior 
+Right Precentral 
+Left Lateral Occipital superior 
+Right Cingulate posterior 
+Left Temporal Occipital Fusiform 
+Right Precuneous 
+Left Frontal Pole
+Right VI
+Right Temporal Pole
+Left Lateral Occipital superior 

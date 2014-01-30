@@ -34,6 +34,9 @@ class LegendEntry(HasTraits):
 	def __init__(self,**traits):
 		super(LegendEntry,self).__init__(**traits)
 
+class ColorLegend(HasTraits):
+	entries=List(LegendEntry)
+
 class ColorLegendWindow(HasTraits):
 	legend=List(LegendEntry)
 	traits_view=View(Item(name='legend',

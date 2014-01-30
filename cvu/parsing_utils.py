@@ -15,6 +15,35 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from .cvu import *
+def rreplace(s,old,new,occurrence):
+	li=s.rsplit(old,occurrence)
+	return new.join(li)
 
-__version__='0.3'
+def hemineutral(s):
+	lhind=s.lower().find('lh')
+	rhind=s.lower().find('rh')
+	if lhind>rhind:
+		return rreplace(s,'lh','%s',1)
+	elif rhind>lhind:
+		return rreplace(s,'rh','%s',1)
+	else:
+		return s
+
+def mangle_hemi(s):
+	return s[-2:]+'_'+s[0:-3]
+
+def same_hemi(s1,s2,char=None):
+	if char is None: return s1[0]==s2[0]
+	else: return s1[0]==s2[0]==char
+
+#ALL FUNCTIONS THAT FOLLOW ARE NEEDED FOR GIFTI PROCESSING ONLY
+
+def str2intlist(s):
+	import re
+	return re.split(',| |;',s.strip('[]'))
+
+def appendhemis(olddict,hemi):
+	return dict(map(lambda (k,v):(k,hemi+str(v)),olddict.items()))
+
+def eqfun(x):
+	return lambda y:y==x

@@ -18,7 +18,8 @@
 from matplotlib.colors import LinearSegmentedColormap
 from mayavi.core import lut_manager
 from pylab import get_cmap
-from traits.api import HasTraits, Enum, Bool, File, Range, Str
+from traits.api import (HasTraits,Enum,Bool,File,Range,Str,Instance,Property,Event,
+	on_trait_change)
 
 class CustomColormap(HasTraits):
 	lut_list=lut_manager.lut_mode_list()
@@ -34,6 +35,7 @@ class CustomColormap(HasTraits):
 	fname = File
 	label = Str
 	threshold = Range(0.0,0.5,0.2)
+	_pl = Property(Instance(LinearSegmentedColormap))
 
 	def __init__(self,type):
 		self.map_type=type
@@ -54,6 +56,19 @@ class CustomColormap(HasTraits):
 		elif self.map_type=='connmat': return 'Matrix Colormap'
 		else: return 'Default Colormap'
 
+	def _get__pl(self):
+		'''return the LinearSegmentedColormap describing this CustomColormap'''
+		if self.cmap=='file' and self.fname:
+			return LinearSegmentedColormap.from_list('file',
+				lut_manager.parse_lut_file(self.fname))	
+		elif self.cmap=='custom_heat':
+			return gen_heatmap(t=self.threshold,reversed=self.reversed)
+		elif self.reverse:
+			return get_cmap(self.cmap+'_r')
+		else:
+			return get_cmap(self.cmap)
+
+#TODO THIS IS MONOLITHIC-DATASET CODE THAT SHOULD BE PORTED
 def get_cmap_pl(map):
 	'''From a CustomColormap instance, return a LinearSegmentedColormap
 describing that CustomColormap'''
@@ -141,6 +156,7 @@ edge cases
 	else:
 		lut_mgr=mayavi_obj.module_manager.scalar_lut_manager
 
+	lut_mgr.number_of_colors = 256
 	lut_mgr.file_name=map.fname	
 	lut_mgr.reverse_lut=map.reverse
 

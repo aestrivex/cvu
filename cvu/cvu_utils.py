@@ -443,7 +443,8 @@ def cli_args(argv,):
 				' supplied with your parcellation')
 		else:
 			#TODO export this design pattern for relative paths where necessary
-			parcorder=os.path.join(os.path.dirname(__file__),'orders/sparc.txt')
+			parcorder=os.path.join(os.path.dirname(__file__),
+				'orders','sparc.txt')
 	if modality not in ["meg","fmri","dti",None]:
 		raise Exception('Modality %s is not supported' % modality)
 	if modality in ["fmri","dti"]:

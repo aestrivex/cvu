@@ -15,6 +15,15 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from .cvu import *
+from traits.api import Handler,Instance
+from traitsui.api import UIInfo
 
-__version__='0.3'
+class ReconstructableWindow(Handler):
+	info=Instance(UIInfo)
+
+	def init_info(self,info):
+		self.info=info
+
+	def reconstruct(self,info):
+		self.info.ui.dispose()
+		self.info.object.edit_traits()

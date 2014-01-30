@@ -57,7 +57,7 @@ class _MPLFigureEditor(Editor):
 	def _create_canvas(self,parent):
 		#unsure if there is a way to avoid hard coding these function names
 		#obviously this is hacky and undesirable
-		fig=self.object.circ_fig
+		fig=self.object.circ
 		panel=wx.Panel(parent,-1)
 		self.canvas=FigureCanvasWxAgg(panel,-1,fig)
 		sizer=wx.BoxSizer(wx.VERTICAL)
@@ -66,14 +66,26 @@ class _MPLFigureEditor(Editor):
 		#toolbar.Realize()
 		#sizer.Add(toolbar,0,wx.EXPAND|wx.ALL,1)
 		panel.SetSizer(sizer)
-		self.canvas.mpl_connect('button_press_event',
-			lambda ev:self.object.circ_click(ev,self))
-		self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
-			lambda ev:self.object.circ_mouseover(ev,self))
+		#self.canvas.mpl_connect('button_press_event',
+		#	lambda ev:self.object.circ_click(ev,self))
+		#self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
+		#	lambda ev:self.object.circ_mouseover(ev,self))
+
+		self.canvas.mpl_connect('button_press_event',self.object.circle_click)
+		self.canvas.mpl_connect('motion_notify_event',
+			lambda ev:self.object.circle_mouseover(ev,self.tooltip))
+
 		self.tooltip=wx.ToolTip(tip='')
 		self.tooltip.SetDelay(2000)
 		self.canvas.SetToolTip(self.tooltip)
 		return panel
+
+	def _process_click(self,event):
+		if event.button==3:
+			self.ds.display_all()
+		elif event.button==1 and (7 <= event.ydata <= 8):
+			n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
+			self.ds.display_node(int(np.floor(n)))
 
 	def _process_circ_click(self,event,cvu):
 		# if the user right clicked, just display all

@@ -106,6 +106,7 @@ lh_parsorbitalis_2
 lh_parstriangularis_1
 lh_parstriangularis_2
 lh_parstriangularis_3
+lh_pericalcarine_1
 lh_pericalcarine_2
 lh_pericalcarine_3
 lh_postcentral_1
@@ -209,6 +210,7 @@ lh_superiortemporal_5
 lh_superiortemporal_6
 lh_superiortemporal_7
 lh_superiortemporal_8
+lh_superiortemporal_9
 lh_supramarginal_1
 lh_supramarginal_10
 lh_supramarginal_2
@@ -236,6 +238,7 @@ rh_caudalmiddlefrontal_4
 rh_caudalmiddlefrontal_5
 delete
 rh_cuneus_1
+rh_cuneus_2
 rh_cuneus_3
 rh_cuneus_4
 rh_entorhinal_1
@@ -296,12 +299,14 @@ rh_lateralorbitofrontal_7
 rh_lingual_1
 rh_lingual_2
 rh_lingual_3
+rh_lingual_4
 rh_lingual_5
 rh_lingual_6
 rh_lingual_7
 rh_medialorbitofrontal_1
 rh_medialorbitofrontal_2
 rh_medialorbitofrontal_3
+rh_medialorbitofrontal_4
 rh_medialorbitofrontal_5
 rh_middletemporal_1
 rh_middletemporal_2
@@ -360,6 +365,7 @@ rh_precentral_14
 rh_precentral_15
 rh_precentral_16
 rh_precentral_2
+rh_precentral_3
 rh_precentral_4
 rh_precentral_5
 rh_precentral_6
@@ -401,6 +407,7 @@ rh_superiorfrontal_15
 rh_superiorfrontal_16
 rh_superiorfrontal_17
 rh_superiorfrontal_2
+rh_superiorfrontal_3
 rh_superiorfrontal_4
 rh_superiorfrontal_5
 rh_superiorfrontal_6
