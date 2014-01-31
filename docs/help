@@ -18,8 +18,7 @@ From within the Martinos center, the easiest way to run cvu is
 
 From outside the Martinos center, you will need to download and install the 
 program and its dependencies.  cvu is on the Python Packages Index (PyPI) 
-which enables you to use tools such as easy-install.  Currently the listing on 
-PyPI ''DOES NOT'' automatically install the required dependencies.
+which enables you to use tools such as easy-install.
 For hackers or developers, you can also get the source from 
 [https://github.com/aestrivex github].
 

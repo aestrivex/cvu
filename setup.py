@@ -6,7 +6,7 @@ def read(fname):
 
 setuptools.setup(
 	name="cvu",
-	version="0.2",
+	version="0.3",
 	maintainer="Roan LaPlante",
 	maintainer_email="rlaplant@nmr.mgh.harvard.edu",
 	description=("A visualizer for human brain networks"),
@@ -17,7 +17,7 @@ setuptools.setup(
 	url="https://github.com/aestrivex/cvu",
 	long_description=read('README'),
 	classifiers=[
-		"Development Status :: 3 - Alpha",
+		"Development Status :: 4 - Beta",
 		"Environment :: X11 Applications",
 		"Intended Audience :: Science/Research",
 		"License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
