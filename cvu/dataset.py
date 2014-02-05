@@ -18,7 +18,7 @@
 from __future__ import division
 from traits.api import (HasTraits,Any,Range,Bool,Float,Enum,Str,List,Int,
 	Instance,Dict,Either,Property,Method,Constant,cached_property,
-	on_trait_change,)
+	on_trait_change,TraitError)
 import numpy as np
 from color_map import CustomColormap
 from color_legend import (ColorLegend,LegendEntry)
@@ -704,8 +704,8 @@ class Dataset(HasTraits):
 
 	def prop_thresh(self):
 		try:
-			self.thresval=self.adjdat[
-				int(round(self.opts.pthresh*self.nr_edges-1))]
+			self.thresval=float(self.adjdat[
+				int(round(self.opts.pthresh*self.nr_edges-1))])
 		except TraitError as e:
 			if self.opts.pthresh>1:
 				self.warning_dialog("%s\nThreshold set to maximum"%str(e))
