@@ -144,9 +144,9 @@ class DVMayavi(DataView):
 		#(.82,.82,.82) #GRAY
 
 		self.surfs_cracked=False
-		for surf in (self.syrf_lh,self.syrf_rh):
-			surf.actor.actor.pickable=0
-			set_lut(surf,self.ds.opts.scalar_map)
+		for syrf in (self.syrf_lh,self.syrf_rh):
+			syrf.actor.actor.pickable=0
+			set_lut(syrf,self.ds.opts.scalar_map)
 
 		self.ds.chg_lh_surfmask(); self.ds.chg_rh_surfmask()
 
@@ -183,9 +183,9 @@ class DVMayavi(DataView):
 
 		self.surfs_cracked=True
 
-		for surf in (self.syrf_lh,self.syrf_rh):
-			surf.actor.actor.pickable=0
-			set_lut(surf,self.ds.opts.scalar_map)
+		for syrf in (self.syrf_lh,self.syrf_rh):
+			syrf.actor.actor.pickable=0
+			set_lut(syrf,self.ds.opts.scalar_map)
 
 		self.ds.chg_lh_surfmask(); self.ds.chg_rh_surfmask()
 
@@ -283,7 +283,9 @@ class DVMayavi(DataView):
 
 	def draw_surfs(self): 	
 		from parsing_utils import demangle_hemi
+
 		srf_scalar=self.ds.scalar_display_settings.surf_color
+		
 		if (self.ds.display_mode=='scalar' and srf_scalar):
 			colors_lh=np.zeros((len(self.ds.srf.lh_verts)),)
 			colors_rh=np.zeros((len(self.ds.srf.rh_verts)),)
@@ -298,6 +300,7 @@ class DVMayavi(DataView):
 			self.syrf_rh.mlab_source.scalars=colors_rh
 			
 			for syrf in (self.syrf_lh,self.syrf_rh):
+				set_lut(syrf,self.ds.opts.scalar_map)
 				syrf.actor.mapper.scalar_visibility=True
 
 		else:
@@ -360,6 +363,8 @@ class DVMayavi(DataView):
 	def draw_conns(self,new_edges=None):
 		self.thres.set(lower_threshold=self.ds.thresval)
 		lo=self.thres.lower_threshold; hi=self.thres.upper_threshold
+
+		set_lut(self.vectors,self.ds.opts.activation_map)
 
 		if new_edges is not None:
 			new_starts=self.ds.lab_pos[new_edges[:,0]]
@@ -598,8 +603,6 @@ class DVMatrix(DataView):
 		self.xa.colors=colors; self.ya.colors=colors
 		self.conn_mat.request_redraw()
 
-	#FIXME listen to color changes directly from the GUI and then call
-	#the dataset
 	def draw_conns(self,new_edges=None): NotImplemented
 
 	def center(self):
@@ -607,6 +610,10 @@ class DVMatrix(DataView):
 			ax.mapper.range.high_setting=self.ds.nr_labels
 			ax.mapper.range.low_setting=0
 
+	def change_colormap(self):
+		self.conn_mat.color_mapper = ColorMapper.from_palette_array(
+			self.ds.opts.connmat_map._pl(xrange(256)))
+		self.conn_mat.request_redraw()
 
 	########################################################################
 	# I/O

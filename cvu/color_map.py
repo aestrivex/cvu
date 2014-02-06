@@ -62,27 +62,13 @@ class CustomColormap(HasTraits):
 			return LinearSegmentedColormap.from_list('file',
 				lut_manager.parse_lut_file(self.fname))	
 		elif self.cmap=='custom_heat':
-			return gen_heatmap(t=self.threshold,reversed=self.reversed)
+			return gen_heatmap(t=self.threshold,reverse=self.reverse)
 		elif self.reverse:
 			return get_cmap(self.cmap+'_r')
 		else:
 			return get_cmap(self.cmap)
 
-#TODO THIS IS MONOLITHIC-DATASET CODE THAT SHOULD BE PORTED
-def get_cmap_pl(map):
-	'''From a CustomColormap instance, return a LinearSegmentedColormap
-describing that CustomColormap'''
-	if map.cmap=='file' and map.fname:
-		return LinearSegmentedColormap.from_list('file',
-			lut_manager.parse_lut_file(map.fname))
-	elif map.cmap=='custom_heat':
-		return gen_heatmap(t=map.threshold,reversed=map.reverse)
-	elif map.reverse:
-		return get_cmap(map.cmap+'_r')
-	else:
-		return get_cmap(map.cmap)
-
-def gen_heatmap(t=.2,two_tailed=True,reversed=False):
+def gen_heatmap(t=.2,two_tailed=True,reverse=False):
 	'''Generates a heatmap that has red-to-yellow at the top, blue-to-light-blue
 at the bottom, and gray in the middle.  If the map is one-tailed, only the red
 portion is displayed:
@@ -97,14 +83,15 @@ two-tailed -- if false, only the upper (red) part of the heatmap is shown'''
 	#a very fancy algorithm to do things correctly when the map is inverted.
 	#sorry about the readability
 	def swapif(trip):
-		if reversed: return ( 1-trip[0], trip[2], trip[1] )
+		if reverse: return ( 1-trip[0], trip[2], trip[1] )
 		else: return trip
 
 	def revif(tups):
-		if reversed: l=list(tups); l.reverse(); return tuple(l)
+		if reverse: 
+			l=list(tups); l.reverse(); return tuple(l)
 		else: return tups
 
-	if two_tailed and not reversed:
+	if two_tailed:
 		cdict = {'red': revif(( swapif((0.0,0.0,0.6)),
 							  	swapif((t  ,0.2,0.4)),
 							  	swapif((1-t,0.4,1.0)),
@@ -163,7 +150,7 @@ edge cases
 	if map.cmap=='custom_heat':
 		lut_mgr.lut_mode='black-white' #this mode is not used and will always
 									#trigger notifications when changed
-		hmap = gen_heatmap(t=map.threshold)
+		hmap = gen_heatmap(t=map.threshold,reverse=map.reverse)
 		lut_mgr.lut.table = map_to_table(hmap)
 	else:
 		lut_mgr.lut_mode=map.cmap

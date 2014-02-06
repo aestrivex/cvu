@@ -824,15 +824,51 @@ class Dataset(HasTraits):
 		try: self.dv_3d.vectors.actor.property.line_width=self.opts.conns_width
 		except AttributeError: pass
 
-	#FIXME
-	@on_trait_change('opts:default_map')
-	def chg_scalar_map(self): pass
-	@on_trait_change('opts:scalar_map')
-	def chg_scalar_map(self): pass
-	@on_trait_change('opts:activation_map')
-	def chg_scalar_map(self): pass
-	@on_trait_change('opts:connmat_map')
-	def chg_scalar_map(self): pass
+	@on_trait_change('opts:default_map.[cmap,reverse,fname,threshold]')
+	def chg_default_map(self):
+		try: 
+			self.draw_nodes()
+		except:
+			map_def = self.opts.default_map
+			if map_def.cmap == 'file' and not map_def.fname:
+				pass
+			else:
+				raise
+
+	@on_trait_change('opts:scalar_map.[cmap,reverse,fname,threshold]')
+	def chg_scalar_map(self):
+		try:
+			self.draw_surfs()
+			self.draw_nodes()
+		except:
+			map_sca = self.opts.scalar_map
+			if map_sca.cmap == 'file' and not map_sca.fname:
+				pass
+			else:
+				raise
+
+	@on_trait_change('opts:activation_map.[cmap,reverse,fname,threshold]')
+	def chg_activation_map(self): 
+		#we don't touch the circle plot here since circle redraw is expensive
+		try:
+			self.dv_3d.draw_conns()
+		except:
+			map_act = self.opts.activation_map
+			if map_act.cmap == 'file' and not map_act.fname:
+				pass
+			else:
+				raise
+		
+	@on_trait_change('opts:connmat_map.[cmap,reverse,fname,threshold]')
+	def chg_connmat_map(self): 
+		try:
+			self.dv_mat.change_colormap()
+		except:
+			map_mat = self.opts.connmat_map
+			if map_mat.cmap == 'file' and not map_mat.fname:
+				pass
+			else:
+				raise
 
 	######################################################################
 	# MISCELLANEOUS HELPERS
