@@ -64,6 +64,8 @@ def do_opt(adj,mods,option):
 		return bct.clustering_coef_wu(adj)
 	elif option=='eigenvector centrality':
 		return bct.eigenvector_centrality_und(adj)
+	elif option=='binary kcore':
+		return bct.kcoreness_centrality_bu(adj)[0]
 
 	elif option=='modularity':
 		return bct.modularity_und(adj,mods)[1]

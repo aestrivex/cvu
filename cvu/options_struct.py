@@ -110,7 +110,8 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
 	intermediate_graphopts_list=List(Str)
 
 	def _intermediate_graphopts_list_default(self):
-		return ['global efficiency', 'clustering coefficient']
+		return ['global efficiency', 'clustering coefficient',
+			'average strength','eigenvector centrality','binary kcore']
 
 class ScalarDisplaySettings(DatasetReferenceOptionsStructure):
 	node_color=Either(Str,None)

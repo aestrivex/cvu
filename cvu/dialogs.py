@@ -205,7 +205,8 @@ class OptionsWindow(DatasetSpecificSubwindow):
 
 	def _initial_graphopts_list_default(self):
 		return ['global efficiency', 'local efficiency', 'average strength',
-			'clustering coefficient', 'eigenvector centrality', 'modularity', 
+			'clustering coefficient', 'eigenvector centrality', 'binary kcore',
+			 'modularity', 
 			'participation coefficient', 'within-module degree']
 	def _conns_disclaimer_default(self):
 		return ("Note changing conn visibility is not applied immediately as "
@@ -485,7 +486,7 @@ class ConfigureScalarsWindow(DatasetSpecificSubwindow):
 				show_labels=False
 			),
 		),
-		height=200,width=800,buttons=OKCancelButtons,
+		height=450,width=800,buttons=OKCancelButtons,
 		title='Your data is probably just spurious artifacts anyway',
 	)
 	
