@@ -52,10 +52,10 @@ class DataView(HasTraits):
 	def supply_adj(self): raise NotImplementedError()
 
 	def error_dialog(self,str):
-		return ds.error_dialog(str)
+		return self.ds.error_dialog(str)
 	
 	def warning_dialog(self,str):
-		return ds.warning_dialog(str)
+		return self.ds.warning_dialog(str)
 
 	#abstract methods
 	def draw_surfs(self): raise NotImplementedError()
@@ -151,16 +151,20 @@ class DVMayavi(DataView):
 		self.ds.chg_lh_surfmask(); self.ds.chg_rh_surfmask()
 
 	def cracked_surfs_gen(self): 
+		from parsing_utils import demangle_hemi
 		tri_inds_l,tri_inds_r=[],[]
 		#all lh nodes are assumed to start with l
-		for l in self.ds.labv:
+		for l in self.ds.labnam:
 			if l[0]=='l':
 				tris=self.ds.srf.lh_tris; tri_inds=tri_inds_l
 			elif l[0]=='r':
 				tris=self.ds.srf.rh_tris; tri_inds=tri_inds_r
+			else:
+				self.error_dialog('Bad label name %s'%l)
+				return
 
 			#get the triangles entirely contained in this set of vertices
-			v_as_set=set(self.ds.labv[l])
+			v_as_set=set(self.ds.labv[demangle_hemi(l)])
 			ts,=np.where([v_as_set.issuperset(tri) for tri in tris])
 			tri_inds.extend(ts)
 
@@ -168,13 +172,13 @@ class DVMayavi(DataView):
 			self.ds.srf.lh_verts[:,0],self.ds.srf.lh_verts[:,1],
 			self.ds.srf.lh_verts[:,2],self.ds.srf.lh_tris[tri_inds_l],
 			opacity=self.ds.opts.surface_visibility,
-			color=self.ds.cvu.default_glass_brain_color,
+			color=self.ds.default_glass_brain_color,
 			figure=self.scene.mayavi_scene)
 		self.syrf_rh=mlab.triangular_mesh(
 			self.ds.srf.rh_verts[:,0],self.ds.srf.rh_verts[:,1],
 			self.ds.srf.rh_verts[:,2],self.ds.srf.rh_tris[tri_inds_r],
 			opacity=self.ds.opts.surface_visibility,
-			color=self.ds.cvu.default_glass_brain_color,
+			color=self.ds.default_glass_brain_color,
 			figure=self.scene.mayavi_scene)
 
 		self.surfs_cracked=True
@@ -278,13 +282,14 @@ class DVMayavi(DataView):
 	########################################################################
 
 	def draw_surfs(self): 	
+		from parsing_utils import demangle_hemi
 		srf_scalar=self.ds.scalar_display_settings.surf_color
 		if (self.ds.display_mode=='scalar' and srf_scalar):
 			colors_lh=np.zeros((len(self.ds.srf.lh_verts)),)
 			colors_rh=np.zeros((len(self.ds.srf.rh_verts)),)
-			for i,l in enumerate(self.ds.labv):
+			for i,l in enumerate(self.ds.labnam):
 				#assumes that lh labels start with L and so on
-				vertices=self.ds.labv[l]
+				vertices=self.ds.labv[demangle_hemi(l)]
 				if l[0]=='l':
 					colors_lh[vertices]=self.ds.node_scalars[srf_scalar][i]
 				elif l[0]=='r':

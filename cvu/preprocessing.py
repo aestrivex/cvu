@@ -83,8 +83,9 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 	lab_pos=np.zeros((len(labnam),3))
 	#an nlogn sorting algorithm is theoretically possible here but rather hard
 	labs_used=[]
-	labv={} 	# return the vertices associated with the label.
-				# the label file has a lot more unneeded information than this.
+	labv={} 
+
+	# return just the vertices associated with the label.
 	for lab in labels:
 		try:
 			i=labnam.index(parse.mangle_hemi(lab.name))
@@ -109,12 +110,8 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 			if lab in valid_subcortical_keys:
 				if asegd is None:
 					import nibabel
-					#import time
-					#t1=time.clock()
 					aseg=nibabel.load(os.path.join(subject,'mri','aseg.mgz'))
 					asegd=aseg.get_data()
-					#t2=time.clock()
-					#print t2-t1
 				lab_pos[i,:] = volume.roi_coords(lab,asegd,subjdir=subjdir,
 					subject=subject,lhsurf=lhsurf,rhsurf=rhsurf)
 			#let the user know if parc order file has unrecongized entries

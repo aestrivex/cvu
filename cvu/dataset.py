@@ -415,7 +415,7 @@ class Dataset(HasTraits):
 			while self.nr_modules > len(self.module_colors):
 				i,j=np.random.randint(18,size=(2,))
 				col=(np.array(self.module_colors[i])+self.module_colors[j])/2
-				col=int(col)
+				col=np.array(col,dtype=int)
 				self.module_colors.append(col.tolist())
 			perm=np.random.permutation(len(self.module_colors))
 			#mayavi scalars depend on saving the module colors
@@ -774,7 +774,14 @@ class Dataset(HasTraits):
 
 	@on_trait_change('opts:render_style')
 	def chg_render_style(self):
-		try: self.dv_3d.set_surf_render_style()
+		try: self.dv_3d.set_surf_render_style(self.opts.render_style)
+		except AttributeError: pass
+
+	@on_trait_change('opts:surface_visibility')
+	def chg_surf_opacity(self):
+		try: 
+			for syrf in (self.dv_3d.syrf_lh, self.dv_3d.syrf_rh):
+				syrf.actor.property.opacity=self.opts.surface_visibility
 		except AttributeError: pass
 
 	@on_trait_change('opts:lh_nodes_on')

@@ -30,7 +30,10 @@ def hemineutral(s):
 		return s
 
 def mangle_hemi(s):
-	return s[-2:]+'_'+s[0:-3]
+	return '%s_%s'%(s[-2:],s[:-3])
+
+def demangle_hemi(s):
+	return '%s-%s'%(s[3:],s[:2])
 
 def same_hemi(s1,s2,char=None):
 	if char is None: return s1[0]==s2[0]
