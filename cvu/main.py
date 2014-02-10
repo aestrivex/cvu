@@ -42,9 +42,10 @@ def usage():
 
 def cli_args(argv,):
 	import getopt; import os
-	adjmat_location=None; parcellation_name=None; subject_name=None
+	adjmat_location=None; parcellation_name=None; subject_name=None;
 	subjects_dir=None; parcellation_order=None; adjmat_order=None; 
-	surface_type=None; field_name=None; max_edges=None; quiet=False
+	surface_type=None; field_name=None; max_edges=None; quiet=False;
+	script=None
 
 	#check for passed arguments
 	try:
@@ -52,7 +53,7 @@ def cli_args(argv,):
 			["parc=","adjmat=","adj=","data=","datadir="\
 			"surf=","order=","surf-type=","parcdir=",
 			"help","field=","subjects-dir=","subject=",
-			"max-edges=","adj-order="])
+			"max-edges=","adj-order=","script="])
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
@@ -82,6 +83,8 @@ def cli_args(argv,):
 			field_name = arg
 		elif opt in ["--max-edges"]:
 			max_edges = arg
+		elif opt in ["--script"]:
+			script = arg
 
 	#assign default values
 	if subjects_dir is None:
@@ -116,7 +119,8 @@ def cli_args(argv,):
 		'subject':subject_name,			'subjdir':subjects_dir,
 		'parcorder':parcellation_order,	'adjorder':adjmat_order,
 		'surftype':surface_type,		'maxedges':max_edges,
-		'field':field_name,				'quiet':quiet,}
+		'field':field_name,				'quiet':quiet,
+		'script':script}
 
 #this reproduces work done in preprocessing that operates on a Parameters
 #object that didn't exist yet.  That it didn't exist is bad design but there
@@ -175,6 +179,9 @@ def main():
 	g=CvuGUI(sample_dataset,sample_metadata,quiet=args['quiet'])
 	sample_dataset.gui=g
 	g.configure_traits()
+
+def script(file):
+	with open(file) as fd: exec(fd)
 
 if __name__=='__main__':
 	main()

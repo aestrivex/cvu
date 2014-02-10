@@ -18,7 +18,7 @@ This document expects all of the scripting to be done in the shell cvu provides.
 This will be helpful, of course, primarily to scientists who are already somewhat
 comfortable with scripting.  Notably this shell allows you to access all of the
 data structures that cvu uses to define its data.  Try it out!  Type in
-"self.syrf_lh.visible=False".
+"self.controller.ds_orig.dv_3d.syrf_lh.visible=False".
 
 ==Common operations==
 =====Executing a script=====

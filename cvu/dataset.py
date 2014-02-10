@@ -599,11 +599,15 @@ class Dataset(HasTraits):
 		#when switching from cracked to glass. so it is here.
 
 	#handles the scaling and size checking for new scalar datasets
-	def save_scalar(self,name,scalars):
+	def save_scalar(self,name,scalars,passive=False):
 		if np.squeeze(scalars).shape != (self.nr_labels,):
-			self.error_dialog("Only Nx1 vectors can be saved as scalars")
-			print np.squeeze(scalars).shape, self.nr_labels
-			return
+			if passive:
+				self.verbose_msg("Only Nx1 vectors can be saved as scalars")
+				return
+			else:
+				self.error_dialog("Only Nx1 vectors can be saved as scalars")
+				print np.squeeze(scalars).shape, self.nr_labels
+				return
 		ci=scalars.ravel().copy()
 		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
 		self.node_scalars.update({name:ci})
@@ -690,6 +694,9 @@ class Dataset(HasTraits):
 		try:
 			self.graph_stats=graph.do_summary(thres_adj,bct.ls2ci(self.modules),
 				self.opts.intermediate_graphopts_list)
+
+			for name,arr in self.graph_stats.iteritems():
+				self.save_scalar(name,arr,passive=True)
 		except CVUError:
 			self.error_dialog("Community structure required for some of "
 				"the calculations specified.  Try calculating modules first.")
