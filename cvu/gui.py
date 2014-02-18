@@ -17,7 +17,7 @@
 import os
 import sys
 from traits.api import (HasTraits,List,Instance,Dict,Button,Str,
-	Bool,on_trait_change)
+	Bool,Property,on_trait_change)
 from traitsui.api import (ButtonEditor,ShellEditor,View,Item,Spring,HSplit,
 	VSplit,Group,InstanceEditor)
 from dataset import Dataset
@@ -94,9 +94,12 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	load_track_button = 			Button('Load tractography')
 	save_snapshot_button = 			Button('Take snapshot')
 	make_movie_button = 			Button
-	mk_movie_lbl = 					Str('Make movie')
-	about_button = 					Button('About')
+	currently_making_movie =		Bool(False)
+	mk_movie_lbl = 					Property(depends_on='currently_making_movie')
+	def _get_mk_movie_lbl(self):
+		return 'Stop movie' if self.currently_making_movie else 'Make movie'
 
+	about_button = 					Button('About')
 	manage_views_button = 			Button('Manage views')
 
 	python_shell = Dict
@@ -388,20 +391,45 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	def _save_snapshot_check(self):
 		ssw=self.save_snapshot_window
 		if not ssw.finished: return
-		elif not ssw.ctl.savefile: 
-			self.error_dialog('You must specify a filename to save to')
-			return
+
+		save_continuation = ssw.ctl.ds_ref.snapshot(ssw.ctl)
+		self.process_save_continuation(ssw.ctl.savefile, save_continuation)
+
+		#elif not ssw.ctl.savefile: 
+		#	self.error_dialog('You must specify a filename to save to')
+		#	return
+		#else:
+		#	save_continuation = ssw.ctl.ds_ref.snapshot(ssw.ctl)
+		#	if not os.path.exists(os.path.dirname(ssw.ctl.savefile)):
+		#		self.error_dialog('Bad path specified. Check for typo?')
+		#	elif not os.path.exists(ssw.ctl.savefile):
+		#		save_continuation()
+		#	else:	
+		#		rofw = self.really_overwrite_file_window
+		#		rofw.save_continuation = save_continuation
+		#		rofw.finished=False
+		#		rofw.edit_traits()
+
+	def _make_movie_button_fired(self):
+		if not self.currently_making_movie:
+			self.make_movie_window.finished=False
+			self.make_movie_window.edit_traits()
 		else:
-			save_continuation = ssw.ctl.ds_ref.snapshot(ssw.ctl)
-			if not os.path.exists(os.path.dirname(ssw.ctl.savefile)):
-				self.error_dialog('Bad path specified. Check for typo?')
-			elif not os.path.exists(ssw.ctl.savefile):
-				save_continuation()
-			else:	
-				rofw = self.really_overwrite_file_window
-				rofw.save_continuation = save_continuation
-				rofw.finished=False
-				rofw.edit_traits()
+			self.currently_making_movie = False
+			mmw = self.make_movie_window
+			mmw.ctl.ds_ref.make_movie_finish(mmw.ctl)
+
+	@on_trait_change('make_movie_window:notify')
+	def make_movie_check(self):
+		mmw=self.make_movie_window
+		if not mmw.finished: return
+
+		movie_continuation = mmw.ctl.ds_ref.make_movie(mmw.ctl)
+		def save_continuation():
+			self.currently_making_movie=True
+			movie_continuation()
+
+		self.process_save_continuation(mmw.ctl.savefile, save_continuation)
 
 	@on_trait_change('really_overwrite_file_window:notify')
 	def _really_overwrite_file_check(self):
@@ -410,9 +438,20 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		if rofw.finished: rofw.save_continuation()
 			#otherwise, dont do anything
 
-	def _make_movie_button_fired(self):
-		self.make_movie_window.finished=False
-		self.make_movie_window.edit_traits()
+	def process_save_continuation(self,filename,save_continuation):
+		if not filename:
+			self.error_dialog("No save file specified")
+			return	
+		elif not os.path.exists(os.path.dirname(filename)):
+			self.error_dialog("Bad save file specified. Check for typos.")
+			return
+		elif not os.path.exists(filename):
+			save_continuation()
+		else:
+			rofw = self.really_overwrite_file_window
+			rofw.save_continuation = save_continuation
+			rofw.finished = False
+			rofw.edit_traits()
 
 	def _controller_button_fired(self):
 		self.controller.viewport_manager.edit_traits()

@@ -249,11 +249,10 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
 					% (lab, adjlabfile))
 	return adj
 
-#BELOW THIS POINT ARE FUNCTIONS FOR PROCESSING GIFTI FILES WHICH IS DEPRECATED
 def loadannot_gifti(fname):
 	import nibabel.gifti
-	annot_lh=nibabel.gifti.read(hemineutral(fname)%'lh')
-	annot_rh=nibabel.gifti.read(hemineutral(fname)%'rh')
+	annot_lh=nibabel.gifti.read(parse.hemineutral(fname)%'lh')
+	annot_rh=nibabel.gifti.read(parse.hemineutral(fname)%'rh')
 	
 	#unpack the annotation data
 	labdict_lh=appendhemis(annot_lh.labeltable.get_labels_as_dict(),"lh_")

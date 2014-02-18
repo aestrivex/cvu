@@ -57,6 +57,9 @@ class DataView(HasTraits):
 	def warning_dialog(self,str):
 		return self.ds.warning_dialog(str)
 
+	def verbose_msg(self,str):
+		return self.ds.verbose_msg(str)
+
 	#abstract methods
 	def draw_surfs(self): raise NotImplementedError()
 	def draw_nodes(self): raise NotImplementedError()
@@ -498,9 +501,10 @@ class DVMayavi(DataView):
 
 	#takes a MakeMovieParameters
 	def make_movie(self,params):
+		self.animator=None
 		xs,ys=self.scene.scene_editor.control.GetScreenPositionTuple()		
 		ys+=32 #the mayavi toolbar takes up 32 pixels
-		xe,ye=tuple(self.scene.scene_editor(get_size()))
+		xe,ye=tuple(self.scene.scene_editor.get_size())
 
 		cmd = ('ffmpeg -loglevel error -y -f x11grab -s %ix%i -r %i -b %i '
 			'-i :0.0+%i,%i %s' % 
@@ -513,6 +517,10 @@ class DVMayavi(DataView):
 			self.error_dialog(str(e))
 
 	def make_movie_animate(self,samplerate,rotate_on):
+		if not rotate_on:
+			return
+
+		from mayavi.tools.animator import Animator
 		def anim():
 			i=0
 			while True:
@@ -534,10 +542,9 @@ class DVMayavi(DataView):
 		if self.ffmpeg_process.returncode:
 			self.error_dialog('ffmpeg failed with error code %s' %
 				self.ffmpeg_process.returncode)
-			del self.ffmpeg_process
 			return
 		del self.ffmpeg_process
-		print "Movie saved successfully to %s" % params.savefile
+		self.verbose_msg("Movie saved successfully to %s" % params.savefile)
 
 	##END DVMAYAVI
 
