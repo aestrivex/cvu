@@ -64,16 +64,24 @@ def read_ordering_file(fname):
 
 	return labnam,deleters
 
-def loadsurf(fname,surftype):
+def loadsurf(fname,surftype,quiet=True):
 	from dataset import SurfData
 	surf_lh,sfaces_lh=mne.surface.read_surface(parse.hemineutral(fname)%'lh')
 	surf_rh,sfaces_rh=mne.surface.read_surface(parse.hemineutral(fname)%'rh')
 	return SurfData(surf_lh,sfaces_lh,surf_rh,sfaces_rh,surftype)
 
-def loadannot(p,subj,subjdir,surf_type='pial'):
-	annot=mne.labels_from_parc(parc=p,subject=subj,surf_name=surf_type,
-		subjects_dir=subjdir,verbose=False)
-	return annot[0]	#discard the color table
+def loadannot(p,subj,subjdir,surf_type='pial',quiet=False):
+	verbosity = 'ERROR' if quiet else 'WARNING'
+
+	if float(mne.__version__[:3]) >= 0.8:
+		print mne.__version__
+		annot = mne.read_annot(parc=p, subject=subj, surf_name=surf_type,
+			subjects_dir=subjdir, verbose=verbosity)
+	else:
+		annot = mne.labels_from_parc(parc=p, subject=subj, surf_name=surf_type,
+			subjects_dir=subjdir, verbose=verbosity)
+		annot = annot[0] #discard the color table
+	return annot
 
 def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 		subject='fsavg5',lhsurf=None,rhsurf=None):
@@ -213,7 +221,8 @@ def process_adj(params,err_handler):
 		if len(adj) != params.ds_ref.nr_labels:
 			err_handler.error_dialog(
 				'The adjmat specified is of size %i and the '
-				'parcellation size is %i' % 
+				'parcellation size is %i. This is probably because some regions '
+				'in the adjmat ordering were not found in the parcellation.' % 
 				(len(adj),params.ds_ref.nr_labels)); return
 	
 		return adj,soft_max_edges,params.adjmat

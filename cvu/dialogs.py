@@ -53,7 +53,10 @@ class InteractiveSubwindow(Handler):
 		self.window_active=False
 	def reconstruct(self):
 		#self.window_active=False
-		self.info.ui.dispose()
+
+		#maybe the user spawned multiple copies and closed some himself
+		if self.info.ui is not None:
+			self.info.ui.dispose()
 		self.info.object.edit_traits()
 	def conditionally_dispose(self):
 		if self.window_active:
@@ -167,6 +170,10 @@ class OptionsWindow(DatasetSpecificSubwindow):
 				Item(name='rh_surfs_on',object='object.ctl',
 					label='RH surfaces on'),
 			),
+			HSplit(
+				Item(name='disable_circle',object='object.ctl',
+					label='disable circle rendering'),
+			),
 			label='Display settings',show_labels=False
 		),
 		VGroup(
@@ -215,7 +222,12 @@ class OptionsWindow(DatasetSpecificSubwindow):
 	def _edit_cmap_button_fired(self):
 		from tvtk import util as tvtk_util; import sys,subprocess
 		script=os.path.join(os.path.dirname(tvtk_util.__file__),
-			'wx_gradient_editor.py')
+			'%s_gradient_editor.py')
+		try:
+			import Tkinter, tkFileDialog
+			script=script%'tk'
+		except ImportError:
+			script=script%'wx'
 		subprocess.Popen([sys.executable, script])
 	def _reset_default_cmaps_button_fired(self,info):
 		for map in (self.default_map,self.scalar_map,self.activation_map,
@@ -569,7 +581,7 @@ class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
 		Item(name='bitrate',object='object.ctl',label='bitrate (kb/s)'),
 		Item(name='anim_style',object='object.ctl',
 			label='automatically rotate'),
-		Item(name='samplerate',object='object.ctl',label='animation speed'),
+		Item(name='samplerate',object='object.ctl',label='animation speed (Hz)'),
 	), kind='panel',buttons=OKCancelButtons,title="Make me a sandwich")
 
 ############################################################################

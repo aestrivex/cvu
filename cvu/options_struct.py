@@ -98,6 +98,7 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
 	lh_surfs_on = Bool(True)
 	rh_surfs_on = Bool(True)
 	conns_width = Float(2.)
+	disable_circle = Bool(False)
 	conns_colors_on = Bool(True)
 
 	#colormap tab

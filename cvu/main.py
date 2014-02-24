@@ -23,6 +23,8 @@ import os
 import getopt
 from utils import CVUError
 
+os.environ['ETS_TOOLKIT']='wx'
+
 def usage():
 	print ('Command line arguments are as follows:\n'
 		'-p greg.gii --parc=greg: location of annotations *h.greg.annot\n'
@@ -40,7 +42,7 @@ def usage():
 		'-h --help: display this help')
 	exit(78)
 
-def cli_args(argv,):
+def cli_args(argv):
 	import getopt; import os
 	adjmat_location=None; parcellation_name=None; subject_name=None;
 	subjects_dir=None; parcellation_order=None; adjmat_order=None; 
@@ -142,7 +144,8 @@ def preproc(args):
 
 	#load parcellation and vertex positions
 	labels = pp.loadannot(
-		args['parc'],args['subject'],args['subjdir'],surf_type=args['surftype'])
+		args['parc'], args['subject'], args['subjdir'], surf_type=args['surftype'],
+		quiet=args['quiet'])
 
 	#calculate label positions from vertex positions
 	if args['subject']=='fsavg5':
@@ -165,19 +168,27 @@ def preproc(args):
 		adj=adj,soft_max_edges=args['maxedges'])
 	# Package dataloc and modality into tuple for passing
 
-	return sample_dataset,sample_metadata
+	exec_script = args['script']
+	
+	return sample_dataset,sample_metadata,exec_script
 
 def main():
 	#read the command line arguments or fetch the default values
-	args=cli_args(sys.argv[:1])
+	args=cli_args(sys.argv[1:])
 
 	#generate the initial dataset
 	#TODO collect the "name" of the sample dataset on the command line
 	
-	sample_dataset,sample_metadata=preproc(args)
+	sample_dataset,sample_metadata,exec_script=preproc(args)
 	
 	g=CvuGUI(sample_dataset,sample_metadata,quiet=args['quiet'])
 	sample_dataset.gui=g
+
+	if exec_script is not None:
+		from pyface.api import GUI
+		gui=GUI()
+		gui.invoke_later(lambda:script(exec_script))
+
 	g.configure_traits()
 
 def script(file):

@@ -336,6 +336,14 @@ class Dataset(HasTraits):
 		self.interhemi=self.interhemi[sort_idx].squeeze()
 		self.masked=self.masked[sort_idx].squeeze()	#just to prune
 
+		#try to auto-set the threshold to a reasonable value
+		if self.nr_edges < 500:
+			self.opts.pthresh=.01
+		else:
+			thr = (self.nr_edges - 500) / (self.nr_edges)
+			self.opts.pthresh=thr
+		self.opts.thresh_type = 'prop'
+
 		self.display_mode='normal'
 
 	def node_colors_gen(self):
@@ -429,7 +437,8 @@ class Dataset(HasTraits):
 		if conservative: new_edges = None
 		else: new_edges,count_edges = self.select_conns()
 		for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
-			data_view.draw_conns(new_edges)
+			if data_view is not None:
+				data_view.draw_conns(new_edges)
 
 	def select_conns(self):
 		lo=self.thresval
@@ -464,7 +473,7 @@ class Dataset(HasTraits):
 				#design spec; the dataset is checking the dataview and
 				#messing with its internals.  obviously, the reason why
 				#is that this code runs often and needs to be optimized
-				if self.dv_circ is not None:
+				if self.dv_circ is not None and not self.opts.disable_circle:
 					ev=self.adjdat[e]
 					if (lo <= ev <= hi):
 						self.dv_circ.circ_data[e].set_visible(True)
@@ -475,7 +484,7 @@ class Dataset(HasTraits):
 						self.dv_circ.circ_data[e].set_visible(False)
 			else:
 				new_edges[e]=(0,0)
-				if self.dv_circ is not None:
+				if self.dv_circ is not None and not self.opts.disable_circle:
 					self.dv_circ.circ_data[e].set_visible(False)
 	
 		return new_edges,count_edges

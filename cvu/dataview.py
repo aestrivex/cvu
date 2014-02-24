@@ -364,27 +364,33 @@ class DVMayavi(DataView):
 		mlab.draw()
 
 	def draw_conns(self,new_edges=None):
-		self.thres.set(lower_threshold=self.ds.thresval)
-		lo=self.thres.lower_threshold; hi=self.thres.upper_threshold
+		try:
+			self.thres.set(lower_threshold=self.ds.thresval)
+			lo=self.thres.lower_threshold; hi=self.thres.upper_threshold
 
-		set_lut(self.vectors,self.ds.opts.activation_map)
+			set_lut(self.vectors,self.ds.opts.activation_map)
 
-		if new_edges is not None:
-			new_starts=self.ds.lab_pos[new_edges[:,0]]
-			new_vecs=self.ds.lab_pos[new_edges[:,1]] - new_starts
+			if new_edges is not None:
+				new_starts=self.ds.lab_pos[new_edges[:,0]]
+				new_vecs=self.ds.lab_pos[new_edges[:,1]] - new_starts
 
-			self.vectors.mlab_source.reset(
-				x=new_starts[:,0],y=new_starts[:,1],z=new_starts[:,2],
-				u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
+				self.vectors.mlab_source.reset(
+					x=new_starts[:,0],y=new_starts[:,1],z=new_starts[:,2],
+					u=new_vecs[:,0],v=new_vecs[:,1],w=new_vecs[:,2])
 
-		if self.ds.curr_node is not None:
-			self.vectors.actor.property.opacity=.75
-			self.txt.set(text='  %s'%self.ds.labnam[self.ds.curr_node])
-		else:
-			self.vectors.actor.property.opacity=.3
-			self.txt.set(text='')
+			if self.ds.curr_node is not None:
+				self.vectors.actor.property.opacity=.75
+				self.txt.set(text='  %s'%self.ds.labnam[self.ds.curr_node])
+			else:
+				self.vectors.actor.property.opacity=.3
+				self.txt.set(text='')
 
-		mlab.draw()
+			mlab.draw()
+
+		# In case the user changes the threshold while there are no connections
+		# present and so the VTK objects have not been created yet
+		except AttributeError:
+			pass
 
 	########################################################################
 	# DRAW HELPERS
