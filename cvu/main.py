@@ -59,6 +59,8 @@ def cli_args(argv):
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
+	print argv
+	print opts,args
 	for opt,arg in opts:
 		if opt in ["-p","--parc"]:
 			parcellation_name = arg
@@ -174,7 +176,7 @@ def preproc(args):
 
 def main():
 	#read the command line arguments or fetch the default values
-	args=cli_args(sys.argv[1:])
+	args=cli_args(sys.argv[2:])
 
 	#generate the initial dataset
 	#TODO collect the "name" of the sample dataset on the command line
@@ -187,12 +189,17 @@ def main():
 	if exec_script is not None:
 		from pyface.api import GUI
 		gui=GUI()
-		gui.invoke_later(lambda:script(exec_script))
+		gui.invoke_later(lambda:script(exec_script,sys.argv[1]))
 
 	g.configure_traits()
 
-def script(file):
+def script(file,scriptdir):
+	curdir=os.getcwd()
+	os.chdir(scriptdir)
+	print scriptdir
+	file=os.path.abspath(file)
 	with open(file) as fd: exec(fd)
+	os.chdir(curdir)
 
 if __name__=='__main__':
 	main()
