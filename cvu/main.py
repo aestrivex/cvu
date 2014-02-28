@@ -59,8 +59,6 @@ def cli_args(argv):
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
-	print argv
-	print opts,args
 	for opt,arg in opts:
 		if opt in ["-p","--parc"]:
 			parcellation_name = arg
@@ -189,17 +187,17 @@ def main():
 	if exec_script is not None:
 		from pyface.api import GUI
 		gui=GUI()
-		gui.invoke_later(lambda:script(exec_script,sys.argv[1]))
+		gui.invoke_later(lambda:script(exec_script,scriptdir=sys.argv[1]))
 
 	g.configure_traits()
 
-def script(file,scriptdir):
+def script(file,scriptdir=os.getcwd()):
 	curdir=os.getcwd()
 	os.chdir(scriptdir)
 	print scriptdir
 	file=os.path.abspath(file)
-	with open(file) as fd: exec(fd)
 	os.chdir(curdir)
+	with open(file) as fd: exec(fd)
 
 if __name__=='__main__':
 	main()

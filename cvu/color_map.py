@@ -59,8 +59,10 @@ class CustomColormap(HasTraits):
 	def _get__pl(self):
 		'''return the LinearSegmentedColormap describing this CustomColormap'''
 		if self.cmap=='file' and self.fname:
-			return LinearSegmentedColormap.from_list('file',
-				lut_manager.parse_lut_file(self.fname))	
+			colors = lut_manager.parse_lut_file(self.fname)
+			if self.reverse:
+				colors.reverse()
+			return LinearSegmentedColormap.from_list('file',colors)
 		elif self.cmap=='custom_heat':
 			return gen_heatmap(t=self.threshold,reverse=self.reverse)
 		elif self.reverse:
