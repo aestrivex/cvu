@@ -102,10 +102,14 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
 	conns_colors_on = Bool(True)
 
 	#colormap tab
-	default_map=	Instance(CustomColormap,CustomColormap('default'))
-	scalar_map=		Instance(CustomColormap,CustomColormap('scalar'))
-	activation_map=	Instance(CustomColormap,CustomColormap('activation'))
-	connmat_map=	Instance(CustomColormap,CustomColormap('connmat'))
+	default_map=	Instance(CustomColormap)
+	def _default_map_default(self): return CustomColormap('default')
+	scalar_map=		Instance(CustomColormap)
+	def _scalar_map_default(self): return CustomColormap('scalar')
+	activation_map=	Instance(CustomColormap)
+	def _activation_map_default(self): return CustomColormap('activation')
+	connmat_map=	Instance(CustomColormap)
+	def _connmat_map_default(self): return CustomColormap('connmat')
 
 	#graph statistics tab
 	intermediate_graphopts_list=List(Str)

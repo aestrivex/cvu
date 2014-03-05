@@ -96,9 +96,9 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 	# return just the vertices associated with the label.
 	for lab in labels:
 		try:
-			i=labnam.index(parse.mangle_hemi(lab.name))
-			labs_used.append(parse.mangle_hemi(lab.name))
-			labv.update({lab.name:lab.vertices})
+			i=labnam.index(parse.mangle_hemi(lab.name.lower()))
+			labs_used.append(parse.mangle_hemi(lab.name.lower()))
+			labv.update({lab.name.lower():lab.vertices})
 		except ValueError:
 			if not quiet:
 				print ("Label %s deleted as requested" % 

@@ -162,7 +162,7 @@ class Dataset(HasTraits):
 	reset_thresh=Property(Method)
 	def _get_reset_thresh(self):
 		if self.opts.thresh_type=='prop': return self.prop_thresh
-		elif self.opts.thresh_type=='num': return self.num_thresh
+		elif self.opts.thresh_type=='abs': return self.abs_thresh
 
 	thresval=Float
 
