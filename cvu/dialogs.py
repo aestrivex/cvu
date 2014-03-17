@@ -16,7 +16,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from traits.api import (HasTraits,Bool,Event,File,Int,Str,Directory,Function,
-	Enum,List,Button,Range,Instance,Float,Trait,Any,CFloat,Property,
+	Enum,List,Button,Range,Instance,Float,Trait,Any,CFloat,Property,Either,
 	on_trait_change)
 from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,
 	CancelButton,Spring,InstanceEditor,
@@ -621,7 +621,7 @@ class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 ############################################################################
 class ErrorDialogWindow(Handler):
 	error=Str
-	stacktrace=Instance(traceback.types.TracebackType)
+	stacktrace=Either(Instance(traceback.types.TracebackType),None)
 	StackTraceButton=Action(name='print stack to console',action='do_stack_trace')
 	traits_view=View(Item(name='error',style='readonly',height=75,width=300),
 		buttons=[StackTraceButton,OKButton],kind='nonmodal',
@@ -629,12 +629,18 @@ class ErrorDialogWindow(Handler):
 
 	def do_stack_trace(self,info):
 		if self.stacktrace is not None:
+			
 			try:
-				traceback.print_tb(self.stack_trace)
+				traceback.print_tb(self.stacktrace)
 			except:
+				traceback.print_stack()
 				print "The stack trace passed along with this error was not valid!"
+				print "The entire accessible stack was printed instead"
+				
 		else:
+			traceback.print_stack()
 			print "There is no stack trace available for this error!"
+			print "The entire accessible stack was printed instead"
 
 class WarningDialogWindow(HasTraits):
 	warning=Str

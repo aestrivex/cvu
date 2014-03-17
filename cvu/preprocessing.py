@@ -52,7 +52,6 @@ def loadannot(*args,**kwargs):
 	try:
 		return loadannot_mne(*args,**kwargs)
 	except:
-		raise
 		return loadannot_gifti(*args,**kwargs)
 
 def read_ordering_file(fname):
@@ -190,7 +189,7 @@ def process_parc(params,err_handler):
 			labnam=labnam,
 			surf_type=params.surface_type,
 			surf_struct=srf)
-	except IOError as e:
+	except (IOError,ValueError) as e:
 		err_handler.error_dialog(str(e)); return
 
 	try:
@@ -286,8 +285,9 @@ def match_gifti_intent(fname_stem, intent):
 	elif os.path.exists(fname_stem%intent):
 		return fname_stem%intent
 	else:
-		raise ValueError("No GIFTI file %s with matching intent %s was found"%
-			(fname_stem%'',intent))
+		raise ValueError("No GIFTI file %s with matching intent %s was found.\n"
+			"This can be caused by intermixing freesurfer and GIFTI files (which cannot "
+			"be done)"	%  (fname_stem%'',intent))
 
 def loadannot_gifti(parcname, subject, subjects_dir, labnam=None, surf_type='pial',
 		surf_struct=None, quiet=False):

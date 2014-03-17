@@ -202,6 +202,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.panel_name = 'base_gui'
 
 	def error_dialog(self,message):
+		self.error_dialog_window.stacktrace=None
 		_,_,tb=sys.exc_info()
 		if tb is not None:
 			self.error_dialog_window.stacktrace=tb
