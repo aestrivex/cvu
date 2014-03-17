@@ -535,9 +535,8 @@ class Dataset(HasTraits):
 
 		#flip adj ord should already be done to the preprocessed adj
 		self.adj_helper_gen()
-
+		
 		self.dv_3d.vectors_clear()
-
 		self.display_mode='normal'
 
 		for dv in (self.dv_3d, self.dv_mat, self.dv_circ):

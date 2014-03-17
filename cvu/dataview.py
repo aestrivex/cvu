@@ -276,8 +276,6 @@ class DVMayavi(DataView):
 
 		self.ds.chg_conns_colorbar()
 
-		#calling draw_conns is expensive and we want to avoid doing it
-		#right after loading
 		self.txt.set(text='')
 
 	########################################################################

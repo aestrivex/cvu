@@ -144,8 +144,8 @@ def preproc(args):
 
 	#load parcellation and vertex positions
 	labels = pp.loadannot(
-		args['parc'], args['subject'], args['subjdir'], surf_type=args['surftype'],
-		quiet=args['quiet'])
+		args['parc'], args['subject'], args['subjdir'], labnam=labnam,
+		surf_type=args['surftype'], surf_struct=srf, quiet=args['quiet'])
 
 	#calculate label positions from vertex positions
 	if args['subject']=='fsavg5':

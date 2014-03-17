@@ -24,6 +24,7 @@ from dataset import Dataset
 from controller import Controller
 from utils import DisplayMetadata
 import dialogs
+from threading import Thread
 
 from viewport import Viewport,DatasetViewportInterface
 
@@ -36,7 +37,7 @@ class ErrorHandler(HasTraits):
 		super(ErrorHandler,self).__init__(**kwargs)
 		self.quiet=quiet
 
-	def error_dialog(self,message):
+	def error_dialog(self,message,collect_stacktrace=False):
 		sys.stderr.write('%s\n'%message)
 	
 	def warning_dialog(self,message):
@@ -201,6 +202,9 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		self.panel_name = 'base_gui'
 
 	def error_dialog(self,message):
+		_,_,tb=sys.exc_info()
+		if tb is not None:
+			self.error_dialog_window.stacktrace=tb
 		self.error_dialog_window.error=message
 		self.error_dialog_window.edit_traits()
 
@@ -288,6 +292,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		if adj_struct is None: return #preprocessing returned an error 
 	
 		adj,soft_max_edges,adj_filename = adj_struct
+		#Thread(target=acw.ctl.ds_ref.load_adj,args=(adj,soft_max_edges)).start()
 		acw.ctl.ds_ref.load_adj(adj,soft_max_edges)
 		self.controller.update_display_metadata(acw.ctl.ds_ref.name,
 			adj_filename=adj_filename)

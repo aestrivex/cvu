@@ -24,7 +24,7 @@ from traitsui.api import (Handler,View,Item,OKCancelButtons,OKButton,
 	TextEditor,ImageEnumEditor,UIInfo,Label,VGroup,ListEditor,TableEditor,
 	ObjectColumn)
 from traitsui.file_dialog import open_file
-import os;
+import os; import traceback
 from utils import DatasetMetadataElement,CVUError
 from color_map import CustomColormap
 from custom_file_editor import CustomFileEditor, CustomDirectoryEditor
@@ -619,11 +619,22 @@ class ColorLegendWindow(UnstableDatasetSpecificSubwindow):
 			self.reconstruct()
 
 ############################################################################
-class ErrorDialogWindow(HasTraits):
+class ErrorDialogWindow(Handler):
 	error=Str
+	stacktrace=Instance(traceback.types.TracebackType)
+	StackTraceButton=Action(name='print stack to console',action='do_stack_trace')
 	traits_view=View(Item(name='error',style='readonly',height=75,width=300),
-		buttons=[OKButton],kind='nonmodal',
+		buttons=[StackTraceButton,OKButton],kind='nonmodal',
 		title='Evil mutant zebras did this',)
+
+	def do_stack_trace(self,info):
+		if self.stacktrace is not None:
+			try:
+				traceback.print_tb(self.stack_trace)
+			except:
+				print "The stack trace passed along with this error was not valid!"
+		else:
+			print "There is no stack trace available for this error!"
 
 class WarningDialogWindow(HasTraits):
 	warning=Str

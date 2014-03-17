@@ -46,7 +46,7 @@ def str2intlist(s):
 	return re.split(',| |;',s.strip('[]'))
 
 def appendhemis(olddict,hemi):
-	return dict(map(lambda (k,v):(k,hemi+str(v)),olddict.items()))
+	return dict(map(lambda (k,v):(k,'%s%s'%(hemi,str(v))),olddict.items()))
 
 def eqfun(x):
 	return lambda y:y==x

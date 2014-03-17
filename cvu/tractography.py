@@ -20,6 +20,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
 import struct
 import numpy as np
@@ -201,6 +202,53 @@ def rescale(x,y,z,invert_y=True,**surf_properties_kwargs):
 	
 	return retx,rety,retz
 
+def translate_x(s):
+	tx = s.mlab_source.x
+
+	maxx = np.max(tx)
+	minx = np.min(tx)
+	midx = (maxx-minx)/2
+
+	s.mlab_source.x = tx-midx
+
+def fix_skewing(s,**surf_properties_kwargs):
+	import volume
+	surf_xmin,surf_ymin,surf_zmin,surf_xmax,surf_ymax,surf_zmax=(
+		volume.surf_properties(**surf_properties_kwargs))
+
+	xrng = (surf_xmax-surf_xmin+1)
+	tx = s.mlab_source.x
+	trk_xrng = (np.max(tx)-np.min(tx)+1)
+	xscale = .97 / (trk_xrng/xrng)
+	xmid = (surf_xmax-surf_xmin)/2 + surf_xmin
+	trk_xmid = (np.max(tx)-np.min(tx))/2 + np.min(tx)
+	s.mlab_source.x = (tx-trk_xmid)*xscale+xmid
+
+	yrng = (surf_ymax-surf_ymin+1)
+	ty = s.mlab_source.y
+	trk_yrng = (np.max(ty)-np.min(ty)+1)
+	yscale = .96 / (trk_yrng/yrng)
+	ymid = (surf_ymax-surf_ymin)/2 + surf_ymin
+	trk_ymid = (np.max(ty)-np.min(ty))/2 + np.min(ty)
+	s.mlab_source.y = (ty-trk_ymid)*yscale+ymid
+
+	zrng = (surf_zmax-surf_zmin+1)
+	tz = s.mlab_source.z
+	trk_zrng = (np.max(tz)-np.min(tz)+1)
+
+	#print trk_zrng/zrng
+
+	#if .5 < trk_zrng/zrng < 1.15:
+	if trk_zrng / trk_yrng < .70:
+		zscale = .95
+		zmid = (surf_zmax-surf_zmin)/2 + surf_zmin
+		trk_zmid = (np.max(tz)-np.min(tz))/2 + np.min(tz)
+		s.mlab_source.z = (tz-trk_zmid)*zscale+zmid
+	#elif 1.25 < trk_zrng/zrng < 1.55:
+	else:
+		zscale = 1.38 / (trk_zrng/zrng)
+		s.mlab_source.z = (tz-np.max(tz))*zscale+surf_zmax-0.5
+
 def affine(affine_trans_file):
 	a=np.loadtxt(affine_trans_file)
 	return a
@@ -223,11 +271,31 @@ def apply_affine(a,s):
 
 	ones=np.ones(len(tx))
 	dat=np.array(zip(tx,ty,tz,ones))
+	ndat=dat.copy()
 
 	for i,d in enumerate(dat):
-		dat[i]=np.dot(a,d)
+		ndat[i]=np.dot(a,d)
 
-	s.mlab_source.x,s.mlab_source.y,s.mlab_source.z,_ = dat.T
+	s.mlab_source.x,s.mlab_source.y,s.mlab_source.z,_ = ndat.T
+
+def apply_affine_carefully(a,s):
+	tx,ty,tz=s.mlab_source.x,s.mlab_source.y,s.mlab_source.z
+
+	ones=np.ones(len(tx))
+	dat=np.array(zip(tx,ty,tz,ones))
+
+	ndat = np.dot(a, dat.T)
+
+	s.mlab_source.x,s.mlab_source.y,s.mlab_source.z,_ = ndat
+
+def apply_affine_inversely(a,s):
+	tx,ty,tz=s.mlab_source.x,s.mlab_source.y,s.mlab_source.z
+
+	ones=np.ones(len(tx))
+	dat=np.array(zip(tx,ty,tz,ones))
+	
+	inverse_affine = reverse_affine(a)
+	ndat = np.dot(dat, inverse_affine)
 
 def plot_fancily(fname,ang=-np.pi/18):
 	s=plot_naively(fname)
@@ -256,6 +324,22 @@ def apply_cmp_affines(s,b0vol_fname,trk_fname,fs_subj_name,
 	co=np.dot(a1,a2) #compose these transformations
 
 	apply_affine(co,s)
+	mlab.view(focalpoint='auto')
+
+def apply_affines_carefully(s, b0vol_fname, trk_fname, fs_subj_name,
+		fs_subj_dir, fsenvsrc=None):
+
+	if fsenvsrc:
+		import cvu_utils
+		cvu_utils.tcsh_env_interpreter(fsenvsrc)
+
+	a1=fetch_b0_to_tkr(b0vol_fname,trk_fname)
+	a2=fetch_ras_to_tkr(b0vol_fname,fs_subj_name,fs_subj_dir)
+	a2i=reverse_affine(a2)
+
+	apply_affine_carefully(a1,s)
+	#apply_affine_inversely(a2,s)
+	apply_affine_carefully(a2i,s)
 	mlab.view(focalpoint='auto')
 
 def fetch_b0_to_tkr(b0vol_fname,trk_fname,fsenvsrc=None,out_fname=None):

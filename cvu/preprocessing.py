@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
 import mne
 import parsing_utils as parse
@@ -41,6 +42,19 @@ def loadmat(fname,field=None):
 		return
 	return mat
 
+def loadsurf(*args,**kwargs):
+	try:
+		return loadsurf_mne(*args,**kwargs)
+	except:
+		return loadsurf_gifti(*args,**kwargs)
+
+def loadannot(*args,**kwargs):
+	try:
+		return loadannot_mne(*args,**kwargs)
+	except:
+		raise
+		return loadannot_gifti(*args,**kwargs)
+
 def read_ordering_file(fname):
 	labnam=[]
 	deleters=[]
@@ -64,17 +78,18 @@ def read_ordering_file(fname):
 
 	return labnam,deleters
 
-def loadsurf(fname,surftype,quiet=True):
+def loadsurf_mne(fname,surftype,quiet=True):
 	from dataset import SurfData
-	surf_lh,sfaces_lh=mne.surface.read_surface(parse.hemineutral(fname)%'lh')
-	surf_rh,sfaces_rh=mne.surface.read_surface(parse.hemineutral(fname)%'rh')
-	return SurfData(surf_lh,sfaces_lh,surf_rh,sfaces_rh,surftype)
+	sverts_lh,sfaces_lh=mne.surface.read_surface(parse.hemineutral(fname)%'lh')
+	sverts_rh,sfaces_rh=mne.surface.read_surface(parse.hemineutral(fname)%'rh')
+	return SurfData(sverts_lh,sfaces_lh,sverts_rh,sfaces_rh,surftype)
 
-def loadannot(p,subj,subjdir,surf_type='pial',quiet=False):
+def loadannot_mne(p,subj,subjdir,labnam=None,surf_type='pial',surf_struct=None,
+		quiet=False):
+
 	verbosity = 'ERROR' if quiet else 'WARNING'
 
 	if float(mne.__version__[:3]) >= 0.8:
-		print mne.__version__
 		annot = mne.read_annot(parc=p, subject=subj, surf_name=surf_type,
 			subjects_dir=subjdir, verbose=verbosity)
 	else:
@@ -172,7 +187,9 @@ def process_parc(params,err_handler):
 		labels = loadannot(params.parcellation_name,
 			params.subject, 
 			params.subjects_dir,
-			params.surface_type)
+			labnam=labnam,
+			surf_type=params.surface_type,
+			surf_struct=srf)
 	except IOError as e:
 		err_handler.error_dialog(str(e)); return
 
@@ -258,21 +275,72 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
 					% (lab, adjlabfile))
 	return adj
 
-def loadannot_gifti(fname):
-	import nibabel.gifti
-	annot_lh=nibabel.gifti.read(parse.hemineutral(fname)%'lh')
-	annot_rh=nibabel.gifti.read(parse.hemineutral(fname)%'rh')
+def match_gifti_intent(fname_stem, intent):
+	''' This function takes a stem of a filename, such as
+		'lh.test.%sgii'. The format string is for the intent.
+		This may be blank, or it may match the intent argument. '''
+
+	intent = '%s.'%intent
+	if os.path.exists(fname_stem%''):
+		return fname_stem%''
+	elif os.path.exists(fname_stem%intent):
+		return fname_stem%intent
+	else:
+		raise ValueError("No GIFTI file %s with matching intent %s was found"%
+			(fname_stem%'',intent))
+
+def loadannot_gifti(parcname, subject, subjects_dir, labnam=None, surf_type='pial',
+		surf_struct=None, quiet=False):
+
+	import numpy as np
+	from nibabel import gifti
+
+	fname = os.path.join(subjects_dir, subject, 'label', 'lh.%s.%sgii'%(parcname,'%s'))
+	fname = match_gifti_intent(fname, 'label')
+
+	annot_lh = gifti.read(parse.hemineutral(fname)%'lh')
+	annot_rh = gifti.read(parse.hemineutral(fname)%'rh')
 	
 	#unpack the annotation data
-	labdict_lh=appendhemis(annot_lh.labeltable.get_labels_as_dict(),"lh_")
+	labdict_lh=parse.appendhemis(annot_lh.labeltable.get_labels_as_dict(),"lh_")
 	labv_lh=map(labdict_lh.get,annot_lh.darrays[0].data)
 
-	labdict_rh=appendhemis(annot_rh.labeltable.get_labels_as_dict(),"rh_")
+	labdict_rh=parse.appendhemis(annot_rh.labeltable.get_labels_as_dict(),"rh_")
 	labv_rh=map(labdict_rh.get,annot_rh.darrays[0].data)
 
 	labv=labv_lh+labv_rh
-	return labv
 
+	#return labv
+	#The objective is now to create MNE label files for these on the fly
+
+	vertices = np.vstack((surf_struct.lh_verts, surf_struct.rh_verts))
+	mne_labels = []
+
+	for lab in labnam:
+		cur_lab_verts = np.flatnonzero(np.array(labv)==lab)
+		cur_lab_pos = vertices[cur_lab_verts]
+
+		cur_lab = mne.Label(cur_lab_verts, pos=cur_lab_pos/1000, hemi=lab[:2],
+			name = parse.demangle_hemi(lab))
+		mne_labels.append(cur_lab)
+		
+	return mne_labels	
+
+def loadsurf_gifti(fname,surftype,quiet=True):
+	from nibabel import gifti
+	from dataset import SurfData
+	fname = '%s.%sgii'%(fname,'%s')
+	fname = match_gifti_intent(fname, 'surface')
+
+	surf_lh = gifti.read(parse.hemineutral(fname)%'lh')
+	surf_rh = gifti.read(parse.hemineutral(fname)%'rh')
+	
+	sverts_lh,sfaces_lh = surf_lh.darrays[0].data, surf_lh.darrays[1].data
+	sverts_rh,sfaces_rh = surf_rh.darrays[0].data, surf_rh.darrays[1].data
+
+	return SurfData(sverts_lh,sfaces_lh,sverts_rh,sfaces_rh,surftype)
+
+#this function is deprecated
 def calcparc_gifti(labnam,labv,surf_struct,quiet=False):
 	import numpy as np
 	# define constants and reshape surfaces
