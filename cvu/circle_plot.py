@@ -515,11 +515,19 @@ def prune_segment(angdict,seg,too_close):
 		guarantee_dict.update({r:seg_dict[r]})
 		del seg_dict[r]
 
-	print seg_dict
-	print end
+	#print seg_dict
+	#print end
 
 	keys=seg_dict.keys()
-	end_idx=keys.index(end) #should be cur_inhabitants-len(requires)
+
+	#This is problem because end might have been removed from the segment if
+	#was required. The purpose of not doing this another way is probably as a 
+	#sanity check which can be safely removed now because this code works.
+
+	#end_idx=keys.index(end) #should be cur_inhabitants-len(requires)
+	#minus one for python indexing
+	end_idx = cur_inhabitants-len(requires)-1
+	#print end_idx
 
 	counter=0
 	k=0
