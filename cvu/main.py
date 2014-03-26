@@ -17,7 +17,7 @@
 
 #TODO handle command line arguments
 
-from gui import CvuGUI
+from gui import CvuGUI,ErrorHandler
 import sys
 import os
 import getopt
@@ -31,14 +31,15 @@ def usage():
 		'-a greg.mat --adjmat=greg.mat: location of adjacency matrix\n'
 		'-d greg.nii --subjects-dir=greg/: specifies SUBJECTS_DIR\n'
 		'-s greg --surf=greg: loads the surface *h.greg\n'
-		'-o greg.txt --order=greg.txt: location of text file with label order\n'
-		'--surf-type=pial: specifies type of surface.  pial is used by '
-		'default\n'
+		'-o greg.txt --order=greg.txt: specify the visualization order\n'
+		'--surf-type=pial: specifies type of surface.  pial is used by'
+		'\tdefault\n'
 		'-q: specifies quiet flag\n'
 		'-v: specifies verbose flag (currently does nothing)\n'
 		'--max-edges 46000: discards all but the strongest ~46000 connections\n'
 		'-f greg --field greg: uses the "greg" field of a .mat matrix for the '
-		'initial adjmat\n'
+		'\tinitial adjmat\n'
+		'--adj-order greg: specify the adjmat order\n'
 		'-h --help: display this help')
 	exit(78)
 
@@ -55,7 +56,8 @@ def cli_args(argv):
 			["parc=","adjmat=","adj=","data=","datadir="\
 			"surf=","order=","surf-type=","parcdir=",
 			"help","field=","subjects-dir=","subject=",
-			"max-edges=","adj-order=","script="])
+			"max-edges=","max_edges","adj-order=","adj_order=",
+			"script="])
 	except getopt.GetoptError as e:
 		print "Argument %s" % str(e)
 		usage()
@@ -68,7 +70,7 @@ def cli_args(argv):
 			subjects_dir = arg
 		elif opt in ["-o","--order"]:
 			parcellation_order = arg
-		elif opt in ["--adj-order"]:
+		elif opt in ["--adj-order","--adj_order"]:
 			adjmat_order = arg
 		elif opt in ["-s","--surf","--surf-type"]:
 			surface_type = arg
@@ -83,7 +85,7 @@ def cli_args(argv):
 			sys.exit(0)
 		elif opt in ["-f","--field"]:
 			field_name = arg
-		elif opt in ["--max-edges"]:
+		elif opt in ["--max-edges","--max_edges"]:
 			max_edges = arg
 		elif opt in ["--script"]:
 			script = arg
@@ -114,7 +116,7 @@ def cli_args(argv):
 		raise CVUError('Adjacency matrix %s file not found' % adjmat)
 	if not os.path.isdir(subjects_dir):
 		raise CVUError('SUBJECTS_DIR %s file not found' % subjects_dir)
-	if adjmat_order and os.path.isfile(adjmat_order):
+	if adjmat_order and not os.path.isfile(adjmat_order):
 		raise CVUError('Adjancency matrix order %s file not found' % adjorder)
 
 	return {'parc':parcellation_name,	'adjmat':adjmat_location,
@@ -135,6 +137,7 @@ def preproc(args):
 	
 	#load adjacency matrix and put entries in order of labnam
 	adj = pp.loadmat(args['adjmat'],args['field']) 
+	print args['adjorder'], 'yevdjoede'
 	adj = pp.flip_adj_ord(adj, args['adjorder'], labnam)
 
 	#load surface for visual display
@@ -152,7 +155,7 @@ def preproc(args):
 		lab_pos,labv = pp.calcparc(labels,labnam,quiet=args['quiet'],
 			parcname=args['parc'])
 	else:
-		lab_pos,labv = pp.calcparc(labels,labnam,quiet=quiet,
+		lab_pos,labv = pp.calcparc(labels,labnam,quiet=args['quiet'],
 			parcname=args['parc'],subjdir=args['subjdir'],
 			subject=args['subject'],
 			lhsurf=srf.lh_verts,rhsurf=srf.rh_verts)
@@ -165,7 +168,8 @@ def preproc(args):
 
 	from dataset import Dataset
 	sample_dataset=Dataset(dataset_name,lab_pos,labnam,srf,labv,
-		adj=adj,soft_max_edges=args['maxedges'])
+		adj=adj,soft_max_edges=args['maxedges'], gui=ErrorHandler(args['quiet']))
+	# pass an ErrorHandler as the current GUI to handle errors. Replace it later.
 	# Package dataloc and modality into tuple for passing
 
 	exec_script = args['script']
@@ -194,7 +198,7 @@ def main():
 def script(file,scriptdir=os.getcwd()):
 	curdir=os.getcwd()
 	os.chdir(scriptdir)
-	print scriptdir
+	#print scriptdir
 	file=os.path.abspath(file)
 	os.chdir(curdir)
 	with open(file) as fd: exec(fd)

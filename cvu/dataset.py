@@ -517,7 +517,7 @@ class Dataset(HasTraits):
 
 		self.reset_dataviews()
 
-	def load_adj(self,adj,soft_max_edges):
+	def load_adj(self,adj,soft_max_edges,reqrois,suppress_extra_rois):
 		self.adj=adj
 		self.soft_max_edges=soft_max_edges
 		
@@ -539,10 +539,24 @@ class Dataset(HasTraits):
 		self.dv_3d.vectors_clear()
 		self.display_mode='normal'
 
-		for dv in (self.dv_3d, self.dv_mat, self.dv_circ):
-			dv.supply_adj()
+		self.dv_3d.supply_adj()
+		self.dv_mat.supply_adj()
+		self.dv_circ.supply_adj(reqrois=reqrois, suppress_extra_rois=suppress_extra_rois)
 
 		self.display_all()
+
+	#This method takes a TractographyChooserParameters
+	def load_tractography(self,params):
+		if not params.track_file:
+			self.error_dialog('You must specify a valid tractography file'); return	
+		if not params.b0_volume:
+			self.error_dialog('You must specify a B0 volume from which the registration'
+				' to the diffusion space can be computed'); return
+		if not params.subjects_dir or not params.subject:
+			self.error_dialog('You must specify the freesurfer reconstruction for the '
+				'individual subject for registration to the surface space.'); return
+
+		self.dv_3d.tracks_gen(params)
 
 	#This method takes a GeneralMatrixChooserParameters
 	def load_modules_or_scalars(self,params):
@@ -610,11 +624,11 @@ class Dataset(HasTraits):
 	def save_scalar(self,name,scalars,passive=False):
 		if np.squeeze(scalars).shape != (self.nr_labels,):
 			if passive:
-				self.verbose_msg("Only Nx1 vectors can be saved as scalars")
+				self.verbose_msg("%s: Only Nx1 vectors can be saved as scalars"%name)
 				return
 			else:
-				self.error_dialog("Only Nx1 vectors can be saved as scalars")
-				print np.squeeze(scalars).shape, self.nr_labels
+				self.error_dialog("%s: Only Nx1 vectors can be saved as scalars"%name)
+				#print np.squeeze(scalars).shape, self.nr_labels
 				return
 		ci=scalars.ravel().copy()
 		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))

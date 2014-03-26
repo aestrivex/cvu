@@ -29,6 +29,8 @@ class OptionsDatabase(HasTraits):
 			ParcellationChooserParameters(ds_orig))
 		self.adjmat_chooser_parameters=(
 			AdjmatChooserParameters(ds_orig))
+		self.tractography_chooser_parameters=(
+			TractographyChooserParameters(ds_orig))
 		self.general_matrix_chooser_parameters=(
 			GeneralMatrixChooserParameters(ds_orig))
 		self.node_chooser_parameters=(
@@ -144,9 +146,6 @@ class ParcellationChooserParameters(DatasetReferenceOptionsStructure):
 	parcellation_name=Str
 	surface_type=Str('pial')
 
-class TractographyChooserParameters(DatasetReferenceOptionsStructure):
-	NotImplemented
-
 class AdjmatChooserParameters(DatasetReferenceOptionsStructure):
 	adjmat=File	
 	adjmat_order=File
@@ -154,6 +153,14 @@ class AdjmatChooserParameters(DatasetReferenceOptionsStructure):
 	field_name=Str
 	ignore_deletes=Bool
 	require_ls=List(Str)
+	suppress_extra_rois=Bool
+
+class TractographyChooserParameters(DatasetReferenceOptionsStructure):
+	track_file=File
+	b0_volume=File
+	subjects_dir=Directory
+	subject=Str
+	fs_setup=File('/usr/local/freesurfer/nmr-stable53-env')
 
 class GeneralMatrixChooserParameters(DatasetReferenceOptionsStructure):
 	mat=File

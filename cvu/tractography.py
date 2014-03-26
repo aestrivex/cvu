@@ -1,7 +1,8 @@
 #	 (C) Roan LaPlante 2013 rlaplant@nmr.mgh.harvard.edu
 #
-#	 This file is a modified version of UMCP, the UCLA Multimodal Connectivity
-#	 Package.  UMCP is copyright (C) Jesse Brown 2012.  This file was modified
+#	 This file incorporates code from UMCP, the UCLA Multimodal Connectivity
+#	 Package.  UMCP is copyright (C) Jesse Brown 2012.  Specifically, the code to read
+#    the headers of a track file was incorporated. This file was modified
 #	 06/2013.  For more information, see
 #    http://www.ccn.ucla.edu/wiki/index.php/UCLA_Multimodal_Connectivity_Package
 #
@@ -124,7 +125,7 @@ def read_tracks(track_file,display_nr=1500):
 	f.close()
 	return track_list
 
-def plot_naively(fname):
+def plot_naively(fname,**figure_kwargs):
 	from mayavi import mlab	
 
 	f=read_tracks(fname)
@@ -149,10 +150,10 @@ def plot_naively(fname):
 
 	s=np.zeros(len(x))
 
-	src=mlab.pipeline.scalar_scatter(x,y,z,s,name='tractsrc')
+	src=mlab.pipeline.scalar_scatter(x,y,z,s,name='tractsrc',**figure_kwargs)
 	src.mlab_source.dataset.lines=c
-	l=mlab.pipeline.stripper(src)
-	sf=mlab.pipeline.surface(l,name='tractography')
+	l=mlab.pipeline.stripper(src,**figure_kwargs)
+	sf=mlab.pipeline.surface(l,name='tractography',**figure_kwargs)
 	return sf
 
 def rotate(x_like,y_like,angle=np.pi/9):
@@ -236,7 +237,7 @@ def fix_skewing(s,**surf_properties_kwargs):
 	tz = s.mlab_source.z
 	trk_zrng = (np.max(tz)-np.min(tz)+1)
 
-	#print trk_zrng/zrng
+	print trk_zrng/zrng
 
 	#if .5 < trk_zrng/zrng < 1.15:
 	if trk_zrng / trk_yrng < .70:
@@ -246,7 +247,7 @@ def fix_skewing(s,**surf_properties_kwargs):
 		s.mlab_source.z = (tz-trk_zmid)*zscale+zmid
 	#elif 1.25 < trk_zrng/zrng < 1.55:
 	else:
-		zscale = 1.38 / (trk_zrng/zrng)
+		zscale = 1.33 / (trk_zrng/zrng)
 		s.mlab_source.z = (tz-np.max(tz))*zscale+surf_zmax-0.5
 
 def affine(affine_trans_file):
@@ -297,8 +298,12 @@ def apply_affine_inversely(a,s):
 	inverse_affine = reverse_affine(a)
 	ndat = np.dot(dat, inverse_affine)
 
-def plot_fancily(fname,ang=-np.pi/18):
-	s=plot_naively(fname)
+def plot_fancily(fname,figure=None):
+
+	if figure is None:
+		s=plot_naively(fname)
+	else:
+		s=plot_naively(fname,figure=figure)
 
 	s.actor.property.opacity=.1
 	s.module_manager.scalar_lut_manager.lut_mode='Purples'

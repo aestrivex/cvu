@@ -162,7 +162,7 @@ class Controller(HasTraits):
 		self.gui.options_window.ctl=self.gui.options_window.current_dataset.opts
 	@on_trait_change('gui:configure_scalars_window:current_dataset')
 	def configure_scalars_window_ctl_listener(self):
-		csw=self.configure_scalars_window
+		csw=self.gui.configure_scalars_window
 		csw.ctl=csw.current_dataset.scalar_display_settings
 
 	##########################################################

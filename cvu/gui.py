@@ -62,6 +62,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	options_window = 				Instance(dialogs.InteractiveSubwindow)
 	adjmat_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
 	parcellation_chooser_window =	Instance(dialogs.InteractiveSubwindow)
+	tractography_chooser_window = 	Instance(dialogs.InteractiveSubwindow)
 	node_chooser_window =			Instance(dialogs.InteractiveSubwindow)
 	module_chooser_window = 		Instance(dialogs.InteractiveSubwindow)
 	module_customizer_window =		Instance(dialogs.InteractiveSubwindow)
@@ -92,7 +93,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	load_parcellation_button =		Button('Load a parcellation')
 	options_button = 				Button('Options')
 	controller_button =				Button('Manage views')
-	load_track_button = 			Button('Load tractography')
+	load_tractography_button = 		Button('Load tractography')
 	save_snapshot_button = 			Button('Take snapshot')
 	make_movie_button = 			Button
 	currently_making_movie =		Bool(False)
@@ -138,7 +139,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 					HSplit(
 						Item(name='load_parcellation_button',),
 						Item(name='load_adjmat_button',),
-						Item(name='load_track_button',),
+						Item(name='load_tractography_button',),
 						show_labels=False,
 					),
 					HSplit(
@@ -182,6 +183,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 			ctrl.options_db.adjmat_chooser_parameters,ctrl)
 		self.parcellation_chooser_window=dialogs.ParcellationChooserWindow(
 			ctrl.options_db.parcellation_chooser_parameters,ctrl)
+		self.tractography_chooser_window=dialogs.TractographyChooserWindow(
+			ctrl.options_db.tractography_chooser_parameters,ctrl)
 		self.load_standalone_matrix_window=dialogs.LoadGeneralMatrixWindow(
 			ctrl.options_db.general_matrix_chooser_parameters,ctrl)
 		self.node_chooser_window=dialogs.NodeChooserWindow(
@@ -264,7 +267,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		else:
 			import preprocessing	
 			parc_struct=preprocessing.process_parc(pcw.ctl,self)
-			if parc_struct is None: return #preprocessing returned an error	
+			if parc_struct is None: return	
 
 			lab_pos,labnam,srf,labv,subject_name,parc_name=parc_struct
 			pcw.ctl.ds_ref.load_parc(lab_pos,labnam,srf,labv)
@@ -294,9 +297,20 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 	
 		adj,soft_max_edges,adj_filename = adj_struct
 		#Thread(target=acw.ctl.ds_ref.load_adj,args=(adj,soft_max_edges)).start()
-		acw.ctl.ds_ref.load_adj(adj,soft_max_edges)
+		acw.ctl.ds_ref.load_adj(adj, soft_max_edges, acw.ctl.require_ls,
+			acw.ctl.suppress_extra_rois)
 		self.controller.update_display_metadata(acw.ctl.ds_ref.name,
 			adj_filename=adj_filename)
+
+	def _load_tractography_button_fired(self):
+		self.tractography_chooser_window.finished=False
+		self.tractography_chooser_window.edit_traits()
+
+	@on_trait_change('tractography_chooser_window:notify')
+	def _load_tractography_check(self):
+		tcw = self.tractography_chooser_window
+		if not tcw.finished: return
+		tcw.ctl.ds_ref.load_tractography(tcw.ctl)	
 
 	def _load_standalone_button_fired(self):
 		self.load_standalone_matrix_window.finished=False	
@@ -347,14 +361,18 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		if cw.ctl.thresh_type=='abs':
 			thres=cw.ctl.athresh
 		elif cw.ctl.thresh_type=='prop':
-			thres=cw.ctl.ds_ref.adjdat[
-				int(round(cw.ctl.pthresh*cw.ctl.ds_ref.nr_edges-1))]
+			if cw.ctl.pthresh==0.:
+				thres=-np.inf
+			else:
+				thres=cw.ctl.ds_ref.adjdat[
+					int(round(cw.ctl.pthresh*cw.ctl.ds_ref.nr_edges-1))]
 
 		if cw.ctl.calculation_type=='modules':
 			cw.ctl.ds_ref.calculate_modules(thres)
 			cw.ctl.ds_ref.display_multi_module()
 		elif cw.ctl.calculation_type=='statistics':
-			cw.ctl.ds_ref.calculate_graph_stats(thres)
+			#cw.ctl.ds_ref.calculate_graph_stats(thres)
+			Thread(target=cw.ctl.ds_ref.calculate_graph_stats,args=(thres,)).start()
 
 	def _select_module_button_fired(self):
 		self.module_chooser_window.finished=False

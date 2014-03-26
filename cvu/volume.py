@@ -35,9 +35,9 @@ def surf_properties(use_fsavg5=True,lhsurf=None,rhsurf=None):
 		raise cvu_utils.CVUError('Must use fsavg5 surface constants or provide '
 			'an alternate mayavi surface to scrape dimensions')
 
-	xs=np.vstack((lhsurf.mlab_source.x,rhsurf.mlab_source.x))
-	ys=np.vstack((lhsurf.mlab_source.y,rhsurf.mlab_source.y))
-	zs=np.vstack((lhsurf.mlab_source.z,rhsurf.mlab_source.z))
+	xs=np.hstack((lhsurf.mlab_source.x,rhsurf.mlab_source.x))
+	ys=np.hstack((lhsurf.mlab_source.y,rhsurf.mlab_source.y))
+	zs=np.hstack((lhsurf.mlab_source.z,rhsurf.mlab_source.z))
 
 	xmin=np.min(xs); xmax=np.max(xs)
 	ymin=np.min(ys); ymax=np.max(ys)

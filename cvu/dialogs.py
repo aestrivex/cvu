@@ -338,7 +338,6 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 	require_note=Str('Enter any ROIs you would like to force to display on the '
 		'circle plot.  You must spell them precisely, e.g. "lh_frontalpole"')
 	open_adjmat_order=Button('Browse')
-	require_ls=List(Str)
 	RequireButton=Action(name='clear all req\'d ROIs',action='do_rqls_clear')
 
 	traits_view=View(
@@ -362,6 +361,7 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 			Item(name='require_ls',object='object.ctl',
 				editor=ListStrEditor(auto_add=True,editable=True),
 				label='List ROIs here'),
+			Item(name='suppress_extra_rois',object='object.ctl'),
 		label='required ROIs'),
 	
 		kind='panel',buttons=[RequireButton,OKButton,CancelButton],
@@ -403,13 +403,13 @@ class ParcellationChooserWindow(UnstableDatasetSpecificSubwindow):
 		self._stupid_listener=self.ctl.new_dataset
 
 ############################################################################
-#TODO THIS HAS NOT BEEN REDESIGNED YET
 class TractographyChooserWindow(UnstableDatasetSpecificSubwindow):
-	Please_note=Str('Tractography will be misaligned with the surface unless '
-		'the surface corresponds to the subject\'s individual morphology.\n'
-		'cvu will source the freesurfer setup script.  You can omit this if '
-		'the environment has already been set prior to running cvu.  All four '
-		'of the other fields are required.')
+	Please_note=Str(
+		'Tractography registration is approximate and it is strongly recommended that '
+		'individual subject morphology be used rather than the fsaverage5 surface.\n'
+		'To calculate the alignment cvu needs to use freesurfer\'s bbregister. '
+		'If freesurfer environment is not set include the setup script here.\n'
+		'All other fields are required.')
 	track_file=File
 	b0_volume=File
 	SUBJECTS_DIR=Directory
@@ -418,12 +418,15 @@ class TractographyChooserWindow(UnstableDatasetSpecificSubwindow):
 	traits_view=View(
 		current_dataset_item,
 		Group(
-			Item(name='Please_note',style='readonly',height=125,width=325),
-			Item(name='track_file',editor=CustomFileEditor()),
-			Item(name='b0_volume',editor=CustomFileEditor()),
-			Item(name='SUBJECTS_DIR',editor=CustomDirectoryEditor()),
-			Item(name='SUBJECT'),
-			Item(name='fs_setup',editor=CustomFileEditor()),
+			Item(name='Please_note',style='readonly',height=150,width=325),
+			Item(name='track_file',object='object.ctl',label='Tractography (.trk)',
+				editor=CustomFileEditor()),
+			Item(name='b0_volume',object='object.ctl',label='B0 volume (NIFTI)',
+				editor=CustomFileEditor()),
+			Item(name='subjects_dir',object='object.ctl',label='SUBJECTS_DIR',
+				editor=CustomDirectoryEditor()),
+			Item(name='subject',object='object.ctl',label='SUBJECT'),
+			Item(name='fs_setup',object='object.ctl',editor=CustomFileEditor()),
 		), kind='panel',buttons=OKCancelButtons,
 			title='Just FYI subject 39108 has an abnormal HRF')
 

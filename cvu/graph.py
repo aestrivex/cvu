@@ -20,7 +20,7 @@ class StatisticsDisplay(HasTraits):
 			self.stat=stat
 			self.display_chart=np.array((('','%.3f'%stat,),))
 		elif np.size(stat)!=len(labels):
-			print np.size(stat),len(labels)
+			#print np.size(stat),len(labels)
 			raise ValueError('Size of graph statistic inconsistent')
 		else:
 			nr_labels=len(labels)

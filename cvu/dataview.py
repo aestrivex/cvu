@@ -20,6 +20,7 @@ import numpy as np
 from traits.api import (HasTraits,Str,Any,List,Instance,Bool,on_trait_change)
 from utils import CVUError
 import shell_utils
+import cvu_utils
 
 from color_map import set_lut
 from mayavi import mlab
@@ -76,6 +77,7 @@ class DVMayavi(DataView):
 	nodes_lh=Any	#mayavi.modules.glyph
 	nodes_rh=Any	#mayavi.modules.glyph
 	vectors=Any		#mayavi.modules.vectors
+	tracks=Any		#mayavi.modules.surface
 	txt=Any			#mayavi.modules.text3d
 	
 	thres=Any		#mayavi.filters.threshold
@@ -278,6 +280,25 @@ class DVMayavi(DataView):
 
 		self.txt.set(text='')
 
+	def tracks_clear(self):
+		try:
+			self.tracks.parent.parent.parent.remove()
+		except (ValueError,AttributeError):
+			pass
+
+	#It is ok to pass the TractographyChooserParameters because the tracks are only
+	#ever generated on demand. They will never be generated on load_parc for instance
+	def tracks_gen(self,params):
+		import tractography
+
+		self.tracks = tractography.plot_fancily(params.track_file,
+			figure=self.scene.mayavi_scene)
+		tractography.apply_affines_carefully(self.tracks, params.b0_volume,
+			params.track_file, params.subject, params.subjects_dir, 
+			fsenvsrc=params.fs_setup)
+		tractography.fix_skewing(self.tracks, use_fsavg5=False,
+			lhsurf=self.syrf_lh, rhsurf=self.syrf_rh)
+
 	########################################################################
 	# DRAW METHODS
 	########################################################################
@@ -398,6 +419,7 @@ class DVMayavi(DataView):
 		self.surfs_clear()
 		self.nodes_clear()
 		self.vectors_clear()
+		self.tracks_clear()
 
 	def set_colorbar(self,on,mayavi_obj,orientation='vertical'):
 		if on:
@@ -466,6 +488,8 @@ class DVMayavi(DataView):
 
 		from mayavi import __version__ as mayavi_version
 		if float(mayavi_version[:3]) >= 4.3:
+			print self.scene.mayavi_scene
+			print res
 			mlab.savefig(params.savefile,figure=self.scene.mayavi_scene,
 				size=(res,res))
 		else:
@@ -483,7 +507,7 @@ class DVMayavi(DataView):
 				 #we are setting
 
 		self.scene.scene_editor.set_size((curx,cury))
-		self.txt.visible=False	#label visibility will be fixed in mayavi 4.4
+		self.txt.visible=False	#label visibility is fixed in mayavi 4.3.1
 
 		magnif_desired = max(size[0]//curx,size[1]//cury)+1
 		newsize=(int(size[0]/magnif_desired),int(size[1]/magnif_desired))
@@ -649,27 +673,31 @@ class DVCircle(DataView):
 		else: self.empty_gen()
 		#self.empty_gen()
 
-	def supply_adj(self):
-		self.circ_gen(figure=self.circ)
+	def supply_adj(self,**kwargs):
+		self.circ_gen(figure=self.circ,**kwargs)
 		#self.empty_gen(figure=self.circ)
 	
 	########################################################################
 	# GEN METHODS
 	########################################################################
 
-	def circ_gen(self,reqrois=(),figure=None):
+	def circ_gen(self,reqrois=(),figure=None,suppress_extra_rois=False):
 		#if figure is not None: figure.clf(keep_observers=True)
 		if figure is not None: figure.clf()
 
-		self.circ=circle_plot.plot_connectivity_circle_cvu(
-			np.reshape(self.ds.adjdat,(self.ds.nr_edges,)),
-			self.ds.node_labels_numberless,
-			indices=self.ds.edges.T,
-			colormap=self.ds.opts.activation_map.cmap,
-			fig=figure,
-			n_lines=self.ds.nr_edges, #nr_edges is already bounded by soft_max
-			node_colors=self.ds.node_colors,
-			reqrois=reqrois,)
+		try:
+			self.circ=circle_plot.plot_connectivity_circle_cvu(
+				np.reshape(self.ds.adjdat,(self.ds.nr_edges,)),
+				self.ds.node_labels_numberless,
+				indices=self.ds.edges.T,
+				colormap=self.ds.opts.activation_map.cmap,
+				fig=figure,
+				n_lines=self.ds.nr_edges, #nr_edges is already bounded by soft_max
+				node_colors=self.ds.node_colors,
+				reqrois=reqrois,
+				suppress_extra_rois=suppress_extra_rois,)
+		except cvu_utils.CVUError as e:
+			self.ds.error_dialog(str(e))
 		self.circ_data=self.circ.get_axes()[0].patches
 
 		self.draw_nodes()

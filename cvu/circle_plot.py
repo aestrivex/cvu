@@ -20,6 +20,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import numpy as np
 from matplotlib.backends.backend_wxagg import *
 from matplotlib.backends.backend_wx import *
@@ -42,16 +43,18 @@ from collections import OrderedDict
 #whoever wrote it originally which is listed in the docstring
 def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None, 
 	n_lines=10000, node_colors=None, colormap='YlOrRd', fig=None, reqrois=[],
+	suppress_extra_rois=False,
 	node_angles=None, node_width=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5,
-	vmin=None,vmax=None, colorbar=False, title=None):
+	vmin=None,vmax=None, colorbar=False, title=None,
+	fontsize_names='auto'):
 	"""Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
 http://www.loria.fr/~rougier/coding/recipes.html
 
 This function replicates functionality from MNE python, by Martin Luessi
-and others.
+and others. Many changes are made from the MNE python version.
 
 Parameters
 ----------
@@ -59,42 +62,61 @@ con : array
 Connectivity scores. Can be a square matrix, or a 1D array. If a 1D
 array is provided, "indices" has to be used to define the connection
 indices.
+
 nodes_numberless : list of str
 Node names. The order corresponds to the order in con.
+
 indices : tuple of arrays | None
 Two arrays with indices of connections for which the connections
 strenghts are defined in con. Only needed if con is a 1D array.
+
 n_lines : int | None
 If not None, only the n_lines strongest connections (strenght=abs(con))
 are drawn.
+
 node_angles : array, shape=(len(nodes_numberless,)) | None
 Array with node positions in degrees. If None, the nodes are equally
 spaced on the circle. See mne.viz.circular_layout.
+
 node_width : float | None
 Width of each node in degrees. If None, "360. / len(nodes_numberless)" is
 used.
+
 node_colors : list of tuples | list of str
 List with the color to use for each node. If fewer colors than nodes
 are provided, the colors will be repeated. Any color supported by
 matplotlib can be used, e.g., RGBA tuples, named colors.
+
 facecolor : str
 Color to use for background. See matplotlib.colors.
+
 textcolor : str
 Color to use for text. See matplotlib.colors.
+
 node_edgecolor : str
 Color to use for lines around nodes. See matplotlib.colors.
+
 linewidth : float
 Line width to use for connections.
+
 colormap : str
 Colormap to use for coloring the connections.
+
 vmin : float | None
 Minimum value for colormap. If None, it is determined automatically.
+
 vmax : float | None
 Maximum value for colormap. If None, it is determined automatically.
+
 colorbar : bool
 Display a colorbar or not.
+
 title : str
 The figure title.
+
+fontsize_names : int | str
+The fontsize for the node labels. If 'auto', the program attempts to determine
+a reasonable size. 'auto' is the default value.
 
 Returns
 -------
@@ -213,9 +235,9 @@ The figure handle.
 		nodes_n_con_seen[end] += 1
 
 		start_noise[i] *= ((nodes_n_con[start] - nodes_n_con_seen[start])
-						   / float(nodes_n_con[start]))
+						   / nodes_n_con[start])
 		end_noise[i] *= ((nodes_n_con[end] - nodes_n_con_seen[end])
-						 / float(nodes_n_con[end]))
+						 / nodes_n_con[end])
 
 	# scale connectivity for colormap (vmin<=>0, vmax<=>1)
 	if np.size(con)>0:
@@ -269,12 +291,23 @@ The figure handle.
 	too_close = np.pi/50
 
 	# get angles for text placement
-	text_angles = avgidx(nodes_numberless,n_nodes,frac=1,pad=np.pi/400)
+	text_angles = get_labels_avg_idx(nodes_numberless,n_nodes,frac=1,pad=np.pi/400)
 
+	#print reqrois
 	segments = get_tooclose_segments(text_angles,too_close,reqrois)
 	
 	for segment in segments:
 		prune_segment(text_angles,segment,too_close)
+
+	#print suppress_extra_rois, len(reqrois)
+	if suppress_extra_rois and len(reqrois)>0:
+		for name in text_angles.keys():
+			if name not in reqrois:
+				del text_angles[name]
+
+		if fontsize_names=='auto':
+			fontsize_names=10
+				
 	#TODO segments with many guaranteed ROIs are potentially spatially skewed
 	#this is probably not worth fixing
 
@@ -285,6 +318,10 @@ The figure handle.
 	
 	#for angles,hemi in [(text_angles_sh,start_hemi),(text_angles_eh,end_hemi)]:
 	#	for name in angles:
+
+	if fontsize_names=='auto':
+		fontsize_names=8
+
 	for name in text_angles:
 		angle_rad = text_angles[name]
 		#if hemi is end_hemi:
@@ -299,7 +336,8 @@ The figure handle.
 
 		name_nonum=name.strip('1234567890')
 		hemi=''
-		axes.text(angle_rad, 8.2, hemi+name_nonum, size=8, rotation=angle_deg,
+		axes.text(angle_rad, 8.2, hemi+name_nonum, size=fontsize_names,
+			rotation=angle_deg,
 			rotation_mode='anchor', horizontalalignment=ha,
 			verticalalignment='center', color=textcolor)
 
@@ -320,7 +358,7 @@ The figure handle.
 	
 	return fig
 
-def avgidx(lbs,n,frac=.5,pad=0.):
+def get_labels_avg_idx(lbs,n,frac=.5,pad=0.):
 	"""Takes:
 lbs: a list of (type A) with repeats (e.g. 'supramarginal' appears 4 times)
 n: where to stop
@@ -330,7 +368,7 @@ pad: space to leave at the end
 returns d: an ordered dictionary with (type A)/avgposition pairs
 this dictionary is scaled to have values between 0 and 2*pi
 
-example: avgidx(['A','B','B','C','D'],4)
+example: get_labels_avg_idx(['A','B','B','C','D'],4)
 returns OrderedDict({'A':0,'B':1.5,'C':3})"""
 
 	d=OrderedDict()
@@ -366,9 +404,15 @@ angdict: an ordered dictionary with (type A)/avgposition pairs
 too_close: a float
 
 returns a list of segments, of consecutive pairs that are closer than
-too_close.  a segment contains the start item (in the dictionary), the end 
-item, the extent (theta), and the number of entries.  The last index of the
-segment is for required ROIs that must be displayed.
+too_close.
+
+A segment is a tuple as follows: 
+	(start_item, end_item, extent, num_entries, req_rois)
+
+The start item and end item are the names of the labels at the start and end
+of the segment. The extent is the angle (theta) over the entire segment. The 
+number of entries is the number of items in the segment. Req_rois is a list of
+ROIs that are requied to be in the segment.
 
 for instance: get_tooclose_segments({'A':3,'B':4,'C':5,'D':100},10)
 will return [('A','C',2,3)].  There is one segment that has entries too close
@@ -413,7 +457,7 @@ together -- that from A to C.  The extent of this segment is 5-3=2.  In a real e
 
 def prune_segment(angdict,seg,too_close):
 	"""Remove all the labels that are too close together within a segment"""
-	#print seg
+	print seg
 
 	#calculate the number of labels to be removed
 	extent=seg[2]
@@ -427,18 +471,18 @@ def prune_segment(angdict,seg,too_close):
 		import cvu_utils
 		raise cvu_utils.CVUError('There is not enough space to display all of'
 			' the ROIs that are guaranteed to be shown.  There is enough space'
-			' for %i ROIs and you required %i ROIs' % (max_inhabitants,
-			len(requires)))
+			' for %i ROIs and you required the following ROIs:\n%s' % 
+			(max_inhabitants, repr(requires)))
 
 	#remove the remaining labels, starting at the back and using equal spacing
 
-	if cur_inhabitants/float(n_removals)>=2:
+	if cur_inhabitants/n_removals >= 2:
 		#calculate the number of nodes to skip, before removing something
 		#remove node once every "every" nodes
-		every=int(np.ceil( cur_inhabitants/float(n_removals)))
+		every=int(np.ceil( cur_inhabitants/n_removals))
 	else:
-		every=int(np.ceil( cur_inhabitants/(cur_inhabitants-float(n_removals))))
-	#cap=int(np.ceil( cur_inhabitants/float(every)))
+		every=int(np.ceil( cur_inhabitants/(cur_inhabitants-n_removals)))
+	#cap=int(np.ceil( cur_inhabitants/every))
 
 	keys=angdict.keys()
 	vals=angdict.values()
@@ -450,6 +494,8 @@ def prune_segment(angdict,seg,too_close):
 
 	seg_dict=OrderedDict(zip(keys[start_idx:end_idx+1],
 		vals[start_idx:end_idx+1]))
+
+	print seg_dict
 	#delete the entire segment and work with the temporary dict only
 	for i in xrange(start_idx,end_idx+1):
 		del angdict[keys[i]]
@@ -463,13 +509,17 @@ def prune_segment(angdict,seg,too_close):
 	end_ang=seg_dict[end]
 
 	guarantee_dict=OrderedDict()
-	#remove keys not permitted to be removed
+	#for keys not permitted to be removed, remove them as candidates fo
+	#every-other elimination
 	for r in requires:
 		guarantee_dict.update({r:seg_dict[r]})
 		del seg_dict[r]
 
+	print seg_dict
+	print end
+
 	keys=seg_dict.keys()
-	end_idx=keys.index(end)#should be cur_inhabitants-len(requires)
+	end_idx=keys.index(end) #should be cur_inhabitants-len(requires)
 
 	counter=0
 	k=0

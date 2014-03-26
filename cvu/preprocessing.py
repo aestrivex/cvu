@@ -40,6 +40,12 @@ def loadmat(fname,field=None):
 			'formats are matlab and numpy.  File extensions are used to '
 			'differentiate file formats and are not optional.')
 		return
+
+	if mat.ndim != 2 or mat.shape[0] != mat.shape[1]:
+		raise CVUError('Adjacency matrix is not square')
+	if not np.allclose(mat, mat.T):
+		raise CVUError('Adjacency matrix is not symmetric')
+
 	return mat
 
 def loadsurf(*args,**kwargs):
