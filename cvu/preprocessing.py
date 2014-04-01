@@ -270,7 +270,8 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
 	ord_extras_rm=np.ma.masked_equal(adj_ord,None)
 	adj_ord=np.array(ord_extras_rm.compressed(),dtype=int)
 	#swap the new order
-	adj=adj[adj_ord][:,adj_ord]
+	#adj=adj[adj_ord][:,adj_ord]
+	adj=adj[np.ix_(adj_ord,adj_ord)]
 	#warn about the omitted entries
 	if len(adj_ord)!=len(init_ord):
 		for lab in init_ord:

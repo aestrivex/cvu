@@ -47,7 +47,7 @@ def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None,
 	node_angles=None, node_width=None, facecolor='black',
 	textcolor='white', node_edgecolor='black',linewidth=1.5,
 	vmin=None,vmax=None, colorbar=False, title=None,
-	fontsize_names='auto'):
+	fontsize_names='auto', bilateral_symmetry=True):
 	"""Visualize connectivity as a circular graph.
 
 Note: This code is based on the circle graph example by Nicolas P. Rougier
@@ -125,10 +125,36 @@ The figure handle.
 """
 	n_nodes = len(nodes_numberless)
 
-	#start_hemi = nodes_numberless[0][:3]
-	#end_hemi = nodes_numberless[-1][:3]	
-	#n_starthemi = sum(map(lambda lb:lb[:3]==start_hemi,nodes_numberless))
-	#n_endhemi = sum(map(lambda lb:lb[:3]==end_hemi,nodes_numberless))
+	#reverse the lower hemisphere so that the circle is bilaterally symmetric
+	if bilateral_symmetry:
+		start_hemi = nodes_numberless[0][0]
+
+		def find_pivot(ls, item):
+			for i,l in enumerate(ls):
+				if l[0]!=item:
+					return i
+
+		hemi_pivot = find_pivot(nodes_numberless, start_hemi)
+
+		nodes_numberless = (nodes_numberless[:hemi_pivot] +
+			nodes_numberless[:hemi_pivot-1:-1])
+		#nodes_starthemi = nodes_numberless[:hemi_pivot]
+		#nodes_endhemi = nodes_numberless[hemi_pivot:]	
+		#nodes_endhemi.reverse()
+		#nodes_numberless = nodes_starthemi+nodes_endhemi
+
+		node_colors = (node_colors[:hemi_pivot] +
+			node_colors[:hemi_pivot-1:-1])
+		#nodecols_starthemi = node_colors[:hemi_pivot]
+		#nodecols_endhemi = node_colors[hemi_pivot:]
+		#nodecols_endhemi.reverse()
+		#node_colors = nodecols_starthemi+nodecols_endhemi
+
+		if indices.size > 0:
+			indices = indices.copy()
+			indices[np.where(indices >= hemi_pivot)] = (n_nodes - 1 + hemi_pivot -
+				indices[np.where(indices >= hemi_pivot)])
+
 
 	if node_angles is not None:
 		if len(node_angles) != n_nodes:
@@ -457,7 +483,7 @@ together -- that from A to C.  The extent of this segment is 5-3=2.  In a real e
 
 def prune_segment(angdict,seg,too_close):
 	"""Remove all the labels that are too close together within a segment"""
-	print seg
+	#print seg
 
 	#calculate the number of labels to be removed
 	extent=seg[2]
@@ -495,7 +521,7 @@ def prune_segment(angdict,seg,too_close):
 	seg_dict=OrderedDict(zip(keys[start_idx:end_idx+1],
 		vals[start_idx:end_idx+1]))
 
-	print seg_dict
+	#print seg_dict
 	#delete the entire segment and work with the temporary dict only
 	for i in xrange(start_idx,end_idx+1):
 		del angdict[keys[i]]

@@ -17,7 +17,7 @@
 
 from __future__ import division
 import numpy as np
-from traits.api import (HasTraits,Str,Any,List,Instance,Bool,on_trait_change)
+from traits.api import (HasTraits,Str,Any,List,Instance,Bool,Property,on_trait_change)
 from utils import CVUError
 import shell_utils
 import cvu_utils
@@ -666,6 +666,16 @@ class DVCircle(DataView):
 	circ=Any			#mpl.figure
 	circ_data=List		#list(mpl.patch.pathpatch)
 
+	tooltip_labnam=Property
+	def _get_tooltip_labnam(self):
+		if self.ds.opts.circ_bilateral_symmetry:
+			starthemi = self.ds.labnam[0][0]
+			hemi_pivot = (self.ds.lhnodes.size if starthemi=='l' else 
+				self.ds.rhnodes.size)
+			return self.ds.labnam[:hemi_pivot]+self.ds.labnam[:hemi_pivot-1:-1]
+		else:
+			return self.ds.labnam
+
 	def __init__(self,ds,**kwargs):
 		super(DVCircle,self).__init__(ds,**kwargs)
 
@@ -695,7 +705,8 @@ class DVCircle(DataView):
 				n_lines=self.ds.nr_edges, #nr_edges is already bounded by soft_max
 				node_colors=self.ds.node_colors,
 				reqrois=reqrois,
-				suppress_extra_rois=suppress_extra_rois,)
+				suppress_extra_rois=suppress_extra_rois,
+				bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry)
 		except cvu_utils.CVUError as e:
 			self.ds.error_dialog(str(e))
 		self.circ_data=self.circ.get_axes()[0].patches
@@ -711,7 +722,8 @@ class DVCircle(DataView):
 			fig=figure,
 			n_lines=None,
 			node_colors=self.ds.node_colors,
-			reqrois=(),)
+			reqrois=(),
+			bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry)
 
 	########################################################################
 	# DRAW METHODS
@@ -726,6 +738,12 @@ class DVCircle(DataView):
 			colors=list(self.ds.opts.scalar_map._pl(self.ds.node_scalars[circ]))
 		else:
 			colors=self.ds.node_colors
+
+		if self.ds.opts.circ_bilateral_symmetry:
+			starthemi = self.ds.labnam[0][0]
+			hemi_pivot = (self.ds.lhnodes.size if starthemi=='l' else 
+				self.ds.rhnodes.size)
+			colors = colors[:hemi_pivot]+colors[:hemi_pivot-1:-1]
 
 		circ_path_offset=len(self.ds.adjdat)
 		for n in xrange(self.ds.nr_labels):
@@ -766,7 +784,7 @@ class DVCircle(DataView):
 			n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
 
 			tooltip.Enable(True)
-			tooltip.SetTip(self.ds.labnam[int(np.floor(n))])
+			tooltip.SetTip(self.tooltip_labnam[int(np.floor(n))])
 		else:
 			tooltip.Enable(False)
 

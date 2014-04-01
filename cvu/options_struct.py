@@ -83,6 +83,7 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
 	#miscellaneous tab
 	surface_visibility = Range(0.0,1.0,.15)
 	circ_size = Range(7,20,10,mode='spinner')
+	circ_bilateral_symmetry=Bool(True)
 	conns_colorbar=Bool(False)
 	scalar_colorbar=Bool(False)
 	pthresh = Range(0.,1.,.95)	

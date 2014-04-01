@@ -146,7 +146,6 @@ class OptionsWindow(DatasetSpecificSubwindow):
 		VGroup(
 			current_dataset_item,
 			HSplit(
-				#Item(name='circ_size',object='object.ctl'),
 				Item(name='show_floating_text',object='object.ctl',
 					label='floating 3D text on'),
 				Item(name='scalar_colorbar',object='object.ctl',
@@ -171,8 +170,13 @@ class OptionsWindow(DatasetSpecificSubwindow):
 					label='RH surfaces on'),
 			),
 			HSplit(
+				Item(name='circ_bilateral_symmetry',object='object.ctl',
+					label='circle has bilateral/radial symmetry'),
+			),
+			HSplit(
 				Item(name='disable_circle',object='object.ctl',
 					label='disable circle rendering'),
+				#Item(name='circ_size',object='object.ctl'),
 			),
 			label='Display settings',show_labels=False
 		),
