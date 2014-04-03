@@ -209,6 +209,8 @@ The figure handle.
 	pl.ylim(0, 10)
 	#pl.ylim(ymin=0)
 
+	axes.spines['polar'].set_visible(False)
+
 	# Draw lines between connected nodes, only draw the strongest connections
 	if n_lines is not None and len(con) > n_lines:
 		con_thresh = np.sort(np.abs(con).ravel())[-n_lines]

@@ -137,7 +137,6 @@ def preproc(args):
 	
 	#load adjacency matrix and put entries in order of labnam
 	adj = pp.loadmat(args['adjmat'],args['field']) 
-	print args['adjorder'], 'yevdjoede'
 	adj = pp.flip_adj_ord(adj, args['adjorder'], labnam)
 
 	#load surface for visual display

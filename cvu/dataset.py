@@ -110,8 +110,6 @@ class Dataset(HasTraits):
 	def _get_rhnodes(self):
 		return np.where(map(lambda r:r[0]=='r',self.labnam))[0]
 
-	#TODO
-
 	node_colors = Any	#Nx3 np.ndarray
 	#node_colors represents the colors held by the nodes.  the current value of
 	#node_colors depends on the current policy (i.e. the current display mode).
@@ -631,7 +629,7 @@ class Dataset(HasTraits):
 				#print np.squeeze(scalars).shape, self.nr_labels
 				return
 		ci=scalars.ravel().copy()
-		ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
+		#ci=(ci-np.min(ci))/(np.max(ci)-np.min(ci))
 		self.node_scalars.update({name:ci})
 
 	#this function takes a SnapshotParameters object and returns a

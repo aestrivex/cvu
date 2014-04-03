@@ -22,7 +22,7 @@ from utils import CVUError
 import shell_utils
 import cvu_utils
 
-from color_map import set_lut
+from color_map import set_lut, set_color_range
 from mayavi import mlab
 from mayavi.core.ui.api import MlabSceneModel
 
@@ -307,28 +307,45 @@ class DVMayavi(DataView):
 		from parsing_utils import demangle_hemi
 
 		srf_scalar=self.ds.scalar_display_settings.surf_color
+		nc = self.ds.scalar_display_settings.node_color
 		
 		if (self.ds.display_mode=='scalar' and srf_scalar):
+
+			scalars = self.ds.node_scalars[srf_scalar]
 			colors_lh=np.zeros((len(self.ds.srf.lh_verts)),)
 			colors_rh=np.zeros((len(self.ds.srf.rh_verts)),)
 			for i,l in enumerate(self.ds.labnam):
 				#assumes that lh labels start with L and so on
 				vertices=self.ds.labv[demangle_hemi(l)]
 				if l[0]=='l':
-					colors_lh[vertices]=self.ds.node_scalars[srf_scalar][i]
+					colors_lh[vertices] = scalars[i]
 				elif l[0]=='r':
-					colors_rh[vertices]=self.ds.node_scalars[srf_scalar][i]
+					colors_rh[vertices] = scalars[i]
 			self.syrf_lh.mlab_source.scalars=colors_lh
 			self.syrf_rh.mlab_source.scalars=colors_rh
 			
 			for syrf in (self.syrf_lh,self.syrf_rh):
 				set_lut(syrf,self.ds.opts.scalar_map)
+				set_color_range(syrf, scalars)
 				syrf.actor.mapper.scalar_visibility=True
+
+		#we don't need to set the scalars properly, but lets set the scalar range
+		#of the surface properly so that a colorbar will capture it
+		elif nc:
+			scalars = self.ds.node_scalars[nc]
+			#the scalar colorbar refers to syrf_lh only
+			min_scale, max_scale = np.min(scalars), np.max(scalars)
+			colors = np.tile(min_scale, (len(self.ds.srf.lh_verts),))
+			colors[0] = max_scale
+			self.syrf_lh.mlab_source.scalars = colors
+
+			for syrf in (self.syrf_lh,self.syrf_rh):
+				syrf.actor.mapper.scalar_visibility=False
 
 		else:
 			for syrf in (self.syrf_lh,self.syrf_rh):
 				syrf.actor.mapper.scalar_visibility=False
-	
+
 	def draw_nodes(self): 
 		nc=self.ds.scalar_display_settings.node_color
 		ns=self.ds.scalar_display_settings.node_size
@@ -340,10 +357,13 @@ class DVMayavi(DataView):
 			nr=len(ixes)
 			#set node size
 			if self.ds.display_mode=='scalar' and ns:
+				scalars = self.ds.node_scalars[ns]
+				#for node size, the scalars need to be scaled to 0-1
+				scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))
 				nodes.glyph.scale_mode='scale_by_vector'
 				nodes.glyph.glyph.scale_factor=8
 				nodes.mlab_source.dataset.point_data.vectors=(
-					np.tile(self.ds.node_scalars[ns][ixes],(3,1)).T)
+					np.tile(scalars[ixes],(3,1)).T)
 			else:
 				nodes.glyph.scale_mode='data_scaling_off'
 				nodes.glyph.glyph.scale_factor=3
@@ -351,19 +371,23 @@ class DVMayavi(DataView):
 		#set node color -- we dont care about ds.node_colors for mayavi
 			if (self.ds.display_mode=='normal' or
 					(self.ds.display_mode=='scalar' and not nc)):
-				set_lut(nodes,self.ds.opts.default_map)
-				nodes.mlab_source.dataset.point_data.scalars=np.tile(.3,nr)
+				scalars = np.tile(.3, nr)
+				set_lut(nodes, self.ds.opts.default_map)
+				set_color_range(nodes, (0.,1.))
+				nodes.mlab_source.dataset.point_data.scalars = scalars
 
 			elif self.ds.display_mode=='scalar': #and nc must be true
-				set_lut(nodes,self.ds.opts.scalar_map)
-				nodes.mlab_source.dataset.point_data.scalars=(
-					self.ds.node_scalars[nc][ixes])
+				scalars = self.ds.node_scalars[nc]
+				set_lut(nodes, self.ds.opts.scalar_map)
+				set_color_range(nodes, scalars)
+				nodes.mlab_source.dataset.point_data.scalars = scalars[ixes]
 
 			elif self.ds.display_mode=='module_single':
-				set_lut(nodes,self.ds.opts.default_map)
-				new_colors=np.tile(.3,self.ds.nr_labels)
-				new_colors[self.ds.get_module()]=.8
-				nodes.mlab_source.dataset.point_data.scalars=new_colors[ixes]
+				scalars = np.tile(.3, self.ds.nr_labels)
+				scalars[self.ds.get_module()]=.8
+				set_lut(nodes, self.ds.opts.default_map)
+				set_color_range(nodes, (0.,1.))
+				nodes.mlab_source.dataset.point_data.scalars = scalars[ixes]
 
 			elif self.ds.display_mode=='module_multi':
 				new_colors=np.array(self.ds.module_colors[:self.ds.nr_modules])
@@ -378,7 +402,8 @@ class DVMayavi(DataView):
 				#set the mayavi scalars to be fractions between 0 and 1
 				import bct
 				nodes.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
-					self.ds.modules,zeroindexed=True)/self.ds.nr_modules)[ixes]
+					self.ds.modules,zeroindexed=True))[ixes]
+				set_color_range(nodes, (0., self.ds.nr_modules))
 
 		mlab.draw()
 
@@ -706,7 +731,10 @@ class DVCircle(DataView):
 				node_colors=self.ds.node_colors,
 				reqrois=reqrois,
 				suppress_extra_rois=suppress_extra_rois,
-				bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry)
+				bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry,
+
+				#facecolor='white', textcolor='black'
+				)
 		except cvu_utils.CVUError as e:
 			self.ds.error_dialog(str(e))
 		self.circ_data=self.circ.get_axes()[0].patches
@@ -723,7 +751,10 @@ class DVCircle(DataView):
 			n_lines=None,
 			node_colors=self.ds.node_colors,
 			reqrois=(),
-			bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry)
+			bilateral_symmetry=self.ds.opts.circ_bilateral_symmetry,
+
+			#facecolor='white', textcolor='black'
+			)
 
 	########################################################################
 	# DRAW METHODS
@@ -794,6 +825,8 @@ class DVCircle(DataView):
 	
 	#takes a SnapshotParameters
 	def snapshot(self,params):
-		self.circ.savefig(params.savefile,dpi=params.dpi,facecolor='black')
+		#self.circ.savefig(params.savefile,dpi=params.dpi,facecolor='black')
+		self.circ.savefig(params.savefile,dpi=params.dpi,
+			facecolor=self.circ.get_facecolor())
 	
 	## END DVCIRCLE

@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from mayavi.core import lut_manager
 from pylab import get_cmap
@@ -157,3 +158,12 @@ edge cases
 	else:
 		lut_mgr.lut_mode=map.cmap
 
+def set_color_range(mayavi_obj, scalars, use_vector_lut=False):
+	'''Set the data_range trait of a mayavi module manager's scalar LUT. If
+	use_vector_lut is set, set the range of the vector LUT instead. The range is
+	set to [min(scalars), max(scalars)]'''
+	if use_vector_lut:
+		module_manager = mayavi_obj.module_manager.vector_lut_manager
+	else:
+		module_manager = mayavi_obj.module_manager.scalar_lut_manager
+	module_manager.data_range = (np.min(scalars), np.max(scalars))
