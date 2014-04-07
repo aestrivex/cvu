@@ -358,6 +358,10 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 		cw=self.calculate_window
 		if not cw.finished: return
 
+		if cw.ctl.ds_ref.adj is None:
+			self.error_dialog("There is no adjacency matrix loaded")
+			return
+
 		if cw.ctl.thresh_type=='abs':
 			thres=cw.ctl.athresh
 		elif cw.ctl.thresh_type=='prop':

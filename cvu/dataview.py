@@ -331,7 +331,7 @@ class DVMayavi(DataView):
 
 		#we don't need to set the scalars properly, but lets set the scalar range
 		#of the surface properly so that a colorbar will capture it
-		elif nc:
+		elif (self.ds.display_mode=='scalar' and nc):
 			scalars = self.ds.node_scalars[nc]
 			#the scalar colorbar refers to syrf_lh only
 			min_scale, max_scale = np.min(scalars), np.max(scalars)
@@ -690,6 +690,7 @@ class DVMatrix(DataView):
 class DVCircle(DataView):
 	circ=Any			#mpl.figure
 	circ_data=List		#list(mpl.patch.pathpatch)
+	node_angles=Any		#Nx1 np.ndarray
 
 	tooltip_labnam=Property
 	def _get_tooltip_labnam(self):
@@ -721,7 +722,7 @@ class DVCircle(DataView):
 		if figure is not None: figure.clf()
 
 		try:
-			self.circ=circle_plot.plot_connectivity_circle_cvu(
+			self.circ, self.node_angles = circle_plot.plot_connectivity_circle_cvu(
 				np.reshape(self.ds.adjdat,(self.ds.nr_edges,)),
 				self.ds.node_labels_numberless,
 				indices=self.ds.edges.T,
@@ -742,7 +743,7 @@ class DVCircle(DataView):
 		self.draw_nodes()
 
 	def empty_gen(self,figure=None):
-		self.circ=circle_plot.plot_connectivity_circle_cvu(
+		self.circ, self.node_angles = circle_plot.plot_connectivity_circle_cvu(
 			np.array(()),
 			self.ds.node_labels_numberless,
 			indices=np.array(((),())),
@@ -806,13 +807,18 @@ class DVCircle(DataView):
 
 		#until mpl polar plots get real panning, just call to display node
 		elif event.button==1 and (7 <= event.ydata <= 8):
-			n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
+			#n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
+			n = np.argmin(np.abs(event.xdata - (self.node_angles % (np.pi*2))))
 	
-			self.ds.display_node(int(np.floor(n)))
+			#NOT TESTED YET
+			real_labelnr = self.ds.labnam.index(self.tooltip_labnam[n])
+			self.ds.display_node(real_labelnr)
+			#self.ds.display_node( int(np.floor(n)) )
 
 	def circle_mouseover(self,event,tooltip):
 		if 7 <= event.ydata <= 8:
-			n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
+			#n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
+			n = np.argmin(np.abs(event.xdata - (self.node_angles % (np.pi*2))))
 
 			tooltip.Enable(True)
 			tooltip.SetTip(self.tooltip_labnam[int(np.floor(n))])

@@ -384,7 +384,7 @@ The figure handle.
 		cb_yticks = pl.getp(cb.ax.axes, 'yticklabels')
 		pl.setp(cb_yticks, color=textcolor)
 	
-	return fig
+	return fig, node_angles
 
 def get_labels_avg_idx(lbs,n,frac=.5,pad=0.):
 	"""Takes:
