@@ -16,6 +16,7 @@
 
 import os
 import sys
+import numpy as np
 from traits.api import (HasTraits,List,Instance,Dict,Button,Str,
 	Bool,Property,on_trait_change)
 from traitsui.api import (ButtonEditor,ShellEditor,View,Item,Spring,HSplit,

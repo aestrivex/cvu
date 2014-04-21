@@ -40,6 +40,11 @@ class StatisticsDisplay(HasTraits):
 			height=300,width=225,show_label=False),
 	)
 
+def calculate_modules(adj):
+	ci,_ = bct.modularity_und(adj)
+	ci2,_ = bct.modularity_finetune_und(adj, ci=ci)
+	return ci2
+
 def do_summary(adj,mods,opts):
 	stats=OrderedDict()
 	for opt in opts:

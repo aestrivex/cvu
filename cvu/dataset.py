@@ -698,16 +698,16 @@ class Dataset(HasTraits):
 		self.draw_nodes()
 
 	def calculate_modules(self,thres):
-		import bct
+		import graph, bct
 		thres_adj=self.adj.copy()
 		thres_adj[thres_adj < thres] = 0
 		self.verbose_msg('Threshold for modularity calculation: %s'%str(thres))
-		modvec,_=bct.modularity_und(thres_adj)
+		modvec = graph.calculate_modules(thres_adj)
 		self.modules = bct.ci2ls(modvec)
 		self.nr_modules = len(self.modules)
 	
 	def calculate_graph_stats(self,thres):
-		import graph,bct
+		import graph, bct
 		thres_adj = self.adj.copy()
 		thres_adj[thres_adj < thres] = 0
 		self.verbose_msg('Threshold for graph calculations: %s'%str(thres))
