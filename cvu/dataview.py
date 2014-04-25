@@ -564,7 +564,7 @@ class DVMayavi(DataView):
 			(xe,ye,params.framerate,params.bitrate*1024,xs,ys,params.savefile))
 
 		try:
-			self.ffmpeg_process=shell_utils.sh_cmd_retproc(cmd)
+			self.ffmpeg_process=shell_utils.sh_cmd_retproc(cmd, params.debug)
 			self.make_movie_animate(params.samplerate,params.anim_style)
 		except CVUError as e:
 			self.error_dialog(str(e))
@@ -759,6 +759,8 @@ class DVCircle(DataView):
 			#facecolor='white', textcolor='black'
 			)
 
+		self.circ_data=self.circ.get_axes()[0].patches
+
 	########################################################################
 	# DRAW METHODS
 	########################################################################
@@ -781,7 +783,12 @@ class DVCircle(DataView):
 				self.ds.rhnodes.size)
 			colors = colors[:hemi_pivot]+colors[:hemi_pivot-1:-1]
 
-		circ_path_offset=len(self.ds.adjdat)
+		#handle circle scalars if no connectivity data exists yet
+		if len(self.circ_data) == self.ds.nr_labels:
+			circ_path_offset = 0
+		else:
+			circ_path_offset = len(self.ds.adjdat)
+
 		for n in xrange(self.ds.nr_labels):
 			self.circ_data[circ_path_offset+n].set_fc(colors[n])
 		

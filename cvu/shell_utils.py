@@ -66,11 +66,14 @@ def sh_cmd_grep(cmd,grep):
 		except: pass
 		return retln
 
-def sh_cmd_retproc(cmd):
+def sh_cmd_retproc(cmd, debug=False):
 	import subprocess; import os
 	with open(os.devnull,'wb') as devnull:
+		outfd = None if debug else devnull
+
 		process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
-			stdout=devnull,stderr=devnull)
+			stdout=None,stderr=None)
+		
 		#checks to see if the specified command was bad
 		if process.poll():
 			process.kill()

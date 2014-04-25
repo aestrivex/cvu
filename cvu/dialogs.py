@@ -589,6 +589,7 @@ class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
 		Item(name='anim_style',object='object.ctl',
 			label='automatically rotate'),
 		Item(name='samplerate',object='object.ctl',label='animation speed (Hz)'),
+		Item(name='debug',object='object.ctl',label='debug ffmpeg'),
 	), kind='panel',buttons=OKCancelButtons,title="Make me a sandwich")
 
 ############################################################################

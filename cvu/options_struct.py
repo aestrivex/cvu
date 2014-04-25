@@ -228,6 +228,7 @@ class MakeMovieParameters(DatasetReferenceOptionsStructure):
 	samplerate=Int(8)
 	anim_style=Bool(True)
 	anim_rate=Int(8)
+	debug=Bool(False)
 
 class GraphTheoryParameters(DatasetReferenceOptionsStructure):
 	from traitsui.api import View,Item,ListEditor
