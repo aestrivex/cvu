@@ -656,9 +656,11 @@ class DVMatrix(DataView):
 		mat=self.ds.scalar_display_settings.connmat
 
 		if self.ds.display_mode=='scalar' and mat:
-			colors=list(self.ds.opts.scalar_map._pl(self.ds.node_scalars[mat]))
+			scalars = self.ds.node_scalars[mat]
+			scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))
+			colors = list(self.ds.opts.scalar_map._pl(scalars))
 		else:
-			colors=self.ds.node_colors
+			colors = self.ds.node_colors
 
 		self.xa.colors=colors; self.ya.colors=colors
 		self.conn_mat.request_redraw()
@@ -767,9 +769,11 @@ class DVCircle(DataView):
 		circ=self.ds.scalar_display_settings.circle
 
 		if self.ds.display_mode=='scalar' and circ:
-			colors=list(self.ds.opts.scalar_map._pl(self.ds.node_scalars[circ]))
+			scalars = self.ds.node_scalars[circ]
+			scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))
+			colors = list(self.ds.opts.scalar_map._pl(scalars))
 		else:
-			colors=self.ds.node_colors
+			colors = self.ds.node_colors
 
 		if self.ds.opts.circ_bilateral_symmetry:
 			starthemi = self.ds.labnam[0][0]

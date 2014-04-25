@@ -566,7 +566,8 @@ class Dataset(HasTraits):
 
 		import preprocessing
 		try:
-			ci=preprocessing.loadmat(params.mat, field=params.field_name)
+			ci=preprocessing.loadmat(params.mat, field=params.field_name, 
+				is_adjmat=False)
 		except (CVUError,IOError) as e: self.error_dialog(str(e)); return
 
 		if params.mat_order:

@@ -21,7 +21,7 @@ import mne
 import parsing_utils as parse
 from utils import CVUError
 
-def loadmat(fname,field=None):
+def loadmat(fname,field=None,is_adjmat=True):
 	import numpy as np
 	# matlab
 	if fname.endswith('.mat'):
@@ -41,10 +41,11 @@ def loadmat(fname,field=None):
 			'differentiate file formats and are not optional.')
 		return
 
-	if mat.ndim != 2 or mat.shape[0] != mat.shape[1]:
-		raise CVUError('Adjacency matrix is not square')
-	if not np.allclose(mat, mat.T):
-		raise CVUError('Adjacency matrix is not symmetric')
+	if is_adjmat:
+		if mat.ndim != 2 or mat.shape[0] != mat.shape[1]:
+			raise CVUError('Adjacency matrix is not square')
+		if not np.allclose(mat, mat.T):
+			raise CVUError('Adjacency matrix is not symmetric')
 
 	return mat
 
