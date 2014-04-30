@@ -173,12 +173,17 @@ class GeneralMatrixChooserParameters(DatasetReferenceOptionsStructure):
 
 	measure_nr=Int(1)
 	measure_name=Property(Str)
+	measure_has_custom_name=Bool(False)
+	measure_custom_name=Str
 	def _get_measure_name(self):
-		return 'scalars%i'%self.measure_nr
-	def _set_measure_name(self): pass
-
-	def _dataset_plusplus(self):
+		return (self.measure_custom_name if self.measure_has_custom_name else 
+			'scalars%i'%self.measure_nr)
+	def _set_measure_name(self,new_val):
+		self.measure_has_custom_name=True
+		self.measure_custom_name=new_val
+	def _increment_scalar_count(self):
 		self.measure_nr+=1
+		self.measure_has_custom_name=False
 
 class NodeChooserParameters(DatasetReferenceOptionsStructure):
 	cur_node=Int(-1)

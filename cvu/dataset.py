@@ -602,7 +602,7 @@ class Dataset(HasTraits):
 			self.nr_modules=len(self.modules)
 		elif params.whichkind=='scalars':
 			self.save_scalar(params.measure_name,ci)
-			params._dataset_plusplus()
+			params._increment_scalar_count()
 
 	#this method destroys the current dataviews and resets them entirely
 	def reset_dataviews(self):
