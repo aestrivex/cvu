@@ -360,6 +360,10 @@ class DVMayavi(DataView):
 				scalars = self.ds.node_scalars[ns]
 				#for node size, the scalars need to be scaled to 0-1
 				scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))
+			#	scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))+1
+			#	scalars = ((np.log(scalars)-np.log(np.min(scalars))) /
+			#		(np.log(np.max(scalars))-np.log(np.min(scalars))))
+
 				nodes.glyph.scale_mode='scale_by_vector'
 				nodes.glyph.glyph.scale_factor=8
 				nodes.mlab_source.dataset.point_data.vectors=(

@@ -72,7 +72,7 @@ def sh_cmd_retproc(cmd, debug=False):
 		outfd = None if debug else devnull
 
 		process=subprocess.Popen(cmd,shell=True,stdin=subprocess.PIPE,
-			stdout=None,stderr=None)
+			stdout=outfd,stderr=outfd)
 		
 		#checks to see if the specified command was bad
 		if process.poll():
