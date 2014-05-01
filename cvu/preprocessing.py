@@ -33,6 +33,14 @@ def loadmat(fname,field=None,is_adjmat=True):
 	# numpy
 	elif fname.endswith('.npy'):
 		mat = np.load(fname)
+	elif fname.endswith('.npz'):
+		if not field:
+			raise CVUError("For .npz matrices, you must specify a field name")
+		mat = np.load(fname)[field]
+
+	# other
+	elif fname.endswith('.pkl'):
+		raise IOError('Pickled matrices are not supported yet')
 	elif fname.endswith('.txt'):
 		mat = np.loadtxt(fname)
 	else:

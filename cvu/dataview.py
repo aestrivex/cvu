@@ -360,12 +360,14 @@ class DVMayavi(DataView):
 				scalars = self.ds.node_scalars[ns]
 				#for node size, the scalars need to be scaled to 0-1
 				scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))
-			#	scalars = (scalars-np.min(scalars)) / (np.max(scalars)-np.min(scalars))+1
-			#	scalars = ((np.log(scalars)-np.log(np.min(scalars))) /
-			#		(np.log(np.max(scalars))-np.log(np.min(scalars))))
+				#logarithmic scaling does a better job of differentiating large nodes
+				scalars = (np.exp(scalars*np.log(2))-1)/(np.e-1)	
+				#scalars=(4**(scalars*np.log(3)/np.log(4))-1)/3
+				#scalars=(4**scalars-1)/3
+				#scalars**=2
 
 				nodes.glyph.scale_mode='scale_by_vector'
-				nodes.glyph.glyph.scale_factor=8
+				nodes.glyph.glyph.scale_factor=12
 				nodes.mlab_source.dataset.point_data.vectors=(
 					np.tile(scalars[ixes],(3,1)).T)
 			else:

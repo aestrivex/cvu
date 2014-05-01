@@ -359,13 +359,18 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 				label='Ignore deletes'),
 		label='Matrix'),
 		Group(
-			current_dataset_item,
-			Item(name='require_note',style='readonly',height=50,width=250,
-				label='Please note'),
-			Item(name='require_ls',object='object.ctl',
-				editor=ListStrEditor(auto_add=True,editable=True),
-				label='List ROIs here'),
-			Item(name='suppress_extra_rois',object='object.ctl'),
+			VGroup(
+				current_dataset_item,
+				Item(name='require_note',style='readonly',height=50,width=250,
+					label='Please note'),
+				Item(name='require_ls',object='object.ctl',
+					editor=ListStrEditor(auto_add=True,editable=True),
+					label='List ROIs here'),
+			),
+			VGroup(
+				Item(name='suppress_extra_rois',object='object.ctl',
+					label='Show only labels listed here'),
+			),
 		label='required ROIs'),
 	
 		kind='panel',buttons=[RequireButton,OKButton,CancelButton],
