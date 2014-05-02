@@ -38,6 +38,9 @@ class Viewport(Handler):
 	#a very weak form of static type checking, and a way to save a miniscule
 	#amount of time and space on managing pointers.
 
+
+
+
 	#by keeping these views on the viewport object itself, we can change
 	#the dataset without making traitsui think that the view is inaccessible
 	#and it is time to be thrown away immediately upon loading a new dataset
@@ -120,9 +123,6 @@ class ViewPanel(InteractiveSubwindow):
 
 	group_1,group_2 = 2*(Instance(DatasetViewportLayout),)
 
-	#def __init__(self):
-
-	#def __str__(self): return self.panel_name
 	def __repr__(self): return self.panel_name
 
 	def is_full(self,group=None):

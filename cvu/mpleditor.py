@@ -15,15 +15,28 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import wx
-import matplotlib
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx
+from traits.trait_base import ETSConfig
+_tk = ETSConfig.toolkit
 
-from traits.api import *
-from traitsui.wx.editor import Editor
+if (_tk is None) or (_tk == 'null'):
+	raise NotImplementedError("We must independently set the toolkit")
+
+from traits.api import Any, Int, Bool, Instance, Either
 from traitsui.basic_editor_factory import BasicEditorFactory
+from matplotlib.figure import Figure
+
+
+#import wx
+#from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
+#from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+# this import is not portable. But that is ok because currently the number of options
+# is exactly 2
+FigureCanvas = getattr(__import__('matplotlib.backends.backend_%sagg'%_tk,
+	fromlist=['FigureCanvas']), 'FigureCanvas%sAgg'%('Wx' if _tk=='wx' else 'QT'))
+
+#from traitsui.<toolkit>.editor import Editor
+Editor = __import__('traitsui.%s.editor'%_tk,fromlist=['Editor']).Editor
+
 import numpy as np
 import time 
 
@@ -34,8 +47,8 @@ class _MPLFigureEditor(Editor):
 
 	scrollable = True
 	parent = Any
-	canvas = Instance(FigureCanvasWxAgg)
-	tooltip = Instance(wx._misc.ToolTip)
+	canvas = Instance(FigureCanvas)
+	tooltip = Any #Either(Instance(wx._misc.ToolTip), Instance(QT_EQUIVALENT))
 
 	# define some callbacks that need to be added and removed on the fly.
 	# these callbacks can't be passed around easily
@@ -50,16 +63,15 @@ class _MPLFigureEditor(Editor):
 
 	def update_editor(self):
 		pass
-		#print 'morvunskar'
-		#self.reset_editor()
-		#self.control=self._create_canvas(self.parent)
 
-	def _create_canvas(self,parent):
+	def _create_canvas(self, *args):
+		return getattr(self,'_create_canvas_%s'%_tk)(*args)
+
+	def _create_canvas_wx(self, parent):
 		#unsure if there is a way to avoid hard coding these function names
-		#obviously this is hacky and undesirable
 		fig=self.object.circ
 		panel=wx.Panel(parent,-1)
-		self.canvas=FigureCanvasWxAgg(panel,-1,fig)
+		self.canvas = canvas = FigureCanvas(panel,-1,fig)
 		sizer=wx.BoxSizer(wx.VERTICAL)
 		sizer.Add(self.canvas,1,wx.EXPAND|wx.ALL,1)
 		#toolbar=NavigationToolbar2Wx(self.canvas)
@@ -71,22 +83,45 @@ class _MPLFigureEditor(Editor):
 		#self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
 		#	lambda ev:self.object.circ_mouseover(ev,self))
 
-		self.canvas.mpl_connect('button_press_event',self.object.circle_click)
-		self.canvas.mpl_connect('motion_notify_event',
-			lambda ev:self.object.circle_mouseover(ev,self.tooltip))
+		canvas.mpl_connect('button_press_event',self.object.circle_click)
+		canvas.mpl_connect('motion_notify_event',
+			lambda ev:self.object.circle_mouseover(ev, self.tooltip))
 
 		self.tooltip=wx.ToolTip(tip='')
 		self.tooltip.SetDelay(2000)
-		self.canvas.SetToolTip(self.tooltip)
+		canvas.SetToolTip(self.tooltip)
 		return panel
 
-	def _process_click(self,event):
-		if event.button==3:
-			self.ds.display_all()
-		elif event.button==1 and (7 <= event.ydata <= 8):
-			n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
-			self.ds.display_node(int(np.floor(n)))
+	def _create_canvas_qt4(self, parent):
+		import matplotlib
+		#matplotlib.use('Qt4Agg')
+		#matplotlib.rcParams['backend.qt4']='PySide'
 
+		from pyface.qt import QtCore, QtGui
+
+		panel = QtGui.QWidget()
+
+		fig = self.object.circ	
+		self.canvas = canvas = FigureCanvas(fig)
+		print canvas
+		#self.canvas.setParent(panel)
+
+		#layout = QtGui.QVBoxLayout()
+		layout = QtGui.QVBoxLayout( panel )
+		layout.addWidget(canvas)
+
+		canvas.mpl_connect('button_press_event', self.object.circle_click)
+		canvas.mpl_connect('motion_notify_event',
+			lambda ev: self.object.circle_mouseover(ev, self.tooltip))
+
+		return panel
+
+######################################################################################
+######################################################################################
+	#FIXME all remaining code in this class is not used. but it is left untouched to
+	#show how to do the panning.
+	#if we ever actually do the panning, which is unlikely, obviously it should be
+	#modernized.
 	def _process_circ_click(self,event,cvu):
 		# if the user right clicked, just display all
 		if event.button==3:
@@ -100,7 +135,6 @@ class _MPLFigureEditor(Editor):
 			lambda ignore:self._single_click(event,cvu))
 			# use the existing event coordinates; theres probably no difference
 			# but if there were the originals would be more reliable
-
 		#self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
 		#	self._pan_decide)
 
@@ -163,5 +197,4 @@ class _MPLFigureEditor(Editor):
 		self._clear_callbacks()
 
 class MPLFigureEditor(BasicEditorFactory):
-
 	klass = _MPLFigureEditor

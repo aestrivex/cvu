@@ -22,22 +22,35 @@
 #  Imports:
 #-------------------------------------------------------------------------------
 
-import wx
+from traits.trait_base import ETSConfig
+_tk = ETSConfig.toolkit
+
+if (_tk is None) or (_tk == 'null'):
+	raise NotImplementedError("We must independently set the toolkit")
+
+from functools import partial
 from traits.api import (File, HasTraits, Button, Instance, Any, Callable, 
 	Property, Directory, Bool)
-from traitsui.wx.helper import TraitsUIPanel
 from traitsui.api import (View, Item, CustomEditor, Handler, UIInfo)
 from traitsui.file_dialog import open_file
 
-from traitsui.wx.custom_editor import CustomEditor as CustomEditorKlass
+#from traitsui.<toolkit>.custom_editor import CustomEditor as CustomEditorKlass
+CustomEditorKlass = __import__('traitsui.%s.custom_editor'%_tk, 
+	fromlist=['CustomEditor'], ).CustomEditor
+
 from directory_dialog import open_directory
 
-def mkeditor ( parent,editor,use_dir=False, *args ):
+def mkeditor(*args, **kwargs):
 	""" Custom editor factory.  Must be instantiated on top of an
 		InteractiveSubwindow instance with an implemented reconstruct().
 	"""
+	#return <toolkit>_editor_factory(*args)
+	return (getattr(__import__('custom_file_editor'),'%s_editor_factory'%_tk)
+		(*args,**kwargs))
 
-	#IE the file trait is in the InteractiveSubwindow, not somewhere else
+def wx_editor_factory(parent, editor, use_dir=False, *args):
+	import wx
+	from traitsui.wx.helper import TraitsUIPanel
 
 	editor.control = panel = TraitsUIPanel( parent, -1 )
 	sizer        = wx.BoxSizer( wx.HORIZONTAL )
@@ -53,8 +66,7 @@ def mkeditor ( parent,editor,use_dir=False, *args ):
 	editor.text_control = text_control = wx.TextCtrl(panel, -1, '',
 		style=wx.TE_PROCESS_ENTER)
 
-	_do_update_obj = lambda ev:update_file_obj(ev,editor)
-#	_do_update_obj = editor.update_file_obj
+	_do_update_obj = lambda ev:update_file_obj(editor)
 
 	wx.EVT_TEXT_ENTER( panel, text_control.GetId(), _do_update_obj)
 	wx.EVT_KILL_FOCUS( text_control, _do_update_obj)
@@ -62,71 +74,91 @@ def mkeditor ( parent,editor,use_dir=False, *args ):
 	sizer.Add( text_control, 1, wx.EXPAND | wx.ALIGN_CENTER )
 	sizer.Add( button,  0, wx.RIGHT   | wx.ALIGN_CENTER, pad )
 
-	wx.EVT_BUTTON( panel, button.GetId(),
-		lambda ev:button_click(ev,editor) )
-#		editor.button_click )
+	wx.EVT_BUTTON( panel, button.GetId(), lambda ev:button_click(editor) )
 	panel.SetSizerAndFit( sizer )
 
 	return panel
 
+def qt4_editor_factory(parent, editor, use_dir=False, *args):
+	from pyface.qt import QtCore, QtGui
+	from traitsui.qt4.helper import IconButton
+
+	editor.control = panel =  QtGui.QWidget()
+	layout = QtGui.QHBoxLayout( panel )
+	layout.setContentsMargins(0,0,0,0)
+
+	if use_dir:
+		editor.use_dir = True
+
+	editor.text_control = text_control = QtGui.QLineEdit()
+	layout.addWidget(text_control)
+	signal = QtCore.SIGNAL('editingFinished()')
+	QtCore.QObject.connect(text_control, signal, lambda:update_file_obj(editor))
+
+	button = IconButton(QtGui.QStyle.SP_DirIcon, lambda:button_click(editor))
+	layout.addWidget(button)
+
+	return panel
+
+def get_text(editor):
+	if _tk == 'wx': return editor.text_control.GetValue()
+	elif _tk == 'qt4': return editor.text_control.text()
+	else: raise NotImplementedError('Attempted to get text from nonexistent editor type')
+
+def set_text(editor, text):
+	if _tk == 'wx': return editor.text_control.SetValue(text)
+	elif _tk == 'qt4': return editor.text_control.setText(text)
+	else: raise NotImplementedError('Attempted to set text in nonexistent editor type')
+
 #methods referring to editor factory, which is not a real object
-def button_click(event,editor):
+def update_file_obj(editor):
+	editor.value = get_text(editor)
+
+def button_click(editor):
 	if editor.use_dir:
 		file_selected=open_directory(entries=20)
 	else:
 		file_selected=open_file(entries=20)
 	if file_selected:
 		editor.value=file_selected
-	#editor.object.reconstruct()
 	editor.ui.handler.reconstruct()
-	#editor.text_control.SetValue(editor.value)
-
-def update_file_obj(event,editor):
-	editor.value=editor.text_control.GetValue()
 
 #custom editor on traitsui abstraction level
 class CustomFileEditor(CustomEditor):
 	'''abstraction layer for Custom File editor.  This editor must be
 	instantiated within a view of an InteractiveSubwindow object with a
 	correctly implemented reconstruct()'''
-	#factory = Callable(mkeditor)
 	factory = Property #Callable
 
 	use_dir = Bool(False)
-
-	#klass = Property
 
 	def _get_klass(self):
 		#tell the editor to use this instead of importing from traitsui.wx
 		return CustomFileEditorKlass
 
 	def _get_factory(self):
-		if self.use_dir:
-			return lambda p,e:mkeditor(p,e,True)
-		else:
-			return mkeditor
+		return partial(mkeditor, use_dir=True)
 
 class CustomDirectoryEditor(CustomFileEditor):
 	use_dir = True
 
-#custom editor on level of toolkit (i.e., wx)
+#custom editor on level of toolkit (i.e., wx or qt4)
 class CustomFileEditorKlass(CustomEditorKlass):
-	text_control = Any # Instance( wx._control.TextCtrl )
+	text_control = Any # Instance( wx._control.TextCtrl or QtGui.QLineEdit )
 
 	use_dir = Bool(False)
 
 	def update_editor(self):
-		self.text_control.SetValue(self.value)
+		set_text(self, self.value)
 
 	def button_click(self,event):
-		#print "SKAGGGEY MUFFIN"
 		file_selected=open_file()
 		if file_selected:
 			self.value=file_selected
 		self.object.reconstruct()
 
 	def update_file_obj(self,event):
-		self.value=self.text_control.GetValue()
+		self.value = get_text(self)
 
 #test as main file
 if __name__=='__main__':

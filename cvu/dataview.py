@@ -230,6 +230,10 @@ class DVMayavi(DataView):
 			nodes.glyph.color_mode='color_by_scalar'
 
 		self.ds.chg_lh_nodemask(); self.ds.chg_rh_nodemask()
+		self.ds.chg_scalar_colorbar()
+		#scalar colorbar is tied to lh_surf, but we dont really care if surf switches
+		#between cracked and uncracked so it is more convenient to set up here
+
 		self.draw_nodes()
 
 	def vectors_clear(self):
