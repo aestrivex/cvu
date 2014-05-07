@@ -22,11 +22,14 @@
 #  Imports:
 #-------------------------------------------------------------------------------
 
+import os
 from traits.trait_base import ETSConfig
 _tk = ETSConfig.toolkit
 
-if (_tk is None) or (_tk == 'null'):
-	raise NotImplementedError("We must independently set the toolkit")
+if _tk in ('null','',None):
+	_tk = os.environ['ETS_TOOLKIT']
+else:
+	print _tk
 
 from functools import partial
 from traits.api import (File, HasTraits, Button, Instance, Any, Callable, 
@@ -55,8 +58,7 @@ def wx_editor_factory(parent, editor, use_dir=False, *args):
 	editor.control = panel = TraitsUIPanel( parent, -1 )
 	sizer        = wx.BoxSizer( wx.HORIZONTAL )
 
-	if use_dir:
-		editor.use_dir = True
+	editor.use_dir = use_dir
 
 	pad = 8
 
@@ -87,8 +89,7 @@ def qt4_editor_factory(parent, editor, use_dir=False, *args):
 	layout = QtGui.QHBoxLayout( panel )
 	layout.setContentsMargins(0,0,0,0)
 
-	if use_dir:
-		editor.use_dir = True
+	editor.use_dir = use_dir
 
 	editor.text_control = text_control = QtGui.QLineEdit()
 	layout.addWidget(text_control)
@@ -124,23 +125,31 @@ def button_click(editor):
 	editor.ui.handler.reconstruct()
 
 #custom editor on traitsui abstraction level
-class CustomFileEditor(CustomEditor):
-	'''abstraction layer for Custom File editor.  This editor must be
-	instantiated within a view of an InteractiveSubwindow object with a
-	correctly implemented reconstruct()'''
-	factory = Property #Callable
+if _tk == 'wx':
+	class CustomFileEditor(CustomEditor):
+		'''abstraction layer for Custom File editor.  This editor must be
+		instantiated within a view of an InteractiveSubwindow object with a
+		correctly implemented reconstruct()'''
+		factory = Property #Callable
 
-	use_dir = Bool(False)
+		use_dir = Bool(False)
 
-	def _get_klass(self):
-		#tell the editor to use this instead of importing from traitsui.wx
-		return CustomFileEditorKlass
+		def _get_klass(self):
+			#tell the editor to use this instead of importing from traitsui.wx
+			return CustomFileEditorKlass
 
-	def _get_factory(self):
-		return partial(mkeditor, use_dir=True)
+		def _get_factory(self):
+			return partial(mkeditor, use_dir=self.use_dir)
 
-class CustomDirectoryEditor(CustomFileEditor):
-	use_dir = True
+	class CustomDirectoryEditor(CustomFileEditor):
+		use_dir = True
+elif _tk == 'qt4':
+	#in qt, the file editor has good default history feature unlike wx
+	from traitsui.editors.file_editor import FileEditor as CustomFileEditor
+	from traitsui.editors.directory_editor import DirectoryEditor \
+        as CustomDirectoryEditor
+else:
+	raise NotImplementedError('No CustomFileEditor defined for nonexistent toolkit')
 
 #custom editor on level of toolkit (i.e., wx or qt4)
 class CustomFileEditorKlass(CustomEditorKlass):
@@ -151,17 +160,14 @@ class CustomFileEditorKlass(CustomEditorKlass):
 	def update_editor(self):
 		set_text(self, self.value)
 
-	def button_click(self,event):
-		file_selected=open_file()
-		if file_selected:
-			self.value=file_selected
-		self.object.reconstruct()
-
 	def update_file_obj(self,event):
 		self.value = get_text(self)
 
 #test as main file
 if __name__=='__main__':
+	import signal
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 	class Farkish(Handler):
 		f=File('saukish')
 		b=Button

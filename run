@@ -3,6 +3,7 @@
 import os
 import sys 
 
+#this can cause problems with old versions of enable
 os.environ['QT_API']='pyqt'
 
 scriptdir=os.getcwd()

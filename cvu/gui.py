@@ -153,7 +153,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
 						show_labels=False,
 					),
 					HSplit(
-						Item(name='python_shell',editor=ShellEditor(),
+						Item(name='python_shell',editor=ShellEditor(), height=450,
 						show_label=False),
 					),
 				),

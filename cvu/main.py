@@ -21,9 +21,8 @@ from gui import CvuGUI,ErrorHandler
 import sys
 import os
 import getopt
+import signal
 from utils import CVUError
-
-os.environ['ETS_TOOLKIT']='wx'
 
 def usage():
 	print ('Command line arguments are as follows:\n'
@@ -187,19 +186,25 @@ def main():
 	g=CvuGUI(sample_dataset,sample_metadata,quiet=args['quiet'])
 	sample_dataset.gui=g
 
+	#Qt does not sys.exit in response to KeyboardInterrupt correctly like wx does
+	#we intercept keyboard interrupts in the interpreter before it gets to the Qt loop
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 	if exec_script is not None:
 		from pyface.api import GUI
 		gui=GUI()
-		gui.invoke_later(lambda:script(exec_script,scriptdir=sys.argv[1]))
+		gui.invoke_later(lambda:script(exec_script, cvu_gui=g, scriptdir=sys.argv[1]))
 
 	g.configure_traits()
 
-def script(file,scriptdir=os.getcwd()):
+def script(file, cvu_gui=None, scriptdir=os.getcwd()):
 	curdir=os.getcwd()
 	os.chdir(scriptdir)
 	#print scriptdir
 	file=os.path.abspath(file)
 	os.chdir(curdir)
+	#print globals()
+	self = cvu_gui
 	with open(file) as fd: exec(fd)
 
 if __name__=='__main__':

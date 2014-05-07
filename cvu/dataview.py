@@ -817,7 +817,7 @@ class DVCircle(DataView):
 	# CALLBACKS
 	########################################################################
 
-	def circle_click(self,event):
+	def circle_click(self, event):
 		if event.button==3:
 			self.ds.display_all()
 		#in principle, don't display node right here but wait for a pan.
@@ -831,20 +831,17 @@ class DVCircle(DataView):
 			#n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
 			n = np.argmin(np.abs(event.xdata - (self.node_angles % (np.pi*2))))
 	
-			#NOT TESTED YET
 			real_labelnr = self.ds.labnam.index(self.tooltip_labnam[n])
 			self.ds.display_node(real_labelnr)
-			#self.ds.display_node( int(np.floor(n)) )
 
-	def circle_mouseover(self,event,tooltip):
+	def circle_mouseover(self, event, update_tooltip):
 		if 7 <= event.ydata <= 8:
 			#n=self.ds.nr_labels*event.xdata/(np.pi*2)+.5*np.pi/self.ds.nr_labels
 			n = np.argmin(np.abs(event.xdata - (self.node_angles % (np.pi*2))))
 
-			tooltip.Enable(True)
-			tooltip.SetTip(self.tooltip_labnam[int(np.floor(n))])
+			update_tooltip(True, text=self.tooltip_labnam[int(np.floor(n))])
 		else:
-			tooltip.Enable(False)
+			update_tooltip(False)
 
 	########################################################################
 	# I/O

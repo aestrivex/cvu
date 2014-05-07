@@ -48,7 +48,7 @@ class _MPLFigureEditor(Editor):
 	scrollable = True
 	parent = Any
 	canvas = Instance(FigureCanvas)
-	tooltip = Any #Either(Instance(wx._misc.ToolTip), Instance(QT_EQUIVALENT))
+	tooltip = Any #Either(Instance(wx._misc.ToolTip), Instance(QtGui.QWidget))
 
 	# define some callbacks that need to be added and removed on the fly.
 	# these callbacks can't be passed around easily
@@ -68,6 +68,7 @@ class _MPLFigureEditor(Editor):
 		return getattr(self,'_create_canvas_%s'%_tk)(*args)
 
 	def _create_canvas_wx(self, parent):
+		import wx
 		#unsure if there is a way to avoid hard coding these function names
 		fig=self.object.circ
 		panel=wx.Panel(parent,-1)
@@ -78,19 +79,26 @@ class _MPLFigureEditor(Editor):
 		#toolbar.Realize()
 		#sizer.Add(toolbar,0,wx.EXPAND|wx.ALL,1)
 		panel.SetSizer(sizer)
-		#self.canvas.mpl_connect('button_press_event',
-		#	lambda ev:self.object.circ_click(ev,self))
+
+		#for the panning process the id of the callback must be stored
 		#self.motion_cid=self.canvas.mpl_connect('motion_notify_event',
 		#	lambda ev:self.object.circ_mouseover(ev,self))
 
 		canvas.mpl_connect('button_press_event',self.object.circle_click)
 		canvas.mpl_connect('motion_notify_event',
-			lambda ev:self.object.circle_mouseover(ev, self.tooltip))
+			lambda ev:self.object.circle_mouseover(ev, self._update_tooltip_wx))
 
 		self.tooltip=wx.ToolTip(tip='')
 		self.tooltip.SetDelay(2000)
 		canvas.SetToolTip(self.tooltip)
 		return panel
+
+	def _update_tooltip_wx(self, tooltip_on, text=''):
+		if tooltip_on:
+			self.tooltip.Enable(True)
+			self.tooltip.SetTip(text)
+		else:
+			self.tooltip.Enable(False)
 
 	def _create_canvas_qt4(self, parent):
 		import matplotlib
@@ -99,22 +107,27 @@ class _MPLFigureEditor(Editor):
 
 		from pyface.qt import QtCore, QtGui
 
-		panel = QtGui.QWidget()
+		self.tooltip = panel = QtGui.QWidget()
 
 		fig = self.object.circ	
 		self.canvas = canvas = FigureCanvas(fig)
-		print canvas
 		#self.canvas.setParent(panel)
 
-		#layout = QtGui.QVBoxLayout()
 		layout = QtGui.QVBoxLayout( panel )
 		layout.addWidget(canvas)
 
 		canvas.mpl_connect('button_press_event', self.object.circle_click)
 		canvas.mpl_connect('motion_notify_event',
-			lambda ev: self.object.circle_mouseover(ev, self.tooltip))
+			lambda ev: self.object.circle_mouseover(ev, self._update_tooltip_qt))
 
 		return panel
+
+	def _update_tooltip_qt(self, tooltip_on, text=''):
+		if tooltip_on:
+			self.tooltip.setToolTip(text)
+		else:
+			self.tooltip.setToolTip(None)
+			pass
 
 ######################################################################################
 ######################################################################################

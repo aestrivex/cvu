@@ -231,6 +231,7 @@ class OptionsWindow(DatasetSpecificSubwindow):
 			import Tkinter, tkFileDialog
 			script=script%'tk'
 		except ImportError:
+			raise NotImplementedError('Tk not available for gradient editor toolkit')
 			script=script%'wx'
 		subprocess.Popen([sys.executable, script])
 	def _reset_default_cmaps_button_fired(self,info):
