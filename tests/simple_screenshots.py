@@ -26,7 +26,7 @@ except:
 #the incorrect scaling is done on whichever method goes first
 
 from mayavi import mlab
-print self.controller.ds_orig.dv_3d.scene.mayavi_scene
+#print self.controller.ds_orig.dv_3d.scene.mayavi_scene
 
 #mlab.savefig('../tests/output/direct3d.png',figure=self.controller.ds_orig.dv_3d.scene.mayavi_scene,size=(694,694))
 
@@ -40,6 +40,8 @@ self.save_snapshot_window.notify=True
 
 #self.controller.ds_orig.dv_3d.hack_mlabsavefig('../tests/output/test3d.png',
 #	size=(694,694))
+
+print self.controller.ds_orig.dv_3d.scene.scene_editor.light_manager
 
 self.save_snapshot_window.ctl.whichplot='3D brain'
 self.save_snapshot_window.ctl.savefile='../tests/output/first_3D.png'
