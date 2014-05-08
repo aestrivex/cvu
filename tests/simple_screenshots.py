@@ -41,13 +41,12 @@ self.save_snapshot_window.notify=True
 #self.controller.ds_orig.dv_3d.hack_mlabsavefig('../tests/output/test3d.png',
 #	size=(694,694))
 
-print self.controller.ds_orig.dv_3d.scene.scene_editor.light_manager
-
 self.save_snapshot_window.ctl.whichplot='3D brain'
 self.save_snapshot_window.ctl.savefile='../tests/output/first_3D.png'
 self.save_snapshot_window.finished=True
 self.save_snapshot_window.notify=True
 
+self.save_snapshot_window.ctl.dpi=100
 self.save_snapshot_window.ctl.whichplot='3D brain'
 self.save_snapshot_window.ctl.savefile='../tests/output/sparc_3D.png'
 self.save_snapshot_window.finished=True

@@ -193,7 +193,12 @@ def main():
 	if exec_script is not None:
 		from pyface.api import GUI
 		gui=GUI()
-		gui.invoke_later(lambda:script(exec_script, cvu_gui=g, scriptdir=sys.argv[1]))
+
+		def run_script():
+			gui.process_events()
+			script(exec_script, cvu_gui=g, scriptdir=sys.argv[1])
+
+		gui.invoke_later(run_script)
 
 	g.configure_traits()
 
