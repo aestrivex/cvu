@@ -1,7 +1,8 @@
 Connectome Visualization Utility version 0.4
 Author: Roan LaPlante
 
-==COPYRIGHT INFORMATION==
+COPYRIGHT INFORMATION
+
 This program strictly observes the tenets of fundamentalist Theravada Mahasi 
 style Buddhism.  Any use of this program in violation of these aforementioned 
 tenets or in violation of the principles described in the Visuddhimagga Sutta is
@@ -11,18 +12,29 @@ Note that the observation of the tenets of fundamentalist Theravada Mahasi
 style Buddhism and the Visuddhimagga Sutta is optional as long as the terms and
 conditions of the GNU GPLv3+ are upheld.
 
-==PACKAGES USED==
-===required packages===
-MNE Python -- used for extracting and displaying surfaces from freesurfer
-	annotations, and for circle-plot visualizations
-matplotlib -- plotting library (included in EPD)
-traits/traitsui -- traits object framework (included in EPD)
-chaco -- interactive plotting library (included in EPD)
-mayavi/mlab/tvtk -- interactive 3D visualization library (included in EPD)
-numpy/scipy -- math library for python (included in EPD)
+DEPENDENCIES
 
-===optional packages===
-nibabel/nipy -- neuroimaging in python.  used for volumetric measurements.
-	without nibabel subcortical nodes cannot be defined
-freesurfer -- a lot of CVU depends on freesurfer file formats.  However,
-	freesurfer commands are currently run only for tractographic alignment.
+These dependencies are satisfied by installing a scientific python distribution
+such as Canopy or anaconda:
+
+matplotlib -- plotting library
+chaco -- interactive plotting library
+numpy -- math library
+mayavi -- interactive 3D visualization library
+
+These dependencies are *required* and must be manually installed into your
+python distribution. Typically this is as simple as typing 'pip install package'
+
+mne -- MNE python, a broad library for MNE processing that is used in CVU to
+	manipulate surface and parcellation files.
+bctpy -- a graph theory library
+
+Optional dependencies:
+
+nibabel -- nibabel is a neuroimaging library that is used to locate subcortical
+	structures. Without nibabel, subcortical structures may not appear in any
+	parcellations.
+freesurfer -- freesurfer is a very powerful set of tools to do automatic
+	segmentation and parcellation. CVU calls freesurfer commands to register
+	tractography to the structural space. Without freesurfer, tractography
+	cannot be visualized.

@@ -6,3 +6,4 @@ recursive-include cvu/fsavg5 *
 recursive-include licenses
 LICENSE
 README
+run
