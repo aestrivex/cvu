@@ -222,12 +222,12 @@ class ColorLegendParameters(DatasetReferenceOptionsStructure):
 	def _get_legend(self): return self.ds_ref.color_legend
 
 class SnapshotParameters(DatasetReferenceOptionsStructure):
-	savefile=Str(os.environ['HOME'])
+	savefile=Str(os.path.expanduser('~'))
 	whichplot=Enum('3D brain','connection matrix','circle plot')
 	dpi=Int(300)
 
 class MakeMovieParameters(DatasetReferenceOptionsStructure):
-	savefile=Str(os.environ['HOME'])
+	savefile=Str(os.path.expanduser('~'))
 	framerate=Int(20)
 	bitrate=Int(4000)
 	samplerate=Int(8)

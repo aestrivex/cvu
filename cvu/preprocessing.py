@@ -146,8 +146,12 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 		if lab not in labs_used:
 			if lab in valid_subcortical_keys:
 				if asegd is None:
-					import nibabel
-					aseg=nibabel.load(os.path.join(subject,'mri','aseg.mgz'))
+					try:
+						import nibabel as nib
+					except ImportError as e:
+						raise CVUError('Nibabel is required for handling of '
+							'parcellations with subcortical structures')
+					aseg=nib.load(os.path.join(subject,'mri','aseg.mgz'))
 					asegd=aseg.get_data()
 				lab_pos[i,:] = volume.roi_coords(lab,asegd,subjdir=subjdir,
 					subject=subject,lhsurf=lhsurf,rhsurf=rhsurf)
