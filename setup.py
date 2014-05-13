@@ -13,7 +13,7 @@ setuptools.setup(
 	license="Visuddhimagga Sutta; GPLv3+",
 	packages=["cvu"],
 	package_data={'cvu':['data/*','docs/help','docs/scripting','docs/tutorials/*/*','fsavg5/label/*','fsavg5/surf/*','orders/*','cmaps/*'],
-				'':['LICENSE','README','licenses/*','run']}
+				'':['LICENSE','README','licenses/*','run']},
 	url="https://github.com/aestrivex/cvu",
 	long_description=read('README'),
 	classifiers=[
