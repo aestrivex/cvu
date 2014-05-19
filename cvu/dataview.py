@@ -20,7 +20,6 @@ import numpy as np
 from traits.api import (HasTraits,Str,Any,List,Instance,Bool,Property,on_trait_change)
 from utils import CVUError
 import shell_utils
-import cvu_utils
 
 from color_map import set_lut, set_color_range
 from mayavi import mlab
@@ -748,7 +747,7 @@ class DVCircle(DataView):
 
                 #facecolor='white', textcolor='black'
                 )
-        except cvu_utils.CVUError as e:
+        except CVUError as e:
             self.ds.error_dialog(str(e))
         self.circ_data=self.circ.get_axes()[0].patches
 
