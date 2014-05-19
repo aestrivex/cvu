@@ -4,7 +4,7 @@ import os
 import sys 
 
 #this can cause problems with old versions of enable
-os.environ['QT_API']='pyqt'
+#os.environ['QT_API']='pyqt'
 
 scriptdir=os.getcwd()
 os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)),'cvu'))

@@ -22,12 +22,6 @@
 
 from __future__ import division
 import numpy as np
-from matplotlib.backends.backend_wxagg import *
-from matplotlib.backends.backend_wx import *
-from matplotlib.backends.backend_agg import *
-from matplotlib import *
-import wx
-from mne.viz import plot_connectivity_circle
 from mne.fixes import tril_indices
 import pylab as pl
 import matplotlib.path as m_path
