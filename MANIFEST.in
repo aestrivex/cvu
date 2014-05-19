@@ -1,9 +1,16 @@
 graft cvu/data
-graft cvu/orders
 graft cvu/cmaps
-recursive-include cvu/docs
-recursive-include cvu/fsavg5 *
-recursive-include licenses
-LICENSE
-README
-run
+graft cvu/cmap_images
+graft licenses
+
+graft cvu/orders
+recursive-exclude cvu/orders *kerrmbsr*
+recursive-exclude cvu/orders questionable
+
+graft cvu/fsavg5
+recursive-exclude cvu/fsavg5 *test4rois* *nki*
+recursive-exclude cvu/fsavg5 *.gii
+
+include LICENSE
+include README
+include run

@@ -1,6 +1,15 @@
 Connectome Visualization Utility version 0.4
 Author: Roan LaPlante
 
+DESCRIPTION
+
+The Connectome Visualization Utility is a free and open source software project
+designed for the visualization of multi-modal, abstract brain networks. To
+facilitate visualization of network topology and modularity, cvu additionally
+interfaces with graph theory tools.
+
+The program is designed for scientists, but to run as a standalone application.
+
 COPYRIGHT INFORMATION
 
 This program strictly observes the tenets of fundamentalist Theravada Mahasi 

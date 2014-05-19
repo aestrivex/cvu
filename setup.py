@@ -12,8 +12,11 @@ setuptools.setup(
 	description=("A visualizer for human brain networks"),
 	license="Visuddhimagga Sutta; GPLv3+",
 	packages=["cvu"],
-	package_data={'cvu':['data/*','docs/help','docs/scripting','docs/tutorials/*/*','fsavg5/label/*','fsavg5/surf/*','orders/*','cmaps/*'],
-				'':['LICENSE','README','licenses/*','run']},
+	package_data={'cvu':['data/*','fsavg5/label/*','fsavg5/surf/*','orders/*','cmaps/*']},
+	data_files=[('licenses',['licenses/ENTHOUGHT_LICENSE',
+					'licenses/YORICK_LICENSE','licenses/COLORBREWER_LICENSE']),
+				('',['README','LICENSE'])],
+	scripts=['bin/cvu'],
 	url="https://github.com/aestrivex/cvu",
 	long_description=read('README'),
 	classifiers=[
