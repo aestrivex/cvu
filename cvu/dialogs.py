@@ -663,7 +663,7 @@ class WarningDialogWindow(HasTraits):
         title='Evil mutant zebras did this',)
 
 class AboutWindow(HasTraits):
-    message=Str('cvu version 0.2\n'
+    message=Str('cvu version 0.4\n'
         'cvu is copyright (C) Roan LaPlante 2013\n\n'
         'cvu strictly observes the tenets of fundamentalist Theravada Mahasi\n'
         'style Buddhism.  Any use of cvu in violation of the tenets of\n'
@@ -677,8 +677,13 @@ class AboutWindow(HasTraits):
         'cvu is distributed without warranty unless otherwise prohibited by\n'
         'law.  cvu is licensed under the GNU GPL v3.  a license is contained\n'
         'with the distribution of this program.  you may modify and convey\n'
-        'this program to others in accordance with the terms of the GNU GPLv3\n'		'or optionally any subsequent version of the GNU GPL.'
+        'this program to others in accordance with the terms of the GNU\n'
+        'GPLv3 or optionally any subsequent version of the GNU GPL.\n\n'
+
+        'Please note that modest noncompliance with the tenets of\n'
+        'fundamentalist Mahasi style Buddhism is typically overlooked as long\n'
+        'as the licensing requirements of the GPL are upheld.'
     )
     traits_view=View(Item(name='message',style='readonly',show_label=False),
-        buttons=[OKButton],kind='nonmodal',height=300,width=300,
+        buttons=[OKButton],kind='nonmodal',height=400,width=450,
         title='Greetings, corporeal being',)
