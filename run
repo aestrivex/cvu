@@ -3,7 +3,8 @@
 import os
 import sys 
 
-#this can cause problems with old versions of enable
+#pyside can cause problems with old versions of enable
+#however, forcing traits to use pyqt causes problems in anaconda
 #os.environ['QT_API']='pyqt'
 
 scriptdir=os.getcwd()
