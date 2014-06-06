@@ -6,6 +6,11 @@ import sys
 #pyside can cause problems with old versions of enable
 #however, forcing traits to use pyqt causes problems in anaconda
 #os.environ['QT_API']='pyqt'
+os.environ['QT_API']='pyside'
+
+#One or the other should usually be set so that matplotlib and pyface can
+#communicate and use the right Qt backend
+#pyside is a better default choice
 
 scriptdir=os.getcwd()
 os.chdir(os.path.join(os.path.dirname(os.path.dirname(

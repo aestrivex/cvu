@@ -120,35 +120,62 @@ The figure handle.
     n_nodes = len(nodes_numberless)
 
     #reverse the lower hemisphere so that the circle is bilaterally symmetric
+    start_hemi = 'l'
+    first_hemi = nodes_numberless[0][0]
+
+    def find_pivot(ls, item):
+        for i,l in enumerate(ls):
+            if l[0]!=item:
+                return i
+
+    hemi_pivot = find_pivot(nodes_numberless, first_hemi)
+
     if bilateral_symmetry:
-        start_hemi = nodes_numberless[0][0]
+        if start_hemi==first_hemi:
+            nodes_numberless = (nodes_numberless[:hemi_pivot] +
+                nodes_numberless[:hemi_pivot-1:-1])
 
-        def find_pivot(ls, item):
-            for i,l in enumerate(ls):
-                if l[0]!=item:
-                    return i
+            node_colors = (node_colors[:hemi_pivot] +
+                node_colors[:hemi_pivot-1:-1])
 
-        hemi_pivot = find_pivot(nodes_numberless, start_hemi)
+            if indices.size > 0:
+                indices = indices.copy()
+                indices[np.where(indices >= hemi_pivot)] = (
+                    n_nodes-1 + hemi_pivot -
+                    indices[np.where(indices >= hemi_pivot)])
+        else:
+            nodes_numberless = (nodes_numberless[hemi_pivot:] +
+                nodes_numberless[hemi_pivot-1::-1])
+        
+            node_colors = (node_colors[hemi_pivot:] +
+                node_colors[hemi_pivot-1::-1])
 
-        nodes_numberless = (nodes_numberless[:hemi_pivot] +
-            nodes_numberless[:hemi_pivot-1:-1])
-        #nodes_starthemi = nodes_numberless[:hemi_pivot]
-        #nodes_endhemi = nodes_numberless[hemi_pivot:]	
-        #nodes_endhemi.reverse()
-        #nodes_numberless = nodes_starthemi+nodes_endhemi
+            if indices.size > 0:
+                indices_x = indices.copy()
+                indices_x[np.where(indices < hemi_pivot)] = (
+                    n_nodes-1 - indices[np.where(indices < hemi_pivot)])
+                indices_x[np.where(indices >= hemi_pivot)] = (
+                    -hemi_pivot + indices[np.where(indices >= hemi_pivot)])
+                indices = indices_x
+                del indices_x
+    #if bilateral symmetry is turned off, then still put the
+    #left hemisphere on the left side
+    else:
+        if start_hemi!=first_hemi:
+            nodes_numberless = (nodes_numberless[hemi_pivot:] +
+                nodes_numberless[:hemi_pivot])
+       
+            node_colors = (node_colors[hemi_pivot:] +
+                node_colors[:hemi_pivot])
 
-        node_colors = (node_colors[:hemi_pivot] +
-            node_colors[:hemi_pivot-1:-1])
-        #nodecols_starthemi = node_colors[:hemi_pivot]
-        #nodecols_endhemi = node_colors[hemi_pivot:]
-        #nodecols_endhemi.reverse()
-        #node_colors = nodecols_starthemi+nodecols_endhemi
-
-        if indices.size > 0:
-            indices = indices.copy()
-            indices[np.where(indices >= hemi_pivot)] = (n_nodes - 1 + hemi_pivot -
-                indices[np.where(indices >= hemi_pivot)])
-
+            if indices.size > 0:
+                indices_x = indices.copy()
+                indices_x[np.where(indices < hemi_pivot)] = (
+                    hemi_pivot + indices[np.where(indices < hemi_pivot)])
+                indices_x[np.where(indices >= hemi_pivot)] = (
+                    -hemi_pivot + indices[np.where(indices >= hemi_pivot)])
+                indices = indices_x
+                del indices_x
 
     if node_angles is not None:
         if len(node_angles) != n_nodes:
@@ -159,6 +186,7 @@ The figure handle.
     else:
         # uniform layout on unit circle
         node_angles = np.linspace(0, 2 * np.pi, n_nodes, endpoint=False)
+    node_angles+=np.pi/2
 
     if node_width is None:
         node_width = 2 * np.pi / n_nodes
@@ -345,7 +373,7 @@ The figure handle.
         fontsize_names=8
 
     for name in text_angles:
-        angle_rad = text_angles[name]
+        angle_rad = text_angles[name] + np.pi/2
         #if hemi is end_hemi:
         #	angle_rad+=np.pi
         angle_deg = 180*angle_rad/np.pi
