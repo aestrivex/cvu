@@ -29,12 +29,6 @@ import matplotlib.patches as m_patches
 import matplotlib.colors as m_col
 from collections import OrderedDict
 
-#there are some minor changes in this function from the mne version
-#namely the return arguments and the figure size which were hard coded in the
-#mne function so i copied them
-
-#credit largely goes to martin luessi who adapted this function to mne from
-#whoever wrote it originally which is listed in the docstring
 def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None, 
     n_lines=10000, node_colors=None, colormap='YlOrRd', fig=None, reqrois=[],
     suppress_extra_rois=False,
@@ -44,11 +38,21 @@ def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None,
     fontsize_names='auto', bilateral_symmetry=True):
     """Visualize connectivity as a circular graph.
 
-Note: This code is based on the circle graph example by Nicolas P. Rougier
-http://www.loria.fr/~rougier/coding/recipes.html
+Note: This code is originally taken from public open-source
+examples in matplotlib by Nicolas P. Rougier. It was adapted for use in
+MNE python, primarily by Martin Luessi, but also by all the other contributors
+to MNE python.
 
-This function replicates functionality from MNE python, by Martin Luessi
-and others. Many changes are made from the MNE python version.
+There are some differences between the current version and the MNE python
+version. Most importantly, the current version offers less flexibility of the
+layout of the plot and has algorithms to determine this layout automatically
+given the ordering of the CVU dataset. Each hemisphere takes up roughly half
+the space and the left hemisphere is always on the left side of the plot. Then
+there is a very complex and poorly documented algorithm to randomly suppress 
+extra label names so that all of the label names that result are readable.
+Note that the suppression of label names can be overwritten in the GUI although
+it is quite effortful, typically it is recommended to do image
+postprocessing instead.
 
 Parameters
 ----------
