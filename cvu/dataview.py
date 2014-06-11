@@ -522,8 +522,6 @@ class DVMayavi(DataView):
 
         from mayavi import __version__ as mayavi_version
         if float(mayavi_version[:3]) >= 4.3:
-            print self.scene.mayavi_scene
-            print res
             mlab.savefig(params.savefile,figure=self.scene.mayavi_scene,
                 size=(res,res))
         else:
