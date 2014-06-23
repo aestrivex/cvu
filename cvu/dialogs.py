@@ -355,7 +355,7 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
                 editor=CustomFileEditor()),
             Item(name='max_edges',object='object.ctl',label='Max Edges'),
             Item(name='field_name',object='object.ctl',
-                label='Field (.mat files)'),
+                label='Field (.mat files)',editor=TextEditor()),
             Item(name='ignore_deletes',object='object.ctl',
                 label='Ignore deletes'),
         label='Matrix'),

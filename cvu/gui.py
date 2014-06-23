@@ -271,7 +271,7 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
             if parc_struct is None: return	
 
             lab_pos,labnam,srf,labv,subject_name,parc_name=parc_struct
-            pcw.ctl.ds_ref.load_parc(lab_pos,labnam,srf,labv)
+            pcw.ctl.ds_ref._load_parc(lab_pos,labnam,srf,labv)
             self.controller.update_display_metadata(pcw.ctl.ds_ref.name,
                 subject_name=subject_name, parc_name=parc_name)
 
@@ -297,8 +297,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
         if adj_struct is None: return #preprocessing returned an error 
     
         adj,soft_max_edges,adj_filename = adj_struct
-        #Thread(target=acw.ctl.ds_ref.load_adj,args=(adj,soft_max_edges)).start()
-        acw.ctl.ds_ref.load_adj(adj, soft_max_edges, acw.ctl.require_ls,
+        #Thread(target=acw.ctl.ds_ref._load_adj,args=(adj,soft_max_edges)).start()
+        acw.ctl.ds_ref._load_adj(adj, soft_max_edges, acw.ctl.require_ls,
             acw.ctl.suppress_extra_rois)
         self.controller.update_display_metadata(acw.ctl.ds_ref.name,
             adj_filename=adj_filename)

@@ -21,6 +21,7 @@ from color_map import CustomColormap
 from color_legend import ColorLegend
 from graph import StatisticsDisplay
 import os
+import numpy as np
 
 class OptionsDatabase(HasTraits):
     def __init__(self,ds_orig,**kwargs):
@@ -151,13 +152,19 @@ class ParcellationChooserParameters(DatasetReferenceOptionsStructure):
     surface_type=Str('pial')
 
 class AdjmatChooserParameters(DatasetReferenceOptionsStructure):
-    adjmat=File	
-    adjmat_order=File
+    adjmat=Either(File, np.ndarray, np.matrix)
+    adjmat_order=Either(File, None, list)
     max_edges=Int
-    field_name=Str
+    field_name=Either(Str, None)
     ignore_deletes=Bool
     require_ls=List(Str)
     suppress_extra_rois=Bool
+
+    def _adjmat_default(self):
+        return ''
+
+    def _adjmat_order_default(self):
+        return ''
 
 class TractographyChooserParameters(DatasetReferenceOptionsStructure):
     track_file=File

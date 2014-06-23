@@ -214,8 +214,7 @@ class Dataset(HasTraits):
 
         self.chg_scalar_colorbar()
 
-    def __str__(self): return self.name
-    def __repr__(self): return self.name
+    def __repr__(self): return 'Dataset: %s'%self.name
     def __getitem__(self,key):
         if key==0: return self
         elif key==1: return self.name
@@ -357,9 +356,32 @@ class Dataset(HasTraits):
         node_groups=map(lambda n:n[3:],self.node_labels_numberless)
 
         #put group names in ordered set
-        n_set=set()
+        #n_set=set()
+        #self.group_labels=(
+        #    [i for i in node_groups if i not in n_set and not n_set.add(i)])
+
+        node_groups_hemi1 = map(lambda n:n[3:],
+            self.node_labels_numberless[:len(self.lhnodes)])
+
+        node_groups_hemi2 = map(lambda n:n[3:],
+            self.node_labels_numberless[-len(self.rhnodes):])
+
+        a_set = set()
         self.group_labels=(
-            [i for i in node_groups if i not in n_set and not n_set.add(i)])
+            [i for i in node_groups_hemi1 if not i in a_set and not a_set.add(i)])
+
+        last_grp=None
+        for grp in node_groups_hemi2:
+            if grp not in self.group_labels:
+                if last_grp is None:
+                    self.group_labels.insert(grp, 0)
+                else:
+                    self.group_labels.insert( 
+                        self.group_labels.index(last_grp)+1, grp)
+            else:
+                last_grp=grp
+                
+
         self.nr_groups=len(self.group_labels)
         
         #get map of {node name -> node group}	
@@ -494,7 +516,7 @@ class Dataset(HasTraits):
     # I/O METHODS (LOADING, SAVING)
     ######################################################################
 
-    def load_parc(self,lab_pos,labnam,srf,labv):
+    def _load_parc(self,lab_pos,labnam,srf,labv):
         self.lab_pos=lab_pos
         self.labnam=labnam
         self.srf=srf
@@ -515,7 +537,7 @@ class Dataset(HasTraits):
 
         self.reset_dataviews()
 
-    def load_adj(self,adj,soft_max_edges,reqrois,suppress_extra_rois):
+    def _load_adj(self,adj,soft_max_edges,reqrois,suppress_extra_rois):
         self.adj=adj
         self.soft_max_edges=soft_max_edges
         
@@ -539,7 +561,8 @@ class Dataset(HasTraits):
 
         self.dv_3d.supply_adj()
         self.dv_mat.supply_adj()
-        self.dv_circ.supply_adj(reqrois=reqrois, suppress_extra_rois=suppress_extra_rois)
+        self.dv_circ.supply_adj(reqrois=reqrois, 
+            suppress_extra_rois=suppress_extra_rois)
 
         self.display_all()
 

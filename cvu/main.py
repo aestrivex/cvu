@@ -22,6 +22,7 @@ import sys
 import os
 import getopt
 import signal
+import numpy as np
 from utils import CVUError
 
 def usage():
@@ -166,7 +167,8 @@ def preproc(args):
 
     from dataset import Dataset
     sample_dataset=Dataset(dataset_name,lab_pos,labnam,srf,labv,
-        adj=adj,soft_max_edges=args['maxedges'], gui=ErrorHandler(args['quiet']))
+        adj=adj,soft_max_edges=args['maxedges'],
+        gui=ErrorHandler(args['quiet']))
     # pass an ErrorHandler as the current GUI to handle errors. Replace it later.
     # Package dataloc and modality into tuple for passing
 
@@ -186,8 +188,9 @@ def main():
     g=CvuGUI(sample_dataset,sample_metadata,quiet=args['quiet'])
     sample_dataset.gui=g
 
-    #Qt does not sys.exit in response to KeyboardInterrupt correctly like wx does
-    #we intercept keyboard interrupts in the interpreter before it gets to the Qt loop
+    #Qt does not sys.exit in response to KeyboardInterrupt
+    #we intercept KeyboardInterrupts in the interpreter, before even
+    #reaching the Qt event loop and force them to call sys.exit
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     if exec_script is not None:
@@ -202,15 +205,157 @@ def main():
 
     g.configure_traits()
 
+### scripting functions
+
 def script(file, cvu_gui=None, scriptdir=os.getcwd()):
+    '''
+Execute a script in the context of a CVUGui object.
+
+Arguments:  file: path to a script file containing commands to be executed
+                serially
+            scriptdir: working directory of the script's execution. Default
+                value is /path/to/cvu/cvu
+    '''
     curdir=os.getcwd()
     os.chdir(scriptdir)
-    #print scriptdir
     file=os.path.abspath(file)
     os.chdir(curdir)
-    #print globals()
-    self = cvu_gui
+    #print globals()['self']
+    #self = cvu_gui
     with open(file) as fd: exec(fd)
+
+def load_parc(parcellation, ordering, new_dataset=False, dataset_name = None,
+        dataset=None,
+        subjects_dir='.', subject='fsavg5', surface_type='pial'):
+    '''
+Loads a parcellation. This function is meant to be a scripting helper. In
+other words, instead of clicking on the GUI buttons (or simulating button 
+presses) one could provide the requisite files for this operation inside a 
+script by just calling this function).
+
+Arguments:
+    parcellation,   The name of the parcellation in the annotation or GIFTI 
+                    file. Freesurfer annotations have names such as 
+                    lh.aparc.annot, for which you would enter 'aparc'
+    ordering,       The name of a text file containing the ordering for this
+                    parcellation, or just a list of ROIs.
+    new_dataset     True if you would like to spawn a new dataset. Defaults to
+                    false.
+    dataset_name    Only needed if new_dataset is True. Specifies the name of
+                    the new dataset.
+    dataset         Only needed if new subject is False. In this case it is a
+                    reference to the dataset that should contain the new
+                    parcellation.
+    subjects_dir    The directory used to load the annotation and surface files.
+                    The default value is '.' which means the current working
+                    directory, which under normal circumstances should be
+                    /path/to/cvu/cvu
+    subject         The subject name used to load the annotation and surface
+                    files. The default value is 'fsavg5'.
+    surface_type    The surface type. Default value is 'pial'
+
+Returns:
+    dataset         The instance of Dataset that holds the new parcellation
+    '''
+    gui = globals()['self']        #explicitly allow dynamic scope
+    err_handler = ErrorHandler(quiet=True)
+
+    from preprocessing import process_parc
+    from options_struct import ParcellationChooserParameters
+    from utils import DisplayMetadata
+    from dataset import Dataset
+
+    if new_dataset and dataset_name is None:
+        print "Must specify a dataset name!"
+        return
+    elif new_dataset and dataset_name in gui.controller.ds_instances:
+        print "Dataset name is not unique"
+        return
+    elif not new_dataset and not isinstance(dataset, Dataset):
+        print "Must either supply an existing dataset or create a new one"
+        return
+
+    parc_params = ParcellationChooserParameters( ds_ref = dataset,
+        new_dataset = new_dataset,
+        new_dataset_name = dataset_name, subjects_dir = subjects_dir,
+        subject = subject, surface_type = surface_type, 
+        labelnames_file = ordering, parcellation_name = parcellation)
+    parc_struct = process_parc(parc_params, err_handler)
+    if parc_struct is None: return #preprocessing errored out
+
+    lab_pos, labnam, srf, labv, _, _ = parc_struct
+    if new_dataset:
+        display_metadata = DisplayMetadata(subject_name = subject,
+            parc_name = parcellation, adj_filename='')
+        dataset = Dataset(dataset_name, lab_pos, labnam, srf, labv, gui=gui)
+        gui.controller.add_dataset(dataset, display_metadata)
+
+    else:
+        dataset._load_parc(lab_pos, labnam, srf, labv)
+        gui.controller.update_display_metadata(dataset.name, 
+            subject_name = subject, parc_name = parcellation)
+
+        #update the viewports associated with this dataset
+        ds_interface = gui.controller.find_dataset_views(dataset)
+        ds_interface.mayavi_port = Viewport(dataset)
+        ds_interface.matrix_port = Viewport(dataset)
+        ds_interface.circle_port = Viewport(dataset)
+
+    return dataset
+
+def load_adj(matrix, dataset, ordering=None, ignore_deletes=False, max_edges=0, 
+        field_name=None, required_rois=[], suppress_extra_rois=False):
+    '''
+Loads a matrix. This function is meant to be a scripting helper. In
+other words, instead of clicking on the GUI buttons (or simulating button 
+presses) one could provide the requisite files for this operation inside a 
+script by just calling this function).
+
+Arguments:
+    matrix,         Filename of an adjacency matrix in a supported format 
+                    (numpy, matlab, plaintext). Can also just be a numpy
+                    matrix.
+    dataset,        A reference to the dataset that should contain this
+    ordering,       Filename of an ordering file. Defaults to None. If None,
+                    the matrix is assumed to be in parcellation order. Can also
+                    simply be a list of ROIs.
+    ignore_deletes  If true, 'delete' entries in the ordering file are
+                    ignored. Defaults to false.
+    max_edges       A number. Defaults to 0. If in doubt see wiki documentation.
+    field_name      Only needed for matlab .mat files. Specifies the field name
+                    of the matrix. 
+    required_rois   A list of ROIs that must be included in the circle plot.
+                    Defaults to the empty list.
+    suppress_extra_rois     If true, only the ROIs in required_rois are shown
+                    on the circle plot.
+
+Returns:
+    None
+    '''
+
+    gui = globals()['self']     #explicitly allow dynamic scope
+    err_handler = ErrorHandler(quiet=True)
+
+    from preprocessing import process_adj
+    from options_struct import AdjmatChooserParameters
+    from dataset import Dataset
+
+    if not isinstance(dataset, Dataset):
+        print "must supply a valid dataset!"
+        return
+
+    adjmat_params = AdjmatChooserParameters(adjmat = matrix,
+        adjmat_order = ordering, ignore_deletes = ignore_deletes,
+        max_edges=max_edges, field_name=field_name, require_ls=required_rois,
+        suppress_extra_rois=suppress_extra_rois, ds_ref = dataset)
+
+    adj_struct = process_adj(adjmat_params, err_handler)
+    if adj_struct is None:      #preprocessing errored out
+        return
+    adj, soft_max_edges, _ = adj_struct 
+    dataset._load_adj(adj, soft_max_edges, required_rois, suppress_extra_rois)
+    gui.controller.update_display_metadata(dataset.name,
+        adj_filename=matrix if isinstance(matrix,str) else 'custom')
 
 if __name__=='__main__':
     main()

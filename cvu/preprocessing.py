@@ -23,8 +23,12 @@ from utils import CVUError
 
 def loadmat(fname,field=None,is_adjmat=True):
     import numpy as np
+    # well_formed numpy matrix
+    if isinstance(fname, np.ndarray) or isinstance(fname, np.matrix):
+        mat = fname
+
     # matlab
-    if fname.endswith('.mat'):
+    elif fname.endswith('.mat'):
         if not field:
             raise CVUError("For .mat matrices, you must specify a field name")
         import scipy.io
@@ -70,6 +74,16 @@ def loadannot(*args,**kwargs):
         return loadannot_gifti(*args,**kwargs)
 
 def read_ordering_file(fname):
+    if isinstance(fname, list):
+        labnam=[]
+        deleters=[]
+        for i,item in enumerate(fname): 
+            if item=='delete':
+                deleters.append(i)
+            else:
+                labnam.append(item)
+        return labnam,deleters
+
     labnam=[]
     deleters=[]
     with open(fname,'r') as fd:
@@ -226,8 +240,12 @@ def process_parc(params,err_handler):
 #operates on an AdjmatChooserParameters
 #the gui is passed to provide direct error handling
 def process_adj(params,err_handler):
-        if not params.adjmat:
-            err_handler.error_dialog('You must specify the adjacency matrix')
+        try:
+            if not params.adjmat:
+                err_handler.error_dialog('You must specify the adjacency '
+                    'matrix')
+        except ValueError as e:     # the adjmat is a numpy ndarray
+            pass                    # which has no single truth value
         
         try:
             adj=loadmat(params.adjmat,field=params.field_name)
