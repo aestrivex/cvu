@@ -102,6 +102,11 @@ class DVMayavi(DataView):
         self.surfs_gen()
         self.nodes_gen()
 
+        from pyface.api import GUI
+        gui = GUI()
+        gui.invoke_later(
+            lambda:mlab.view(distance=350, figure=self.scene.mayavi_scene))
+
         #If only the parcellation is loaded, the adj will be supplied later
         if self.ds.adj is not None: 
             self.supply_adj()
