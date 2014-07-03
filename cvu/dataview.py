@@ -704,13 +704,25 @@ class DVCircle(DataView):
     tooltip_labnam=Property
     def _get_tooltip_labnam(self):
         if self.ds.opts.circ_bilateral_symmetry:
-            starthemi = self.ds.labnam[0][0]
-            hemi_pivot = (self.ds.lhnodes.size if starthemi=='l' else 
-                self.ds.rhnodes.size)
-            return self.ds.labnam[:hemi_pivot]+self.ds.labnam[:hemi_pivot-1:-1]
+            if self.ds.labnam[0][0]=='l':
+                hemi_pivot = self.ds.lhnodes.size
+                return self.ds.labnam[:hemi_pivot]+self.ds.labnam[
+                    :hemi_pivot-1:-1]
+            else:
+                hemi_pivot = self.ds.rhnodes.size
+                #return self.ds.labnam[hemi_pivot:]+self.ds.labnam[
+                #    :hemi_pivot][::-1]
+                return self.ds.labnam[hemi_pivot:]+self.ds.labnam[
+                    hemi_pivot-1::-1]
+            #not quite right
         else:
-            return self.ds.labnam
-
+            if starthemi=='l':
+                return self.ds.labnam
+            else:
+                hemi_pivot = self.ds.rhnodes.size
+                return self.ds.labnam[hemi_pivot:]+self.ds.labnam[
+                    :hemi_pivot]
+   
     def __init__(self,ds,**kwargs):
         super(DVCircle,self).__init__(ds,**kwargs)
 
