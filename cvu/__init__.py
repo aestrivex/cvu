@@ -15,6 +15,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from .cvu import *
-
 __version__='0.4.1'
+
+from .main import load_adj, load_parc, usage
+from .preprocessing import *
+from .shell_utils import *
+from .parsing_utils import *

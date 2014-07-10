@@ -228,34 +228,52 @@ def load_parc(parcellation, ordering, new_dataset=False, dataset_name = None,
         dataset=None,
         subjects_dir='.', subject='fsavg5', surface_type='pial'):
     '''
-Loads a parcellation. This function is meant to be a scripting helper. In
-other words, instead of clicking on the GUI buttons (or simulating button 
-presses) one could provide the requisite files for this operation inside a 
-script by just calling this function).
+    Loads a parcellation, either onto a dataset or creating a new dataset.
+    This function is a scripting helper. In other words,
+    instead of clicking on the GUI or simulating button presses, this
+    function is provided for scripting purposes to just simulate the
+    process of loading a parcellation.
 
-Arguments:
-    parcellation,   The name of the parcellation in the annotation or GIFTI 
-                    file. Freesurfer annotations have names such as 
-                    lh.aparc.annot, for which you would enter 'aparc'
-    ordering,       The name of a text file containing the ordering for this
-                    parcellation, or just a list of ROIs.
-    new_dataset     True if you would like to spawn a new dataset. Defaults to
-                    false.
-    dataset_name    Only needed if new_dataset is True. Specifies the name of
-                    the new dataset.
-    dataset         Only needed if new subject is False. In this case it is a
-                    reference to the dataset that should contain the new
-                    parcellation.
-    subjects_dir    The directory used to load the annotation and surface files.
-                    The default value is '.' which means the current working
-                    directory, which under normal circumstances should be
-                    /path/to/cvu/cvu
-    subject         The subject name used to load the annotation and surface
-                    files. The default value is 'fsavg5'.
-    surface_type    The surface type. Default value is 'pial'
+    Parameters
+    ----------
 
-Returns:
-    dataset         The instance of Dataset that holds the new parcellation
+    parcellation : str
+        The parcellation name. For instance, if your parcellation's annotation
+        files are called lh.aparc.annot, the parcellation name is 'aparc'.
+        Similarly if the annotation file is called lh.aparc.gii, enter 'aparc'.
+    ordering : str | list(str)
+        The name of a text file containing the parcellation ordering.
+        Alternately, a list of label names.
+    new_dataset : bool
+        If True, spawns a new dataset instead of placing the parcellation on
+        an existing dataset. Default value is False.
+    dataset_name : str | None
+        Required if and only if new_dataset is True.
+        If new_dataset is True, specifies the name of the new dataset.
+        Otherwise, has no effect.
+    dataset : instance(cvu.dataset.Dataset) | None
+        Required if and only if new_dataset is False.
+        If new_dataset is False, specifies the dataset onto which to load this
+        parcellation. If new_dataset is True, has no effect.
+    subjects_dir : str
+        The superordinate directory used to load the annotation, surface,
+        and segmentation files at $SUBJECTS_DIR/$SUBJECT/{surf|label|mri}/* .
+        The default value is '.', the current working directory. Under
+        normal circumstances this is the working directory relative to cvu's
+        main.py file, which is /path/to/cvu/cvu.
+    subject : str
+        The subject name used to load the annotation, surface, and segmentation
+        files at $SUBJECTS_DIR/$SUBJECT/{surf|label|mri}/*
+        The default value is 'fsavg5'. Some files for fsavg5 are provided in
+        the cvu installation.
+    surface_type
+        The surface to load. The default value is 'pial'.
+
+    Returns
+    -------
+    dataset : instance(cvu.dataset.Dataset)
+        The instance of the dataset now holding this parcellation. Helpful
+        if new_dataset is True.
     '''
     gui = globals()['self']        #explicitly allow dynamic scope
     err_handler = ErrorHandler(quiet=True)
@@ -305,33 +323,68 @@ Returns:
 
 def load_adj(matrix, dataset, ordering=None, ignore_deletes=False, max_edges=0, 
         field_name=None, required_rois=[], suppress_extra_rois=False):
-    '''
-Loads a matrix. This function is meant to be a scripting helper. In
-other words, instead of clicking on the GUI buttons (or simulating button 
-presses) one could provide the requisite files for this operation inside a 
-script by just calling this function).
+    """
+    Loads a matrix. This function is a scripting helper. In other words,
+    instead of clicking on the GUI or simulating button presses, this
+    function is provided for scripting purposes to just simulate the
+    process of loading a matrix into a dataset.
 
-Arguments:
-    matrix,         Filename of an adjacency matrix in a supported format 
-                    (numpy, matlab, plaintext). Can also just be a numpy
-                    matrix.
-    dataset,        A reference to the dataset that should contain this
-    ordering,       Filename of an ordering file. Defaults to None. If None,
-                    the matrix is assumed to be in parcellation order. Can also
-                    simply be a list of ROIs.
-    ignore_deletes  If true, 'delete' entries in the ordering file are
-                    ignored. Defaults to false.
-    max_edges       A number. Defaults to 0. If in doubt see wiki documentation.
-    field_name      Only needed for matlab .mat files. Specifies the field name
-                    of the matrix. 
-    required_rois   A list of ROIs that must be included in the circle plot.
-                    Defaults to the empty list.
-    suppress_extra_rois     If true, only the ROIs in required_rois are shown
-                    on the circle plot.
+    Parameters
+    ----------
 
-Returns:
-    None
-    '''
+    matrix : str | instance(np.ndarray)
+        Filename of an adjacency matrix in a supported format (numpy, matlab,
+        or plaintext). Can also be a numpy matrix.
+    dataset : None | instance(cvu.dataset.Dataset)
+        The dataset into which to place this adjacency matrix
+    ordering : None | str | list(str)
+        Filename of an ordering file describing the matrix order. Default
+        value is None. If None, matrix is assumed to be in parcellation order.
+        Can just be a list of label names.
+    ignore_deletes : bool
+        If True, 'delete' entries in the ordering file are ignored.
+        Default value is False.
+    max_edges : int
+        Default 0. Leave as default or see wiki documentation.
+    field_name : None | str
+        Needed to tell the field name of a matlab matrix. Required for
+        matlab matrices, otherwise ignored
+    required_rois : list(str)
+        A list of ROIs whose labels must be shown in the circle plot.
+        The default value is the empty list, signifying no restrictions.
+    suppress_extra_rois : bool
+        If true, only the ROIs in required_rois are shown on the circle
+        plot.
+    """
+
+
+#    '''
+#Loads a matrix. This function is meant to be a scripting helper. In
+#other words, instead of clicking on the GUI buttons (or simulating button 
+#presses) one could provide the requisite files for this operation inside a 
+#script by just calling this function).
+#
+#Arguments:
+#    matrix,         Filename of an adjacency matrix in a supported format 
+#                    (numpy, matlab, plaintext). Can also just be a numpy
+#                    matrix.
+#    dataset,        A reference to the dataset that should contain this
+#    ordering,       Filename of an ordering file. Defaults to None. If None,
+#                    the matrix is assumed to be in parcellation order. Can also
+#                    simply be a list of ROIs.
+#    ignore_deletes  If true, 'delete' entries in the ordering file are
+#                    ignored. Defaults to false.
+#    max_edges       A number. Defaults to 0. If in doubt see wiki documentation.
+#    field_name      Only needed for matlab .mat files. Specifies the field name
+#                    of the matrix. 
+#    required_rois   A list of ROIs that must be included in the circle plot.
+#                    Defaults to the empty list.
+#    suppress_extra_rois     If true, only the ROIs in required_rois are shown
+#                    on the circle plot.
+#
+#Returns:
+#    None
+#    '''
 
     gui = globals()['self']     #explicitly allow dynamic scope
     err_handler = ErrorHandler(quiet=True)
