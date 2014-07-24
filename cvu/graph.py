@@ -57,7 +57,7 @@ class StatisticsDisplay(HasTraits):
     )
 
 def calculate_modules(adj):
-    ci,_ = bct.modularity_und(adj)
+    ci,_ = bct.modularity_louvain_und(adj)
     ci2,_ = bct.modularity_finetune_und(adj, ci=ci)
     return ci2
 

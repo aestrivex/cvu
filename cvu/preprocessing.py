@@ -118,8 +118,8 @@ def loadannot_mne(p,subj,subjdir,labnam=None,surf_type='pial',surf_struct=None,
     verbosity = 'ERROR' if quiet else 'WARNING'
 
     if float(mne.__version__[:3]) >= 0.8:
-        annot = mne.read_annot(parc=p, subject=subj, surf_name=surf_type,
-            subjects_dir=subjdir, verbose=verbosity)
+        annot = mne.read_labels_from_annot(parc=p, subject=subj, 
+            surf_name=surf_type, subjects_dir=subjdir, verbose=verbosity)
     else:
         annot = mne.labels_from_parc(parc=p, subject=subj, surf_name=surf_type,
             subjects_dir=subjdir, verbose=verbosity)
