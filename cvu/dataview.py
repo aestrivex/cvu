@@ -746,13 +746,14 @@ class DVCircle(DataView):
     def __init__(self,ds,**kwargs):
         super(DVCircle,self).__init__(ds,**kwargs)
 
-        if self.ds_adj is None: self.empty_gen()
+        if self.ds.adj is None: self.empty_gen()
         elif self.ds.opts.disable_circle: self.empty_gen()
         else: self.circ_gen()
         #self.empty_gen()
 
     def supply_adj(self,**kwargs):
-        self.circ_gen(figure=self.circ,**kwargs)
+        if not self.ds.opts.disable_circle:
+            self.circ_gen(figure=self.circ,**kwargs)
         #self.empty_gen(figure=self.circ)
     
     ########################################################################
