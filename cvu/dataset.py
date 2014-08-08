@@ -805,6 +805,11 @@ class Dataset(HasTraits):
 
     #the following options operate on specific views only
     #they may fail if the view is not present (i dont know if this is true)
+    @on_trait_change('opts:tube_conns')
+    def chg_tube_conns(self):
+        try: self.dv_3d.set_tubular_properties()
+        except AttributeError: pass
+
     @on_trait_change('opts:circ_size')
     def chg_circ_size(self):
         try:

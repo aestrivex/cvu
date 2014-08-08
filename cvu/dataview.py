@@ -274,10 +274,11 @@ class DVMayavi(DataView):
             colormap=self.ds.opts.activation_map.cmap,
             line_width=self.ds.opts.conns_width,
             scale_mode='vector',figure=self.scene.mayavi_scene)
-        self.vectors.glyph.glyph_source.glyph_source.glyph_type='dash'
         self.vectors.glyph.glyph.clamping=False
         self.vectors.actor.property.opacity=.3
         self.vectors.actor.actor.pickable=False
+
+        self.set_tubular_properties()
 
         set_lut(self.vectors,self.ds.opts.activation_map)
         self.ds.chg_conns_colors()
@@ -440,7 +441,8 @@ class DVMayavi(DataView):
                 self.vectors.actor.property.opacity=.75
                 self.txt.set(text='  %s'%self.ds.labnam[self.ds.curr_node])
             else:
-                self.vectors.actor.property.opacity=.3
+                self.vectors.actor.property.opacity=(
+                    .5 if self.ds.opts.tube_conns else .3)
                 self.txt.set(text='')
 
             mlab.draw()
@@ -498,6 +500,19 @@ class DVMayavi(DataView):
                     syrf.actor.property.representation='wireframe'
                 elif style=='speckled':
                     syrf.actor.property.representation='points'
+
+    def set_tubular_properties(self):
+        if self.ds.opts.tube_conns:
+            self.vectors.glyph.glyph_source.glyph_source = (self.vectors.
+                glyph.glyph_source.glyph_dict['cylinder_source'])
+            self.vectors.glyph.glyph_source.glyph_source.radius = (.007 *
+                self.ds.opts.conns_width)
+            self.vectors.actor.property.opacity=.5
+        else:
+            self.vectors.glyph.glyph_source.glyph_source = (self.vectors.
+                glyph.glyph_source.glyph_dict['glyph_source2d'])
+            self.vectors.glyph.glyph_source.glyph_source.glyph_type='dash'
+            self.vectors.actor.property.opacity=.3
 
     ########################################################################
     # CALLBACKS
@@ -731,8 +746,9 @@ class DVCircle(DataView):
     def __init__(self,ds,**kwargs):
         super(DVCircle,self).__init__(ds,**kwargs)
 
-        if self.ds.adj is not None: self.circ_gen()
-        else: self.empty_gen()
+        if self.ds_adj is None: self.empty_gen()
+        elif self.ds.opts.disable_circle: self.empty_gen()
+        else: self.circ_gen()
         #self.empty_gen()
 
     def supply_adj(self,**kwargs):
@@ -748,7 +764,7 @@ class DVCircle(DataView):
         if figure is not None: figure.clf()
 
         try:
-            self.circ, self.node_angles = circle_plot.plot_connectivity_circle_cvu(
+            self.circ,self.node_angles=circle_plot.plot_connectivity_circle_cvu(
                 np.reshape(self.ds.adjdat,(self.ds.nr_edges,)),
                 self.ds.node_labels_numberless,
                 indices=self.ds.edges.T,

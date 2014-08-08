@@ -128,7 +128,8 @@ class OptionsWindow(DatasetSpecificSubwindow):
                     label='color on'),
                 Item(name='conns_colorbar',object='object.ctl',
                     label='colorbar'),
-                Item(name='conns_width',object='object.ctl',label='line width'),
+                Item(name='tube_conns',object='object.ctl',label='use tubes'),
+                Item(name='conns_width',object='object.ctl',label='width'),
             ),
             HSplit(
                 Item(name='interhemi_conns_on',object='object.ctl',
