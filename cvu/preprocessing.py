@@ -71,7 +71,8 @@ def loadannot(*args,**kwargs):
     try:
         return loadannot_mne(*args,**kwargs)
     except:
-        return loadannot_gifti(*args,**kwargs)
+        #return loadannot_gifti(*args,**kwargs)
+        raise
 
 def read_ordering_file(fname):
     if isinstance(fname, list):

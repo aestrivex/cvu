@@ -16,4 +16,5 @@ scriptdir=os.getcwd()
 os.chdir(os.path.join(os.path.dirname(os.path.dirname(
     os.path.realpath(__file__))),'cvu'))
 python_cmd = 'pythonw' if sys.platform=='darwin' else 'python'
-os.system('%s main.py %s '%(python_cmd, scriptdir+" ".join(sys.argv[1:])))
+arguments = '%s %s'%(scriptdir, " ".join(sys.argv[1:]))
+os.system('%s main.py %s' % (python_cmd, arguments))
