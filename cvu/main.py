@@ -295,7 +295,7 @@ def load_parc(parcellation, ordering, new_dataset=False, dataset_name = None,
 
     parc_params = ParcellationChooserParameters( ds_ref = dataset,
         new_dataset = new_dataset,
-        new_dataset_name = dataset_name if dataset_name is not None else '',
+            new_dataset_name = dataset_name if dataset_name is not None else '',
         subjects_dir = subjects_dir,
         subject = subject, surface_type = surface_type, 
         labelnames_file = ordering, parcellation_name = parcellation)
@@ -310,6 +310,8 @@ def load_parc(parcellation, ordering, new_dataset=False, dataset_name = None,
         gui.controller.add_dataset(dataset, display_metadata)
 
     else:
+        from viewport import Viewport
+
         dataset._load_parc(lab_pos, labnam, srf, labv)
         gui.controller.update_display_metadata(dataset.name, 
             subject_name = subject, parc_name = parcellation)
