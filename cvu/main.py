@@ -295,7 +295,8 @@ def load_parc(parcellation, ordering, new_dataset=False, dataset_name = None,
 
     parc_params = ParcellationChooserParameters( ds_ref = dataset,
         new_dataset = new_dataset,
-        new_dataset_name = dataset_name, subjects_dir = subjects_dir,
+        new_dataset_name = dataset_name if dataset_name is not None else '',
+        subjects_dir = subjects_dir,
         subject = subject, surface_type = surface_type, 
         labelnames_file = ordering, parcellation_name = parcellation)
     parc_struct = process_parc(parc_params, err_handler)
@@ -335,7 +336,7 @@ def load_adj(matrix, dataset, ordering=None, ignore_deletes=False, max_edges=0,
     matrix : str | instance(np.ndarray)
         Filename of an adjacency matrix in a supported format (numpy, matlab,
         or plaintext). Can also be a numpy matrix.
-    dataset : None | instance(cvu.dataset.Dataset)
+    dataset : instance(cvu.dataset.Dataset)
         The dataset into which to place this adjacency matrix
     ordering : None | str | list(str)
         Filename of an ordering file describing the matrix order. Default

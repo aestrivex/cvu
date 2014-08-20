@@ -769,7 +769,7 @@ class DVCircle(DataView):
                 np.reshape(self.ds.adjdat,(self.ds.nr_edges,)),
                 self.ds.node_labels_numberless,
                 indices=self.ds.edges.T,
-                colormap=self.ds.opts.activation_map.cmap,
+                colormap=self.ds.opts.activation_map,
                 fig=figure,
                 n_lines=self.ds.nr_edges, #nr_edges is already bounded by soft_max
                 node_colors=self.ds.node_colors,
@@ -790,7 +790,7 @@ class DVCircle(DataView):
             np.array(()),
             self.ds.node_labels_numberless,
             indices=np.array(((),())),
-            colormap=self.ds.opts.activation_map.cmap,
+            colormap=self.ds.opts.activation_map,
             fig=figure,
             n_lines=None,
             node_colors=self.ds.node_colors,

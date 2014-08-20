@@ -28,6 +28,7 @@ import matplotlib.path as m_path
 import matplotlib.patches as m_patches
 import matplotlib.colors as m_col
 from collections import OrderedDict
+from color_map import CustomColormap
 
 def plot_connectivity_circle_cvu(con, nodes_numberless, indices=None, 
     n_lines=10000, node_colors=None, colormap='YlOrRd', fig=None, reqrois=[],
@@ -212,7 +213,9 @@ The figure handle.
         raise ValueError('con has to be 1D or a square matrix')
 
     # get the colormap
-    if isinstance(colormap, basestring):
+    if isinstance(colormap, CustomColormap):
+        colormap = colormap._get__pl()
+    elif isinstance(colormap, basestring):
         colormap = pl.get_cmap(colormap)
 
     # Make figure background the same colors as axes
