@@ -271,9 +271,13 @@ class DVMayavi(DataView):
         self.thres.auto_reset_upper=False
 
         self.vectors=mlab.pipeline.vectors(self.thres,
-            colormap=self.ds.opts.activation_map.cmap,
+            colormap='bone',
             line_width=self.ds.opts.conns_width,
             scale_mode='vector',figure=self.scene.mayavi_scene)
+        #set dummy colormap value and immediately call set_lut to handle
+        #custom_heat or other nonstandard values of colormap
+        set_lut(self.vectors,self.ds.opts.activation_map)
+
         self.vectors.glyph.glyph.clamping=False
         self.vectors.actor.property.opacity=.3
         self.vectors.actor.actor.pickable=False
