@@ -106,7 +106,7 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
     rh_surfs_on = Bool(True)
     conns_width = Float(2.)
     tube_conns = Bool(False)
-    disable_circle = Bool(False)
+    circle_render = Enum('asynchronous', 'singlethreaded', 'disabled')
     conns_colors_on = Bool(True)
 
     #colormap tab

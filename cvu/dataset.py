@@ -26,6 +26,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from dataview import (DataView,DVMayavi,DVMatrix,DVCircle)
 from options_struct import (ScalarDisplaySettings,DisplayOptions)
 from utils import CVUError
+from threading import Thread
 
 class SurfData(HasTraits):
     lh_verts=Any	#Vx3 np.ndarray
@@ -416,16 +417,20 @@ class Dataset(HasTraits):
     # DRAW METHODS
     ######################################################################
 
-    def draw(self):
-        self.draw_surfs(); self.draw_nodes(); self.draw_conns()
+    def draw(self, skip_circ=False):
+        self.draw_surfs()
+        self.draw_nodes(skip_circ=skip_circ)
+        self.draw_conns(skip_circ=skip_circ)
 
     def draw_surfs(self):
         for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
             data_view.draw_surfs()
 
-    def draw_nodes(self):
+    def draw_nodes(self, skip_circ=False):
         self.set_node_colors()
         for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
+            if skip_circ and data_view is self.dv_circ:
+                continue
             data_view.draw_nodes()
 
     def set_node_colors(self):
@@ -453,14 +458,17 @@ class Dataset(HasTraits):
             ci=bct.ls2ci(self.modules,zeroindexed=True)
             self.node_colors=((np.array(self.module_colors)[ci])/255).tolist()
 
-    def draw_conns(self,conservative=False):
+    def draw_conns(self,conservative=False, skip_circ=False):
         if conservative: new_edges = None
-        else: new_edges,count_edges = self.select_conns()
+        else: new_edges,count_edges = self.select_conns(skip_circ=skip_circ)
         for data_view in (self.dv_3d, self.dv_mat, self.dv_circ):
-            if data_view is not None:
+            if skip_circ and data_view is self.dv_circ:
+                continue
+            elif data_view is not None:
                 data_view.draw_conns(new_edges)
 
-    def select_conns(self):
+    def select_conns(self, skip_circ=False):
+        disable_circle = (skip_circ or self.opts.circle_render=='disabled')
         lo=self.thresval
         hi=np.max(self.adjdat)
 
@@ -493,7 +501,7 @@ class Dataset(HasTraits):
                 #design spec; the dataset is checking the dataview and
                 #messing with its internals.  obviously, the reason why
                 #is that this code runs often and needs to be optimized
-                if self.dv_circ is not None and not self.opts.disable_circle:
+                if self.dv_circ is not None and not disable_circle:
                     ev=self.adjdat[e]
                     if (lo <= ev <= hi):
                         self.dv_circ.circ_data[e].set_visible(True)
@@ -504,7 +512,7 @@ class Dataset(HasTraits):
                         self.dv_circ.circ_data[e].set_visible(False)
             else:
                 new_edges[e]=(0,0)
-                if self.dv_circ is not None and not self.opts.disable_circle:
+                if self.dv_circ is not None and not disable_circle:
                     self.dv_circ.circ_data[e].set_visible(False)
     
         return new_edges,count_edges
@@ -561,10 +569,25 @@ class Dataset(HasTraits):
 
         self.dv_3d.supply_adj()
         self.dv_mat.supply_adj()
-        self.dv_circ.supply_adj(reqrois=reqrois, 
-            suppress_extra_rois=suppress_extra_rois)
 
-        self.display_all()
+        if self.opts.circle_render=='asynchronous':
+            #first set up the 3D brain properly and then set the circle
+            #to generate itself in a background thread
+            self.display_all(skip_circ=True)
+
+            def threadsafe_circle_setup():
+                self.dv_circ.supply_adj(reqrois=reqrois, 
+                    suppress_extra_rois=suppress_extra_rois)
+                self.select_conns()
+                self.dv_circ.draw_conns()
+
+            Thread(target=threadsafe_circle_setup).start()
+        else:
+        #otherwise set up the circle and display everything in a
+        #single thread. If the circle is disabled this will not cause problems
+            self.dv_circ.supply_adj(reqrois=reqrois,
+                suppress_extra_rois=suppress_extra_rois)
+            self.display_all()
 
     #This method takes a TractographyChooserParameters
     def load_tractography(self,params):
@@ -691,12 +714,12 @@ class Dataset(HasTraits):
     # VISUALIZATION INTERACTIONS
     ######################################################################
 
-    def display_all(self):
+    def display_all(self, skip_circ=False):
         self.display_mode='normal'
         self.curr_node=None
         self.cur_module=None
         self.center_adjmat()
-        self.draw()
+        self.draw(skip_circ=skip_circ)
 
     def display_node(self,n):
         if n<0 or n>=self.nr_labels: return

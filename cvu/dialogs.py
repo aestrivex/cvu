@@ -173,10 +173,8 @@ class OptionsWindow(DatasetSpecificSubwindow):
             HSplit(
                 Item(name='circ_symmetry',object='object.ctl',
                     label='circle symmetry type'),
-            ),
-            HSplit(
-                Item(name='disable_circle',object='object.ctl',
-                    label='disable circle rendering'),
+                Item(name='circle_render',object='object.ctl',
+                    label='circle rendering'),
                 #Item(name='circ_size',object='object.ctl'),
             ),
             label='Display settings',show_labels=False
