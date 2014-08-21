@@ -574,6 +574,7 @@ class Dataset(HasTraits):
             #first set up the 3D brain properly and then set the circle
             #to generate itself in a background thread
             self.display_all(skip_circ=True)
+            self.dv_3d.zaxis_view()
 
             def threadsafe_circle_setup():
                 self.dv_circ.supply_adj(reqrois=reqrois, 
@@ -588,6 +589,7 @@ class Dataset(HasTraits):
             self.dv_circ.supply_adj(reqrois=reqrois,
                 suppress_extra_rois=suppress_extra_rois)
             self.display_all()
+            self.dv_3d.zaxis_view()
 
     #This method takes a TractographyChooserParameters
     def load_tractography(self,params):

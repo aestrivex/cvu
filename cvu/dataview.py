@@ -104,8 +104,7 @@ class DVMayavi(DataView):
 
         from pyface.api import GUI
         gui = GUI()
-        gui.invoke_later(
-            lambda:mlab.view(distance=350, figure=self.scene.mayavi_scene))
+        gui.invoke_later(self.zaxis_view)
 
         #If only the parcellation is loaded, the adj will be supplied later
         if self.ds.adj is not None: 
@@ -123,6 +122,11 @@ class DVMayavi(DataView):
         pck.tolerance = .02
         self.scene.mayavi_scene.on_mouse_pick(self.rightpick_callback,
             button='Right')
+
+    def zaxis_view(self):
+        #provide a view along the z axis at a large distance so that screen
+        #space is not wasted
+        mlab.view(distance=350, figure=self.scene.mayavi_scene)
 
     ########################################################################
     # GEN METHODS
@@ -271,7 +275,7 @@ class DVMayavi(DataView):
         self.thres.auto_reset_upper=False
 
         self.vectors=mlab.pipeline.vectors(self.thres,
-            colormap='bone',
+            colormap='black-white',
             line_width=self.ds.opts.conns_width,
             scale_mode='vector',figure=self.scene.mayavi_scene)
         #set dummy colormap value and immediately call set_lut to handle
