@@ -17,7 +17,8 @@
 
 from traits.api import (HasTraits,Any,List,Str,Enum,Dict,Instance,Either,
     Property,Button,on_trait_change)
-from traitsui.api import Item,Handler,View,ButtonEditor,InstanceEditor
+from traitsui.api import (Item,Handler,View,ButtonEditor,InstanceEditor,
+    TextEditor)
 from options_struct import OptionsDatabase
 from utils import DatasetMetadataElement,CVUError,DisplayMetadata
 from viewport import ViewPanel
@@ -42,8 +43,10 @@ class ViewportManager(Handler):
     traits_view=View(
         Item(name='metadata_list',object='object.ctl',
             editor=TableEditor(columns= [
-                ObjectColumn(label='Window',name='panel_scratch',),#style='readonly'),
-                ObjectColumn(label='Dataset',name='ds_name_scratch',)],#style='readonly'),],
+                ObjectColumn(label='Window',name='panel_scratch',
+                    editor=TextEditor(enter_set=True, auto_set=False)),
+                ObjectColumn(label='Dataset',name='ds_name_scratch',
+                    editor=TextEditor(enter_set=True, auto_set=False))], 
                 edit_view='tabular_view'),
             show_label=False,height=200,width=700, 
         ),
