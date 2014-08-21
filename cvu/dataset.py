@@ -594,13 +594,17 @@ class Dataset(HasTraits):
     #This method takes a TractographyChooserParameters
     def load_tractography(self,params):
         if not params.track_file:
-            self.error_dialog('You must specify a valid tractography file'); return	
+            self.error_dialog('You must specify a valid tractography file') 
+            return	
         if not params.b0_volume:
-            self.error_dialog('You must specify a B0 volume from which the registration'
-                ' to the diffusion space can be computed'); return
+            self.error_dialog('You must specify a B0 volume from which the ' 
+                'registration to the diffusion space can be computed')
+            return
         if not params.subjects_dir or not params.subject:
-            self.error_dialog('You must specify the freesurfer reconstruction for the '
-                'individual subject for registration to the surface space.'); return
+            self.error_dialog('You must specify the freesurfer reconstruction ' 
+                'for the individual subject for registration to the surface ' 
+                'space.')
+            return
 
         self.dv_3d.tracks_gen(params)
 
@@ -671,10 +675,12 @@ class Dataset(HasTraits):
     def save_scalar(self,name,scalars,passive=False):
         if np.squeeze(scalars).shape != (self.nr_labels,):
             if passive:
-                self.verbose_msg("%s: Only Nx1 vectors can be saved as scalars"%name)
+                self.verbose_msg("%s: Only Nx1 vectors can be saved as scalars"
+                    %name)
                 return
             else:
-                self.error_dialog("%s: Only Nx1 vectors can be saved as scalars"%name)
+                self.error_dialog("%s: Only Nx1 vectors can be saved as scalars"
+                    %name)
                 #print np.squeeze(scalars).shape, self.nr_labels
                 return
         ci=scalars.ravel().copy()

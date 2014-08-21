@@ -297,7 +297,6 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
         if adj_struct is None: return #preprocessing returned an error 
     
         adj,soft_max_edges,adj_filename = adj_struct
-        #Thread(target=acw.ctl.ds_ref._load_adj,args=(adj,soft_max_edges)).start()
         acw.ctl.ds_ref._load_adj(adj, soft_max_edges, acw.ctl.require_ls,
             acw.ctl.suppress_extra_rois)
         self.controller.update_display_metadata(acw.ctl.ds_ref.name,
@@ -376,8 +375,8 @@ class CvuGUI(ErrorHandler,DatasetViewportInterface):
             cw.ctl.ds_ref.calculate_modules(thres)
             cw.ctl.ds_ref.display_multi_module()
         elif cw.ctl.calculation_type=='statistics':
-            #cw.ctl.ds_ref.calculate_graph_stats(thres)
-            Thread(target=cw.ctl.ds_ref.calculate_graph_stats,args=(thres,)).start()
+            (Thread(target=cw.ctl.ds_ref.calculate_graph_stats,args=(thres,))
+                ).start()
 
     def _select_module_button_fired(self):
         self.module_chooser_window.finished=False
