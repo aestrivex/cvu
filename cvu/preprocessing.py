@@ -63,16 +63,19 @@ def loadmat(fname,field=None,is_adjmat=True):
 
 def loadsurf(*args,**kwargs):
     try:
-        return loadsurf_mne(*args,**kwargs)
+        return loadsurf_mne(*args,**kwargs), 'freesurfer'
     except:
-        return loadsurf_gifti(*args,**kwargs)
+        return loadsurf_gifti(*args,**kwargs), 'GIFTI'
 
-def loadannot(*args,**kwargs):
-    try:
+def loadannot(geom_format, *args, **kwargs):
+    #geom_format=kwargs['geom_format']
+    if geom_format=='freesurfer':
         return loadannot_mne(*args,**kwargs)
-    except:
-        #return loadannot_gifti(*args,**kwargs)
-        raise
+    elif geom_format=='GIFTI':
+        return loadannot_gifti(*args,**kwargs)
+    else:
+        raise ValueError('Internal error: unrecognized geometry format %s. This'
+            ' should never happen. Please contact the developer.' % geom_format)
 
 def read_ordering_file(fname):
     if isinstance(fname, list):
@@ -119,8 +122,14 @@ def loadannot_mne(p,subj,subjdir,labnam=None,surf_type='pial',surf_struct=None,
     verbosity = 'ERROR' if quiet else 'WARNING'
 
     if float(mne.__version__[:3]) >= 0.8:
-        annot = mne.read_labels_from_annot(parc=p, subject=subj, 
-            surf_name=surf_type, subjects_dir=subjdir, verbose=verbosity)
+        #MNE python changed the API to read an annotation twice in the same
+        #release cycle. Check for both versions.
+        try:
+            annot = mne.read_labels_from_annot(parc=p, subject=subj, 
+                surf_name=surf_type, subjects_dir=subjdir, verbose=verbosity)
+        except:
+            annot = mne.read_annot(parc=p, subject=subj,
+                surf_name=surf_type, subjects_dir=subjdir, verbose=verbosity)
     else:
         annot = mne.labels_from_parc(parc=p, subject=subj, surf_name=surf_type,
             subjects_dir=subjdir, verbose=verbosity)
@@ -209,7 +218,7 @@ def process_parc(params,err_handler):
         err_handler.error_dialog(str(e)); return
 
     try:
-        srf = loadsurf(srf_file_lh, params.surface_type)
+        srf, geom_fmt = loadsurf(srf_file_lh, params.surface_type)
     except TypeError as e:
         err_handler.error_dialog(
             "%s: This doesn't look like a surface file" % srf_file_lh); return
@@ -217,7 +226,8 @@ def process_parc(params,err_handler):
         err_handler.error_dialog(str(e)); return
 
     try:
-        labels = loadannot(params.parcellation_name,
+        labels = loadannot(geom_fmt,
+            params.parcellation_name,
             params.subject, 
             params.subjects_dir,
             labnam=labnam,
@@ -325,8 +335,9 @@ def match_gifti_intent(fname_stem, intent):
         return fname_stem%intent
     else:
         raise ValueError("No GIFTI file %s with matching intent %s was found.\n"
-            "This can be caused by intermixing freesurfer and GIFTI files (which cannot "
-            "be done)"	%  (fname_stem%'',intent))
+            "This can be caused by intermixing freesurfer and GIFTI files "
+            "(which is not allowed for technical reasons)" % 
+            (fname_stem%'',intent))
 
 def loadannot_gifti(parcname, subject, subjects_dir, labnam=None, surf_type='pial',
         surf_struct=None, quiet=False):

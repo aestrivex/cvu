@@ -142,10 +142,11 @@ def preproc(args):
     #load surface for visual display
     surf_fname = os.path.join(
         args['subjdir'],args['subject'],'surf','lh.%s'%args['surftype'])
-    srf=pp.loadsurf(surf_fname,args['surftype'])
+    srf, geom_format = pp.loadsurf(surf_fname,args['surftype'])
 
     #load parcellation and vertex positions
     labels = pp.loadannot(
+        geom_format, 
         args['parc'], args['subject'], args['subjdir'], labnam=labnam,
         surf_type=args['surftype'], surf_struct=srf, quiet=args['quiet'])
 
