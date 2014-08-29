@@ -323,7 +323,7 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
                     % (lab, adjlabfile))
     return adj
 
-def reorder_adjmat(adj, adj_ord_file, parc_ord_file, ign_dels=False)
+def reorder_adjmat(adj, adj_ord_file, parc_ord_file, ign_dels=False):
     return flip_adj_ord(adj, adj_ord_file, read_ordering_file(parc_ord_file)[0],
         ign_dels=ign_dels)
 
