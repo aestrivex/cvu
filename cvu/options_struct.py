@@ -244,6 +244,7 @@ class MakeMovieParameters(DatasetReferenceOptionsStructure):
     samplerate=Int(8)
     anim_style=Bool(True)
     anim_rate=Int(8)
+    rotate_deg=Int(10)
     debug=Bool(False)
 
 class GraphTheoryParameters(DatasetReferenceOptionsStructure):

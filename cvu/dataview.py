@@ -600,11 +600,12 @@ class DVMayavi(DataView):
 
         try:
             self.ffmpeg_process=shell_utils.sh_cmd_retproc(cmd, params.debug)
-            self.make_movie_animate(params.samplerate,params.anim_style)
+            self.make_movie_animate(params.samplerate,params.anim_style,
+                params.rotate_deg)
         except CVUError as e:
             self.error_dialog(str(e))
 
-    def make_movie_animate(self,samplerate,rotate_on):
+    def make_movie_animate(self,samplerate,rotate_on,rotate_deg):
         if not rotate_on:
             return
 
@@ -613,7 +614,7 @@ class DVMayavi(DataView):
             i=0
             while True:
                 if rotate_on:
-                    self.scene.camera.azimuth(10)
+                    self.scene.camera.azimuth(rotate_deg)
                     self.scene.render()
                 yield
         animation=anim()

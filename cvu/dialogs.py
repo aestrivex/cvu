@@ -583,6 +583,7 @@ class SaveSnapshotWindow(UnstableDatasetSpecificSubwindow):
 
 ############################################################################
 class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
+    _stupid_listener=Bool
     please_note=Str("Making movies relies on the ability to record an X11 "
         "desktop. It won't run on non-X11 systems.")
     traits_view=View(Group(
@@ -593,9 +594,15 @@ class MakeMovieWindow(UnstableDatasetSpecificSubwindow):
         Item(name='bitrate',object='object.ctl',label='bitrate (kb/s)'),
         Item(name='anim_style',object='object.ctl',
             label='automatically rotate'),
+        Item(name='rotate_deg', object='object.ctl', label='rotation degrees',
+            enabled_when='object.ctl.anim_style'),
         Item(name='samplerate',object='object.ctl',label='animation speed (Hz)'),
         Item(name='debug',object='object.ctl',label='debug ffmpeg'),
     ), kind='panel',buttons=OKCancelButtons,title="Make me a sandwich")
+
+    @on_trait_change('ctl:anim_style')
+    def _stupid_listen(self):
+        self._stupid_listener=self.ctl.anim_style
 
 ############################################################################
 class ReallyOverwriteFileWindow(InteractiveSubwindow):
