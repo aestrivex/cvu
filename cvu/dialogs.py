@@ -283,7 +283,7 @@ class CalculateWindow(UnstableDatasetSpecificSubwindow):
 ###########################################################################
 class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
     RecalculateButton=Action(name='Recalculate',action='do_recalculate')
-    SaveToScalarButton=Action(name='Save to scalar',action='do_sv_scalar')
+    ExportScalarButton=Action(name='Export scalar',action='do_export_scalar')
     
     new_view=View(
         current_dataset_item,
@@ -294,14 +294,14 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
                         selected='object.ctl.current_stat'),
                     show_label=False,),
             ),
-            HGroup(
-                Item(name='scalar_savename',object='object.ctl',
-                    label='Scalar name',height=25,width=180),
-            ),
+            #HGroup(
+            #    Item(name='scalar_savename',object='object.ctl',
+            #        label='Scalar name',height=25,width=180),
+            #),
         ),
         height=400,width=350,
         title='Mid or feed',kind='panel',
-        buttons=[SaveToScalarButton,OKButton,])
+        buttons=[ExportScalarButton,OKButton,])
 
     #before version 4.4.1 of traitsui there was a bug such that list editors
     #in notebook mode crash when the model object is specified in extended
@@ -319,7 +319,7 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
         ),
         height=400,width=350,
         title='Mid or feed',kind='panel',
-        buttons=[SaveToScalarButton,OKButton,])
+        buttons=[ExportScalarButton,OKButton,])
 
     from traitsui import __version__ as version
     if version[:3] < 4.4 or (version[:3]==4.4 and version[4]==0):
@@ -328,8 +328,8 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
         traits_view=new_view
 
     #handler methods
-    def do_sv_scalar(self,info):
-        self.ctl._proc_save_to_scalar()
+    def do_export_scalar(self,info):
+        self.ctl._proc_export_to_scalar()
     def do_recalculate(self,info):
         self.ctl._proc_recalculate()
 

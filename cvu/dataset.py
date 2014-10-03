@@ -788,11 +788,9 @@ class Dataset(HasTraits):
         try:
             if int(round(self.opts.pthresh*self.nr_edges-1)) < 0:
                 self.thresval = float(self.adjdat[0])
-                print 'skim whisky', self.thresval
             else:
                 self.thresval=float(self.adjdat[
                     int(round(self.opts.pthresh*self.nr_edges-1))])
-                print 'waxahachie', self.thresval
 
         except TraitError as e:
             if self.opts.pthresh>1:

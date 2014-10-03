@@ -254,7 +254,7 @@ class GraphTheoryParameters(DatasetReferenceOptionsStructure):
         depends_on='ds_ref:graph_stats')	#this is a *display* list
         #each dataset has its own dictionary of stats from which this is created
     current_stat=Instance(StatisticsDisplay)
-    scalar_savename=Str
+    scalar_savename=File
 
     @cached_property
     def _get_graph_stats(self):
@@ -263,6 +263,18 @@ class GraphTheoryParameters(DatasetReferenceOptionsStructure):
     
     def _current_stat_changed(self):
         self.scalar_savename=self.current_stat.name
+
+    def _proc_export_to_scalar(self):
+        from traitsui.file_dialog import save_file
+        filename = save_file()
+        if filename.endswith('.mat'):
+            from scipy import io
+            io.savemat(filename, mdict={self.current_stat.name:
+                self.current_stat.stat})
+        elif filename.endswith('.npy'):
+            np.save(filename, self.current_stat.stat)
+        else:
+            np.savetxt(filename, self.current_stat.stat)
 
     def _proc_save_to_scalar(self):
         self.ds_ref.save_scalar(self.scalar_savename,self.current_stat.stat)
