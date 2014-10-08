@@ -382,10 +382,9 @@ class AdjmatChooserWindow(UnstableDatasetSpecificSubwindow):
 
 ############################################################################
 class ParcellationChooserWindow(UnstableDatasetSpecificSubwindow):
-    _stupid_listener=Bool
+    _stupid_listener, _stupid_listener_2 = Bool, Bool
     Please_note=Str('fsaverage5 is fine unless individual morphology '
-        'is of interest.  Visualizing tractography requires individual '
-        'morphology. Using the pial surface is recommended.')
+        'is of interest. Using the pial surface is recommended.')
     traits_view=View(
         current_dataset_item,
         HGroup(
@@ -398,11 +397,29 @@ class ParcellationChooserWindow(UnstableDatasetSpecificSubwindow):
             Item(name='subject',object='object.ctl',label='SUBJECT'),
             Item(name='subjects_dir',object='object.ctl',label='SUBJECTS_DIR',
                 editor=CustomDirectoryEditor()),
-            Item(name='parcellation_name',object='object.ctl',
-                label='Parcellation'),
-            Item(name='labelnames_file',object='object.ctl',
-                label='Label Display Order',editor=CustomFileEditor()),
             Item(name='surface_type',object='object.ctl'),
+            Item(name='ordering_file',object='object.ctl',
+                label='Label Display Order',editor=CustomFileEditor()),
+            Item(name='parcellation_type',object='object.ctl'),
+            Item(name='parcellation_name',object='object.ctl',
+                label='annotation name',
+                visible_when='object.ctl.parcellation_type==\'surface\''),
+            Item(name='parcellation_volume',object='object.ctl',
+                label='volume file',
+                visible_when='object.ctl.parcellation_type==\'volume file\'',
+                editor=CustomFileEditor()),
+            Item(name='volume_ordering',object='object.ctl',
+                visible_when='object.ctl.parcellation_type==\'volume file\'',
+                editor=CustomFileEditor()),
+            Item(name='parcellation_coords',object='object.ctl',
+                label='coordinates file',
+                visible_when=
+                'object.ctl.parcellation_type==\'coordinates file\'',
+                editor=CustomFileEditor()),
+            Item(name='registration_matrix',object='object.ctl',
+                visible_when=
+                'object.ctl.parcellation_type!=\'surface\'',
+                editor=CustomFileEditor()),
         ), kind='panel',buttons=OKCancelButtons,
             title="This should not be particularly convenient",)
 
@@ -410,6 +427,10 @@ class ParcellationChooserWindow(UnstableDatasetSpecificSubwindow):
     @on_trait_change('ctl:new_dataset')
     def _stupid_listen(self):
         self._stupid_listener=self.ctl.new_dataset
+
+    @on_trait_change('ctl:parcellation_type')
+    def _stupid_listen_2(self):
+        self._stupid_listener_2=self.ctl.parcellation_type=='surface'
 
 ############################################################################
 class TractographyChooserWindow(UnstableDatasetSpecificSubwindow):

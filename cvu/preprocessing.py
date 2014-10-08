@@ -18,6 +18,7 @@
 from __future__ import division
 import os
 import mne
+import numpy as np
 import parsing_utils as parse
 from utils import CVUError
 
@@ -60,6 +61,14 @@ def loadmat(fname,field=None,is_adjmat=True):
             raise CVUError('Adjacency matrix is not symmetric')
 
     return mat
+
+def apply_affine(locs, affine):
+    '''Apply an affine transformation to the Nx3 vector input'''
+    new_locs = []
+    for loc in locs:
+        new_loc = np.dot( affine, (loc[0], loc[1], loc[2], 1))
+        new_locs.append( [round(new_loc[i]) for i in xrange(3)] )
+    return np.array(new_locs)
 
 def loadsurf(*args,**kwargs):
     try:
@@ -186,6 +195,20 @@ def calcparc(labels,labnam,quiet=False,parcname=' ',subjdir='.',
 
     return lab_pos,labv
 
+def calcparc_nifti(nifti, labels):
+    import nibabel as nib
+    parc = nib.load(nifti)
+    parcd = parc.get_data()
+
+    if np.max(parcd) != len(labels):
+        raise ValueError('Parcellation volume has %i regions and ordering '
+            'file has %i (non-delete) entries'%(np.max(parcd), len(labels)))
+
+    lab_pos = np.array([np.mean(np.where(parcd==i+1), axis=1) for i in
+        xrange(int(np.max(parcd)))])
+
+    return lab_pos
+
 def adj_sort(adj_ord,desired_ord):
     if len(adj_ord) < len(desired_ord):
         raise CVUError('Parcellation order is larger than adjmat order.  Parc '
@@ -207,7 +230,7 @@ def adj_sort(adj_ord,desired_ord):
 #the gui is passed in to provide direct error handling
 def process_parc(params,err_handler):
     try:
-        labnam,_ =  read_ordering_file(params.labelnames_file)
+        labnam,deleters =  read_ordering_file(params.ordering_file)
     except (IOError,CVUError) as e:
         err_handler.error_dialog(str(e)); return
     
@@ -225,26 +248,70 @@ def process_parc(params,err_handler):
     except IOError as e:
         err_handler.error_dialog(str(e)); return
 
-    try:
-        labels = loadannot(geom_fmt,
-            params.parcellation_name,
-            params.subject, 
-            params.subjects_dir,
-            labnam=labnam,
-            surf_type=params.surface_type,
-            surf_struct=srf)
-    except (IOError,ValueError) as e:
-        err_handler.error_dialog(str(e)); return
+    if params.parcellation_type=='surface':
+        try:
+            labels = loadannot(geom_fmt,
+                params.parcellation_name,
+                params.subject, 
+                params.subjects_dir,
+                labnam=labnam,
+                surf_type=params.surface_type,
+                surf_struct=srf)
+        except (IOError,ValueError) as e:
+            err_handler.error_dialog(str(e)); return
 
-    try:
-        lab_pos,labv = calcparc(labels,
-            labnam,
-            parcname=params.parcellation_name,
-            subjdir=params.subjects_dir,
-            subject=params.subject,
-            lhsurf=srf.lh_verts, rhsurf=srf.rh_verts)
-    except IOError as e:
-        err_handler.error_dialog(str(e)); return
+        try:
+            lab_pos,labv = calcparc(labels,
+                labnam,
+                parcname=params.parcellation_name,
+                subjdir=params.subjects_dir,
+                subject=params.subject,
+                lhsurf=srf.lh_verts, rhsurf=srf.rh_verts)
+        except IOError as e:
+            err_handler.error_dialog(str(e)); return
+
+    elif params.parcellation_type=='volume file':
+        try:
+            lab_pos = calcparc_nifti(params.parcellation_volume, labnam)
+            if params.registration_matrix:
+                registration_matrix = loadmat(params.registration_matrix,
+                    is_adjmat=False)
+                lab_pos = apply_affine(lab_pos, registration_matrix)
+            else:
+                err_handler.warning_dialog('No registration matrix was '
+                    'provided, assuming coordinates in surface RAS')
+            if params.volume_ordering:
+                volume_order,_ = read_ordering_file(params.volume_ordering)
+                if len(volume_order) != len(labnam):
+                    err_handler.error_dialog('Volume ordering file has %i '
+                        '(non-delete) entries and parcellation ordering file '
+                        'has %i entries'%(len(volume_order), len(labnam)))
+                    return
+                vol_ord=adj_sort(volume_order, labnam)
+                lab_pos = lab_pos[vol_ord]
+            labv = {} #surface coloring needs to make sure labv is not none
+            for lab in labnam:
+                labv.update({lab:()})
+        except (IOError,ValueError) as e:
+            err_handler.error_dialog(str(e)); return
+
+    elif params.parcellation_type=='coordinates file':
+        try:
+            lab_pos = loadmat(params.parcellation_coords, is_adjmat=False)
+            lab_pos = lab_pos.reshape((-1,3))
+            lab_pos = np.delete(lab_pos, deleters, axis=0)
+            if params.registration_matrix:
+                registration_matrix = loadmat(params.registration_matrix,
+                    is_adjmat=False)
+                lab_pos = apply_affine(lab_pos, registration_matrix)
+            else:
+                err_handler.warning_dialog('No registration matrix was '
+                    'provided, assuming coordinates in surface RAS')
+            labv = {} #surface coloring needs to make sure labv is not none
+            for lab in labnam:
+                labv.update({lab:()})
+        except (IOError,ValueError) as e:
+            err_handler.error_dialog(str(e)); return
 
     return lab_pos,labnam,srf,labv,params.subject,params.parcellation_name
 
@@ -324,8 +391,8 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
     return adj
 
 def reorder_adjmat(adj, adj_ord_file, parc_ord_file, ign_dels=False):
-    return flip_adj_ord(adj, adj_ord_file, read_ordering_file(parc_ord_file)[0],
-        ign_dels=ign_dels)
+    return flip_adj_ord(adj, adj_ord_file, 
+        read_ordering_file(parc_ord_file)[0], ign_dels=ign_dels)
 
 def match_gifti_intent(fname_stem, intent):
     ''' This function takes a stem of a filename, such as

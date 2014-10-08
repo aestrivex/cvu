@@ -148,9 +148,15 @@ class ParcellationChooserParameters(DatasetReferenceOptionsStructure):
     new_dataset_name=Str
     subjects_dir=Directory('./')
     subject=Str('fsavg5')
-    labelnames_file=File
-    parcellation_name=Str
+    ordering_file=File
     surface_type=Str('pial')
+
+    parcellation_type=Enum('surface', 'volume file', 'coordinates file') 
+    parcellation_name=Str #surface
+    parcellation_volume=File #volume
+    volume_ordering=File #volume
+    parcellation_coords=File #coordinates
+    registration_matrix=File #volume and coordinates
 
 class AdjmatChooserParameters(DatasetReferenceOptionsStructure):
     adjmat=Either(File, np.ndarray, np.matrix)
