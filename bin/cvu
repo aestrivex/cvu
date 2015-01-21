@@ -14,20 +14,20 @@ os.environ['QT_API']='pyside'
 
 scriptdir=os.getcwd()
 python_cmd = 'pythonw' if sys.platform=='darwin' else 'python'
-arguments = '%s %s'%(scriptdir, " ".join(sys.argv[1:]))
+#arguments = '%s %s'%(scriptdir, " ".join(sys.argv[1:]))
+#exec_cmd = "%s main.py %s" % (python_cmd, arguments)
 
-exec_cmd = "%s main.py %s" % (python_cmd, arguments)
+arguments = '%s main.py %s %s' % (python_cmd, scriptdir, " ".join(sys.argv[1:]))
 
 try:
-    #cvu installed to system python
-
-    from cvu.main import main
-    sys.argv = exec_cmd.split()
-    main()
-
-except ImportError:
-    #cvu extracted locally 
-
+    #see if cvu extracted locally 
     os.chdir(os.path.join(os.path.dirname(os.path.dirname(
         os.path.realpath(__file__))),'cvu'))
-    os.system(exec_cmd)
+    os.system(arguments)
+
+except OSError:
+    #see if cvu installed to system python
+
+    from cvu.main import main
+    sys.argv = arguments.split()
+    main()
