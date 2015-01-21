@@ -178,6 +178,8 @@ def preproc(args):
     return sample_dataset,sample_metadata,exec_script
 
 def main():
+    print sys.argv
+
     #read the command line arguments or fetch the default values
     args=cli_args(sys.argv[2:])
 
