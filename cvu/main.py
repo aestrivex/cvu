@@ -178,7 +178,7 @@ def preproc(args):
     return sample_dataset,sample_metadata,exec_script
 
 def main():
-    print sys.argv
+    os.chdir( os.path.dirname( os.path.realpath( __file__ )))
 
     #read the command line arguments or fetch the default values
     args=cli_args(sys.argv[2:])
