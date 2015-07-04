@@ -151,6 +151,8 @@ class OptionsWindow(DatasetSpecificSubwindow):
                     label='floating 3D text on'),
                 Item(name='scalar_colorbar',object='object.ctl',
                     label='show scalar colorbar'),
+                Item(name='modules_on_surface',object='object.ctl',
+                    label='show surface modules'),
             ),
             HSplit(
                 Item(name='render_style',object='object.ctl',
@@ -303,9 +305,12 @@ class GraphTheoryWindow(UnstableDatasetSpecificSubwindow):
         title='Mid or feed',kind='panel',
         buttons=[ExportScalarButton,OKButton,])
 
-    #before version 4.4.1 of traitsui there was a bug such that list editors
+    #before version ?? of traitsui there was a bug such that list editors
     #in notebook mode crash when the model object is specified in extended
     #name notation. so instead we create a view with a local model object
+
+    #this bug has actually not been fixed despite that I sent the PR over a
+    #year ago
     old_view=View(
         VGroup(
             HGroup(

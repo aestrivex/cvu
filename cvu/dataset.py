@@ -450,9 +450,9 @@ class Dataset(HasTraits):
                 col=(np.array(self.module_colors[i])+self.module_colors[j])/2
                 col=np.array(col,dtype=int)
                 self.module_colors.append(col.tolist())
-            perm=np.random.permutation(len(self.module_colors))
+            #perm=np.random.permutation(len(self.module_colors))
             #mayavi scalars depend on saving the module colors
-            self.module_colors=np.array(self.module_colors)[perm].tolist()
+            #self.module_colors=np.array(self.module_colors)[perm].tolist()
             cols=self.module_colors[:self.nr_modules]
             import bct
             ci=bct.ls2ci(self.modules,zeroindexed=True)
@@ -750,6 +750,7 @@ class Dataset(HasTraits):
             self.error_dialog('No modules defined')	
             return
         self.display_mode='module_multi'
+        self.draw_surfs()
         self.draw_nodes()
 
     def calculate_modules(self,thres):

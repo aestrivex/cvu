@@ -96,6 +96,7 @@ class DisplayOptions(DatasetReferenceOptionsStructure):
     prune_modules = Bool(True)
     show_floating_text = Bool(True)
     module_view_style = Enum('intramodular','intermodular','both')
+    modules_on_surface = Bool(False)
     render_style=Enum('glass','cracked_glass','contours','wireframe','speckled')
     interhemi_conns_on = Bool(True)
     lh_conns_on = Bool(True)

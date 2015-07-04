@@ -359,6 +359,42 @@ class DVMayavi(DataView):
             for syrf in (self.syrf_lh,self.syrf_rh):
                 syrf.actor.mapper.scalar_visibility=False
 
+        elif (self.ds.display_mode=='module_multi' and 
+                self.ds.opts.modules_on_surface):
+             
+            new_colors=np.array(self.ds.module_colors[:self.ds.nr_modules])
+
+            for syrf,nodes,letter,verts in (
+                    (self.syrf_lh,self.ds.lhnodes,'l',self.ds.srf.lh_verts),
+                    (self.syrf_rh,self.ds.rhnodes,'r',self.ds.srf.rh_verts)):
+
+                colors=np.zeros((len(verts)),)
+
+                manager=syrf.module_manager.scalar_lut_manager
+                #set the mayavi object to the dummy cmap
+                #so that when changed notifications will work correctly
+                manager.lut_mode='black-white'
+                #now adjust its LUT manually
+                manager.number_of_colors=self.ds.nr_modules
+                manager.lut.table=new_colors	
+
+                import bct
+                ci = bct.ls2ci(self.ds.modules,zeroindexed=True)[nodes]
+
+                i = 0
+                for l in self.ds.labnam:
+                    #assumes that lh labels start with L and so on
+                    if not l[0]==letter:
+                        continue
+                    vertices=self.ds.labv[demangle_hemi(l)]
+                    colors[vertices] = ci[i]
+                    i+=1
+
+                syrf.mlab_source.scalars = colors
+
+                set_color_range(syrf, (0., self.ds.nr_modules))
+                syrf.actor.mapper.scalar_visibility=True
+
         else:
             for syrf in (self.syrf_lh,self.syrf_rh):
                 syrf.actor.mapper.scalar_visibility=False
@@ -393,7 +429,9 @@ class DVMayavi(DataView):
 
         #set node color -- we dont care about ds.node_colors for mayavi
             if (self.ds.display_mode=='normal' or
-                    (self.ds.display_mode=='scalar' and not nc)):
+                    (self.ds.display_mode=='scalar' and not nc) or
+                    (self.ds.display_mode in ['module_single', 
+                        'module_multi'] and self.ds.opts.modules_on_surface)):
                 scalars = np.tile(.3, nr)
                 set_lut(nodes, self.ds.opts.default_map)
                 set_color_range(nodes, (0.,1.))
