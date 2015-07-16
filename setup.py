@@ -6,7 +6,7 @@ def read(fname):
 
 setuptools.setup(
 	name="cvu",
-	version="0.4.3",
+	version="0.5",
 	maintainer="Roan LaPlante",
 	maintainer_email="rlaplant@nmr.mgh.harvard.edu",
 	description=("A visualizer for human brain networks"),
