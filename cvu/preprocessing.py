@@ -130,7 +130,9 @@ def loadannot_mne(p,subj,subjdir,labnam=None,surf_type='pial',surf_struct=None,
 
     verbosity = 'ERROR' if quiet else 'WARNING'
 
-    if float(mne.__version__[:3]) >= 0.8:
+    from distutils.version import LooseVersion
+
+    if LooseVersion(mne.__version__) >= LooseVersion('0.8'):
         #MNE python changed the API to read an annotation twice in the same
         #release cycle. Check for both versions.
         try:

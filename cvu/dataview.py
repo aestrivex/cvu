@@ -362,7 +362,7 @@ class DVMayavi(DataView):
         elif (self.ds.display_mode=='module_multi' and 
                 self.ds.opts.modules_on_surface):
              
-            new_colors=np.array(self.ds.module_colors[:self.ds.nr_modules])
+            new_colors=np.array(self.ds.module_colors[:self.ds.nr_modules+1])
 
             for syrf,nodes,letter,verts in (
                     (self.syrf_lh,self.ds.lhnodes,'l',self.ds.srf.lh_verts),
@@ -387,12 +387,12 @@ class DVMayavi(DataView):
                     if not l[0]==letter:
                         continue
                     vertices=self.ds.labv[demangle_hemi(l)]
-                    colors[vertices] = ci[i]
+                    colors[vertices] = ci[i]+1
                     i+=1
 
                 syrf.mlab_source.scalars = colors
 
-                set_color_range(syrf, (0., self.ds.nr_modules))
+                set_color_range(syrf, (0., self.ds.nr_modules+1))
                 syrf.actor.mapper.scalar_visibility=True
 
         else:
@@ -451,20 +451,21 @@ class DVMayavi(DataView):
                 nodes.mlab_source.dataset.point_data.scalars = scalars[ixes]
 
             elif self.ds.display_mode=='module_multi':
-                new_colors=np.array(self.ds.module_colors[:self.ds.nr_modules])
+                new_colors=np.array(self.ds.module_colors[
+                    :self.ds.nr_modules+1])
                 manager=nodes.module_manager.scalar_lut_manager
                 #set the mayavi object to the dummy cmap that we hide from user
                 #so that when changed notifications will work correctly
                 manager.lut_mode='black-white'
                 #now adjust its LUT manually
                 manager.number_of_colors=self.ds.nr_modules
-                manager.lut.table=new_colors	
+                manager.lut.table=new_colors
 
                 #set the mayavi scalars to be fractions between 0 and 1
                 import bct
-                nodes.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
-                    self.ds.modules,zeroindexed=True))[ixes]
-                set_color_range(nodes, (0., self.ds.nr_modules))
+                nodeefl.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
+                    self.ds.modules,zeroindexed=True))[ixes]+1
+                set_color_range(nodes, (0., self.ds.nr_modules+1))
 
         mlab.draw()
 
