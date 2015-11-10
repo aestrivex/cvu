@@ -22,6 +22,7 @@ lh_caudalmiddlefrontal_6
 lh_caudalmiddlefrontal_7
 lh_caudalmiddlefrontal_8
 lh_caudalmiddlefrontal_9
+delete
 lh_cuneus_1
 lh_cuneus_2
 lh_cuneus_3
@@ -497,6 +498,7 @@ lh_transversetemporal_1
 lh_transversetemporal_2
 lh_transversetemporal_3
 lh_transversetemporal_4
+delete
 rh_bankssts_1
 rh_bankssts_2
 rh_bankssts_3
@@ -520,6 +522,7 @@ rh_caudalmiddlefrontal_6
 rh_caudalmiddlefrontal_7
 rh_caudalmiddlefrontal_8
 rh_caudalmiddlefrontal_9
+delete
 rh_cuneus_1
 rh_cuneus_2
 rh_cuneus_3
@@ -998,3 +1001,4 @@ rh_temporalpole_3
 rh_transversetemporal_1
 rh_transversetemporal_2
 rh_transversetemporal_3
+delete

@@ -463,7 +463,7 @@ class DVMayavi(DataView):
 
                 #set the mayavi scalars to be fractions between 0 and 1
                 import bct
-                nodeefl.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
+                nodes.mlab_source.dataset.point_data.scalars=(bct.ls2ci(
                     self.ds.modules,zeroindexed=True))[ixes]+1
                 set_color_range(nodes, (0., self.ds.nr_modules+1))
 
