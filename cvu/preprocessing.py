@@ -392,9 +392,37 @@ def flip_adj_ord(adj,adjlabfile,labnam,ign_dels=False):
                     % (lab, adjlabfile))
     return adj
 
+def flip_list_ord(listmat, init_ord, parc_ord):
+    adj_ord = adj_sort(init_ord, parc_ord)
+    ord_extras_rm = np.ma.masked_equal(adj_ord, None)
+    adj_ord = np.array(ord_extras_rm.compressed(), dtype=int)
+    
+    listmat = listmat[np.ix_(adj_ord)]
+
+    if len(adj_ord)!=len(init_ord):
+        for lab in init_ord:
+            if lab not in labnam:
+                print ("Warning: Label %s present in adjmat ordering "
+                    "was not in the current parcellation. It was omitted." 
+                    % (lab))
+
+    return listmat
+
 def reorder_adjmat(adj, adj_ord_file, parc_ord_file, ign_dels=False):
     return flip_adj_ord(adj, adj_ord_file, 
         read_ordering_file(parc_ord_file)[0], ign_dels=ign_dels)
+
+def reorder_listmat(listmat, adj_ord_file, parc_ord_file, ign_dels=False):
+
+    adj_ord, adj_dels = read_ordering_file(adj_ord_file)
+
+    if not ign_dels:
+        listmat = np.delete(listmat, adj_dels, axis=0)
+
+    #delete has no meaning in parc order
+    parc_ord, _ = read_ordering_file(parc_ord_file)
+
+    return flip_list_ord(listmat, adj_ord, parc_ord)
 
 def match_gifti_intent(fname_stem, intent):
     ''' This function takes a stem of a filename, such as
