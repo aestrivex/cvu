@@ -6,7 +6,7 @@ def read(fname):
 
 setuptools.setup(
 	name="cvu",
-	version="0.5",
+	version="0.5.1",
 	maintainer="Roan LaPlante",
 	maintainer_email="rlaplant@nmr.mgh.harvard.edu",
 	description=("A visualizer for human brain networks"),
@@ -30,5 +30,5 @@ setuptools.setup(
 		"Topic :: Scientific/Engineering :: Visualization",
 	],
 	platforms=['any'],
-	requires=["numpy","scipy","bctpy","mne"]
+	requires=["bctpy","mne","nibabel"]
 )
