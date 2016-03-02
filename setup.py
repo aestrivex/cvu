@@ -30,5 +30,5 @@ setuptools.setup(
 		"Topic :: Scientific/Engineering :: Visualization",
 	],
 	platforms=['any'],
-	requires=["bctpy","mne","nibabel"]
+	install_requires=["bctpy","mne","nibabel"]
 )
